@@ -14,7 +14,10 @@ import { ChapterToday } from "@/components/home/about/ChapterToday";
  */
 export function AboutMille() {
   return (
-    <section id="mille" className="scroll-mt-20 border-t border-stone bg-cream">
+    <section
+      id="mille"
+      className="scroll-mt-28 border-t border-stone bg-cream lg:scroll-mt-20"
+    >
       <AboutOpening />
       <ChapterOrigin />
       <ChapterToday />
