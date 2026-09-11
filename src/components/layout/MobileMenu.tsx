@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { ButtonLink } from "@/components/ui/Button";
+import { InventoryCTALink } from "@/components/vehicle/InventoryCTALink";
 import { mainNav, site } from "@/data/site";
 import { cn } from "@/lib/cn";
 
@@ -116,9 +117,19 @@ export function MobileMenu({
             </nav>
 
             <div className="mt-8 px-5 sm:px-8">
-              <ButtonLink href={cta.href} className="w-full" size="lg">
-                {cta.label}
-              </ButtonLink>
+              {cta.href === "/vehiculos" ? (
+                <InventoryCTALink
+                  className="w-full"
+                  size="lg"
+                  onClick={() => setOpen(false)}
+                >
+                  {cta.label}
+                </InventoryCTALink>
+              ) : (
+                <ButtonLink href={cta.href} className="w-full" size="lg">
+                  {cta.label}
+                </ButtonLink>
+              )}
               <p className="eyebrow mt-8 text-ink-muted">{site.cityShort}</p>
             </div>
           </div>

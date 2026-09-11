@@ -4,6 +4,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Rule } from "@/components/ui/Rule";
+import { InventoryCTALink } from "@/components/vehicle/InventoryCTALink";
 import { site } from "@/data/site";
 
 export function Hero() {
@@ -27,15 +28,15 @@ export function Hero() {
             <Rule className="mt-9" />
 
             <p className="mt-7 max-w-md font-serif text-[1.125rem] leading-[1.7] text-ink-soft">
-              Selección curada de vehículos premium en Bogotá. Calidad, criterio
-              y una experiencia a la altura.
+              Vehículos que vale la pena mirar. Información clara, buen
+              criterio y una experiencia a la altura.
             </p>
 
             <div className="mt-10 flex flex-wrap items-center gap-3">
-              <ButtonLink href="/vehiculos" size="lg">
+              <InventoryCTALink size="lg">
                 Ver inventario
                 <ArrowRight aria-hidden className="size-4" strokeWidth={1.5} />
-              </ButtonLink>
+              </InventoryCTALink>
               <ButtonLink href="/contacto" variant="outline" size="lg">
                 Contáctanos
               </ButtonLink>

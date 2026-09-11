@@ -5,6 +5,7 @@ import { WhatsappIcon } from "@/components/ui/BrandIcons";
 import { Container } from "@/components/ui/Container";
 import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
+import { InventoryCTALink } from "@/components/vehicle/InventoryCTALink";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
 import { site } from "@/data/site";
 
@@ -60,9 +61,9 @@ export default function NotFound() {
                 <ButtonLink href="/" size="lg">
                   Volver al inicio
                 </ButtonLink>
-                <ButtonLink href="/vehiculos" variant="ghost" size="lg">
+                <InventoryCTALink variant="ghost" size="lg">
                   Ver inventario
-                </ButtonLink>
+                </InventoryCTALink>
                 <ExternalButtonLink
                   href={generalWhatsappUrl()}
                   variant="outline"

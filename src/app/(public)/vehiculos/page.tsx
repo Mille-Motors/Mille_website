@@ -6,6 +6,7 @@ import { Rule } from "@/components/ui/Rule";
 import { WhatsappIcon } from "@/components/ui/BrandIcons";
 import { CategoryNav } from "@/components/vehicle/CategoryNav";
 import { FilterBar } from "@/components/vehicle/FilterBar";
+import { InventoryAnchorScroll } from "@/components/vehicle/InventoryAnchorScroll";
 import { TypeSelector } from "@/components/vehicle/TypeSelector";
 import { VehicleGrid } from "@/components/vehicle/VehicleGrid";
 import { typeNoun } from "@/lib/categories";
@@ -49,6 +50,8 @@ export default async function InventoryPage(props: PageProps<"/vehiculos">) {
 
   return (
     <>
+      <InventoryAnchorScroll />
+
       {/* Entry */}
       <section className="bg-cream pt-12 pb-10 lg:pt-16">
         <Container width="wide">
@@ -67,8 +70,10 @@ export default async function InventoryPage(props: PageProps<"/vehiculos">) {
         </Container>
       </section>
 
-      {/* Context + categories for the chosen universe */}
-      <section className="border-t border-stone bg-cream pt-10">
+      {/* Context + categories for the chosen universe. Anchor target for the
+          "Ver inventario" CTA: it lands here, past the Carros/Motos/Todo
+          choice, directly on filters + count + grid. */}
+      <section id="inventario" className="scroll-mt-20 border-t border-stone bg-cream pt-10">
         <Container width="wide">
           <p className="max-w-xl font-serif text-[1.0625rem] leading-[1.7] text-ink-soft">
             {context[filters.tipo]}

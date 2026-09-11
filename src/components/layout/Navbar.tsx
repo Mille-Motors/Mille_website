@@ -4,6 +4,7 @@ import { Logo } from "@/components/brand/Logo";
 import { ButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { MobileMenu } from "@/components/layout/MobileMenu";
+import { InventoryCTALink } from "@/components/vehicle/InventoryCTALink";
 import { mainNav, site } from "@/data/site";
 import { cn } from "@/lib/cn";
 
@@ -60,14 +61,24 @@ export function Navbar({
               {site.cityShort}
             </span>
 
-            <ButtonLink
-              href={cta.href}
-              variant={dark ? "onDark" : "primary"}
-              size="sm"
-              className="hidden sm:inline-flex"
-            >
-              {cta.label}
-            </ButtonLink>
+            {cta.href === "/vehiculos" ? (
+              <InventoryCTALink
+                variant={dark ? "onDark" : "primary"}
+                size="sm"
+                className="hidden sm:inline-flex"
+              >
+                {cta.label}
+              </InventoryCTALink>
+            ) : (
+              <ButtonLink
+                href={cta.href}
+                variant={dark ? "onDark" : "primary"}
+                size="sm"
+                className="hidden sm:inline-flex"
+              >
+                {cta.label}
+              </ButtonLink>
+            )}
 
             <MobileMenu tone={tone} cta={cta} />
           </div>
