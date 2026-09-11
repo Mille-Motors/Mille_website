@@ -19,12 +19,12 @@ const work = [
   {
     number: "03",
     verb: "Conectamos",
-    body: "Acercamos a quien quiere vender con quien está buscando algo que realmente le haga sentido. El contacto es directo, sin intermediarios de por medio.",
+    body: "Acercamos a quien quiere vender con quien está buscando algo que realmente le haga sentido, y hacemos que el proceso sea claro desde el primer contacto.",
   },
   {
     number: "04",
     verb: "Acompañamos",
-    body: "Estamos presentes desde la primera pregunta hasta que las llaves cambian de manos. No desaparecemos después de la venta.",
+    body: "Estamos presentes desde la primera pregunta hasta que las llaves cambian de manos.",
   },
 ];
 
