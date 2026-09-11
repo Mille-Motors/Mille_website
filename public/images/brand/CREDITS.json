@@ -1,0 +1,17 @@
+[
+  {
+    "file": "hero.jpg",
+    "photographer": "MILLE brand reference render",
+    "source": "internal"
+  },
+  {
+    "file": "interior.jpg",
+    "photographer": "James Lee",
+    "source": "https://unsplash.com/photos/quilted-brown-leather-rJeJljGwHOY"
+  },
+  {
+    "file": "night.jpg",
+    "photographer": "see vehicles/CREDITS.json (bmw-x5-xdrive45e/01.jpg)",
+    "source": ""
+  }
+]

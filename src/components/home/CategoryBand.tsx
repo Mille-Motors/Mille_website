@@ -1,0 +1,88 @@
+import Link from "next/link";
+import { Container } from "@/components/ui/Container";
+import { VEHICLE_CATEGORIES } from "@/types/vehicle";
+import type { VehicleCategory } from "@/types/vehicle";
+
+/**
+ * Minimal line drawings, one per category. Deliberately marks rather than
+ * illustrative icons, the way the comps treat them.
+ */
+const marks: Record<VehicleCategory, React.ReactNode> = {
+  SUV: (
+    <>
+      <path d="M3 15.5h18M5 15.5v-3.2l2.2-4.3h9.6l2.2 4.3v3.2" />
+      <path d="M7.4 8v4.3h9.2V8" />
+      <circle cx="8" cy="17.2" r="1.7" />
+      <circle cx="16" cy="17.2" r="1.7" />
+    </>
+  ),
+  "Sedán": (
+    <>
+      <path d="M2.5 15.3h19M4.5 15.3v-2.4l2.3-3.6c.4-.6.8-.8 1.5-.8h7.4c.7 0 1.1.2 1.5.8l2.3 3.6v2.4" />
+      <path d="M6.6 12.9h10.8" />
+      <circle cx="7.6" cy="16.8" r="1.6" />
+      <circle cx="16.4" cy="16.8" r="1.6" />
+    </>
+  ),
+  "Híbrido": (
+    <>
+      <path d="M12 21c0-5.5 2.2-9.4 6.5-11.6C19 14 17.2 19 12 21Z" />
+      <path d="M12 21C12 15.5 9.8 11.6 5.5 9.4 5 14 6.8 19 12 21Z" />
+      <path d="M12 21V12" />
+    </>
+  ),
+  "Desempeño": (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 12l4.2-3.4" />
+      <path d="M12 3.5v1.8M20.5 12h-1.8M12 20.5v-1.8M3.5 12h1.8" />
+    </>
+  ),
+  Moto: (
+    <>
+      <circle cx="5.4" cy="16" r="3.2" />
+      <circle cx="18.6" cy="16" r="3.2" />
+      <path d="M5.4 16h4.1l3.3-5h4.2" />
+      <path d="M12.8 11L11 7.6h2.9" />
+      <path d="M15.3 16l1.5-3.4" />
+    </>
+  ),
+};
+
+export function CategoryBand() {
+  return (
+    <section aria-label="Categorías" className="border-b border-stone bg-cream">
+      <Container width="wide">
+        <ul className="grid grid-cols-5">
+          {VEHICLE_CATEGORIES.map((category, index) => (
+            <li
+              key={category}
+              className={index > 0 ? "border-l border-stone/70" : undefined}
+            >
+              <Link
+                href={`/vehiculos?categoria=${encodeURIComponent(category)}`}
+                className="group flex h-full flex-col items-center justify-start gap-2.5 px-1 py-6 text-center transition-colors hover:bg-sand/50 sm:gap-3.5 sm:px-2 sm:py-10"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.1}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                  className="size-6 text-ink-soft transition-colors group-hover:text-burgundy sm:size-9"
+                >
+                  {marks[category]}
+                </svg>
+                <span className="font-serif text-[0.6875rem] leading-tight text-ink-soft transition-colors group-hover:text-ink sm:text-base">
+                  {category === "Moto" ? "Motos" : category}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </Container>
+    </section>
+  );
+}
