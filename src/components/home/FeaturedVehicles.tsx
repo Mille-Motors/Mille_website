@@ -9,7 +9,7 @@ export async function FeaturedVehicles() {
   const vehicles = await getFeaturedVehicles(4);
 
   return (
-    <section className="border-b border-stone bg-cream py-16 lg:py-20">
+    <section className="bg-cream py-16 lg:py-20">
       <Container width="wide">
         <SectionHeading
           title="Vehículos destacados"

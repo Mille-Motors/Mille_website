@@ -9,15 +9,16 @@ export function ChapterLabel({
   title,
   tone = "ink",
   className,
+  ...rest
 }: {
   number: string;
   title: string;
   tone?: "ink" | "cream";
   className?: string;
-}) {
+} & React.HTMLAttributes<HTMLParagraphElement>) {
   const dark = tone === "cream";
   return (
-    <p className={cn("flex items-center gap-4", className)}>
+    <p className={cn("flex items-center gap-4", className)} {...rest}>
       <span
         className={cn(
           "font-display text-xl leading-none tabular",

@@ -2,7 +2,8 @@ export const VEHICLE_CATEGORIES = [
   "SUV",
   "Sedán",
   "Híbrido",
-  "Desempeño",
+  "Eléctrico",
+  "Deportivo",
   "Moto",
 ] as const;
 

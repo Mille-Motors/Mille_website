@@ -59,7 +59,14 @@ export function HouseOfMotorCulture() {
             </p>
           </div>
 
-          <p className="eyebrow mt-14 text-cream/50">
+          {/* Closes the manifesto: the point of the house is the people in it. */}
+          <p className="mt-12 max-w-xs font-serif text-[clamp(1rem,1.6vw,1.125rem)] leading-[1.6] text-cream/70 italic">
+            La cultura la construimos juntos.
+          </p>
+
+          <span aria-hidden className="mt-12 h-px w-12 bg-cream/20" />
+
+          <p className="eyebrow mt-8 text-cream/50">
             {site.city}, {site.country}
           </p>
         </div>

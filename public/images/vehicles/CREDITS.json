@@ -382,5 +382,29 @@
     "file": "04.jpg",
     "photographer": "Afif Ramdhasuma",
     "source": "https://unsplash.com/photos/silver-round-ornament-on-white-and-gray-stripe-textile-hl8yZ0Qk65I"
+  },
+  {
+    "slug": "bmw-i4-edrive40",
+    "file": "01.jpg",
+    "photographer": "Varun Palaniappan",
+    "source": "https://unsplash.com/photos/a-silver-car-parked-on-the-side-of-the-road-WONFd4Wd9bA"
+  },
+  {
+    "slug": "bmw-i4-edrive40",
+    "file": "02.jpg",
+    "photographer": "Johnathan Kaufman",
+    "source": "https://unsplash.com/photos/white-bmw-car-with-blue-and-white-logo-5Cz-q2Ro53o"
+  },
+  {
+    "slug": "bmw-i4-edrive40",
+    "file": "03.jpg",
+    "photographer": "Eren Goldman",
+    "source": "https://unsplash.com/photos/an-electric-car-plugged-in-to-a-charging-station-mfqj3ZSs_h0"
+  },
+  {
+    "slug": "bmw-i4-edrive40",
+    "file": "04.jpg",
+    "photographer": "Martin Katler",
+    "source": "https://unsplash.com/photos/bmw-ix3-electric-car-front-view-n7uq7D7wgCQ"
   }
 ]

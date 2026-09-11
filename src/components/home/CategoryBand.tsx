@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Container } from "@/components/ui/Container";
+import { cn } from "@/lib/cn";
+import { categoryPlural } from "@/lib/categories";
 import { VEHICLE_CATEGORIES } from "@/types/vehicle";
 import type { VehicleCategory } from "@/types/vehicle";
 
@@ -31,11 +33,17 @@ const marks: Record<VehicleCategory, React.ReactNode> = {
       <path d="M12 21V12" />
     </>
   ),
-  "Desempeño": (
+  "Eléctrico": (
     <>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M12 12l4.2-3.4" />
-      <path d="M12 3.5v1.8M20.5 12h-1.8M12 20.5v-1.8M3.5 12h1.8" />
+      <path d="M13.4 2.5 5.8 13.4h4.9L9.9 21.5 18.2 10h-5.2l.4-7.5Z" />
+    </>
+  ),
+  Deportivo: (
+    <>
+      <path d="M2 15.2h20M3.8 15.2v-2l3.1-2.9c.5-.5 1-.7 1.7-.7h6.1c.9 0 1.5.3 2.2.9l3.1 2.7v2" />
+      <path d="M8 9.6l1-2.1h5.2l1.9 2.1" />
+      <circle cx="7" cy="16.6" r="1.5" />
+      <circle cx="17" cy="16.6" r="1.5" />
     </>
   ),
   Moto: (
@@ -51,13 +59,21 @@ const marks: Record<VehicleCategory, React.ReactNode> = {
 
 export function CategoryBand() {
   return (
-    <section aria-label="Categorías" className="border-b border-stone bg-cream">
+    <section aria-label="Categorías" className="border-y border-stone bg-cream">
       <Container width="wide">
-        <ul className="grid grid-cols-5">
+        <ul className="grid grid-cols-3 sm:grid-cols-6">
           {VEHICLE_CATEGORIES.map((category, index) => (
             <li
               key={category}
-              className={index > 0 ? "border-l border-stone/70" : undefined}
+              className={cn(
+                "border-stone/70",
+                // Three across on phones, six on tablet up: the dividers have
+                // to follow whichever row each item lands in.
+                index % 3 === 0 ? "border-l-0" : "border-l",
+                index >= 3 && "border-t sm:border-t-0",
+                "sm:border-l",
+                index === 0 && "sm:border-l-0",
+              )}
             >
               <Link
                 href={`/vehiculos?categoria=${encodeURIComponent(category)}`}
@@ -76,7 +92,7 @@ export function CategoryBand() {
                   {marks[category]}
                 </svg>
                 <span className="font-serif text-[0.6875rem] leading-tight text-ink-soft transition-colors group-hover:text-ink sm:text-base">
-                  {category === "Moto" ? "Motos" : category}
+                  {categoryPlural[category]}
                 </span>
               </Link>
             </li>
