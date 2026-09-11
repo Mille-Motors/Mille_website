@@ -32,14 +32,17 @@ export const metadata: Metadata = {
     default: "MILLE | Vehículos seleccionados en Bogotá",
     template: "%s | MILLE",
   },
-  description: "Selección curada de vehículos premium en Bogotá.",
+  description: "MILLE: carros y motos en Bogotá. House of Motor Culture.",
   openGraph: {
     type: "website",
     locale: "es_CO",
     siteName: "MILLE",
     title: "MILLE | Vehículos seleccionados en Bogotá",
-    description: "Selección curada de vehículos premium en Bogotá.",
+    description: "MILLE: carros y motos en Bogotá. House of Motor Culture.",
   },
+  // Pre-launch: this build is only for QA on its *.vercel.app URL, not the
+  // public site yet. Keeps it out of search results until launch removes it.
+  robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {

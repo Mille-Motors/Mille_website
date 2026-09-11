@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { DM_Sans, EB_Garamond, Instrument_Serif } from "next/font/google";
 import Image from "next/image";
 import { ButtonLink, ExternalButtonLink } from "@/components/ui/Button";
@@ -8,6 +9,8 @@ import { Navbar } from "@/components/layout/Navbar";
 import { InventoryCTALink } from "@/components/vehicle/InventoryCTALink";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
 import { site } from "@/data/site";
+
+export const metadata: Metadata = { title: "Página no encontrada" };
 
 const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],

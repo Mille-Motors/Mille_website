@@ -58,11 +58,7 @@ export default async function ContactPage() {
         <Container width="wide" className="lg:px-0">
           <div className="grid items-stretch lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <div className="py-14 lg:py-20 lg:pr-14 lg:pl-12">
-              <Eyebrow className="leading-[1.9]">
-                Autos extraordinarios
-                <br />
-                para personas extraordinarias
-              </Eyebrow>
+              <Eyebrow className="leading-[1.9]">{site.tagline}</Eyebrow>
 
               <h1 className="mt-7 font-display text-[clamp(3rem,7vw,5rem)] leading-[1] text-ink">
                 Hablemos<span className="text-burgundy">.</span>

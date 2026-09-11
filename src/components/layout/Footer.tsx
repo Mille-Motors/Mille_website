@@ -16,9 +16,7 @@ export function Footer() {
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-8">
             <Logo href={null} />
             <p className="eyebrow max-w-[19rem] leading-[1.8] text-ink-muted">
-              Autos extraordinarios
-              <br />
-              para personas extraordinarias
+              {site.tagline}
             </p>
           </div>
 

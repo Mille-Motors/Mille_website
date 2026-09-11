@@ -13,11 +13,7 @@ export function Hero() {
       <Container width="wide" className="lg:px-0">
         <div className="grid items-stretch lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
           <div className="flex flex-col justify-center py-14 lg:py-24 lg:pr-14 lg:pl-12">
-            <Eyebrow className="leading-[1.9]">
-              Autos extraordinarios
-              <br />
-              para personas extraordinarias
-            </Eyebrow>
+            <Eyebrow className="leading-[1.9]">{site.tagline}</Eyebrow>
 
             <h1 className="mt-7 font-display text-[clamp(2.35rem,4.6vw,3.75rem)] leading-[1.04] text-ink uppercase">
               Más que carros,

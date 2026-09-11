@@ -5,7 +5,7 @@
 export const site = {
   name: "MILLE",
   url: "https://mille.com.co",
-  tagline: "Autos extraordinarios para personas extraordinarias",
+  tagline: "House of Motor Culture",
   signature: "Drive a higher standard",
   city: "Bogotá",
   country: "Colombia",
@@ -13,7 +13,7 @@ export const site = {
   email: "info@mille.com.co",
   instagram: {
     handle: "@mille.co",
-    url: "https://instagram.com/",
+    url: "https://instagram.com/mille.co",
   },
   whatsapp: {
     /** Digits only, international format. Placeholder until the real line is provisioned. */

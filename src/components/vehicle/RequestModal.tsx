@@ -6,13 +6,13 @@ import { Button, ExternalButtonLink } from "@/components/ui/Button";
 import { WhatsappIcon } from "@/components/ui/BrandIcons";
 import { Input, Textarea } from "@/components/ui/Field";
 import { vehicleTitle } from "@/lib/format";
-import { vehicleWhatsappUrl } from "@/lib/whatsapp";
+import { requestWhatsappUrl } from "@/lib/whatsapp";
 import type { Vehicle } from "@/types/vehicle";
 
 const copy = {
   info: {
     title: "Solicitar información",
-    intro: "Cuéntanos qué necesitas saber y un asesor te responde.",
+    intro: "Cuéntanos qué necesitas saber. Al enviarlo, lo compartimos por WhatsApp.",
     cta: "Enviar solicitud",
   },
   cita: {
@@ -24,8 +24,9 @@ const copy = {
 } as const;
 
 /**
- * Front-end only. Nothing is transmitted: the submit simulates a round trip
- * so the interaction design is complete before the backend exists.
+ * There is no backend, so this can't honestly claim to submit anything: it
+ * builds a prefilled WhatsApp message from the fields and opens it — the
+ * actual send happens there, as the user's own action.
  */
 export function RequestModal({
   vehicle,
@@ -38,7 +39,8 @@ export function RequestModal({
   onClose: () => void;
   onSent: () => void;
 }) {
-  const [status, setStatus] = useState<"idle" | "sending" | "done">("idle");
+  const [status, setStatus] = useState<"idle" | "done">("idle");
+  const [waHref, setWaHref] = useState("");
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -53,13 +55,19 @@ export function RequestModal({
     };
   }, [onClose]);
 
-  const submit = (event: React.FormEvent) => {
+  const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setStatus("sending");
-    window.setTimeout(() => {
-      setStatus("done");
-      onSent();
-    }, 700);
+    const data = new FormData(event.currentTarget);
+    const href = requestWhatsappUrl(vehicle, intent, {
+      nombre: String(data.get("nombre") ?? ""),
+      telefono: String(data.get("telefono") ?? ""),
+      correo: String(data.get("correo") ?? ""),
+      mensaje: String(data.get("mensaje") ?? ""),
+    });
+    setWaHref(href);
+    window.open(href, "_blank", "noopener,noreferrer");
+    setStatus("done");
+    onSent();
   };
 
   const text = copy[intent];
@@ -108,18 +116,19 @@ export function RequestModal({
               <Check aria-hidden className="size-7" strokeWidth={1.2} />
             </span>
             <h3 className="mt-7 font-display text-2xl text-ink uppercase">
-              Gracias. Recibimos tu mensaje.
+              Tu mensaje está listo.
             </h3>
             <p className="mt-4 font-serif text-[1.0625rem] leading-relaxed text-ink-soft">
-              Uno de nuestros asesores se pondrá en contacto contigo muy pronto.
+              Abrimos WhatsApp en una pestaña nueva con tu mensaje ya escrito.
+              Solo confírmalo desde ahí para enviarlo.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Button variant="ghost" size="lg" onClick={onClose}>
                 Cerrar
               </Button>
-              <ExternalButtonLink href={vehicleWhatsappUrl(vehicle)} size="lg">
+              <ExternalButtonLink href={waHref} size="lg">
                 <WhatsappIcon className="size-4" />
-                WhatsApp
+                Abrir WhatsApp
               </ExternalButtonLink>
             </div>
           </div>
@@ -154,8 +163,8 @@ export function RequestModal({
                   : ""
               }
             />
-            <Button type="submit" size="lg" disabled={status === "sending"}>
-              {status === "sending" ? "Enviando…" : text.cta}
+            <Button type="submit" size="lg">
+              {text.cta}
             </Button>
           </form>
         )}

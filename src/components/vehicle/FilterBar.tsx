@@ -52,7 +52,7 @@ function Select({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "label-caps h-10 w-full cursor-pointer appearance-none rounded-none border-0 border-b bg-transparent pr-7 pl-0 transition-colors focus:outline-none",
+          "label-caps h-10 w-full cursor-pointer appearance-none rounded-none border-0 border-b bg-transparent pr-7 pl-0 transition-colors",
           active
             ? "border-burgundy text-burgundy"
             : "border-stone-strong text-ink-soft hover:border-ink/50 hover:text-ink",
