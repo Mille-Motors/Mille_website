@@ -6,6 +6,7 @@ import { InstagramIcon, WhatsappIcon } from "@/components/ui/BrandIcons";
 import { Container } from "@/components/ui/Container";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Rule } from "@/components/ui/Rule";
+import { ContactPanel } from "@/components/brand/ContactPanel";
 import { ContactForm } from "@/components/forms/ContactForm";
 import { site } from "@/data/site";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
@@ -70,9 +71,9 @@ export default async function ContactPage() {
               <Rule className="mt-8" />
 
               <p className="mt-7 max-w-md font-serif text-[1.0625rem] leading-[1.75] text-ink-soft">
-                Estamos aquí para asesorarte en la búsqueda de tu próximo
-                vehículo. Cuéntanos lo que necesitas y nuestro equipo te
-                contactará a la brevedad.
+                Cuéntanos qué estás buscando. Si está en nuestro inventario,
+                coordinamos el siguiente paso; si todavía no, podemos
+                ayudarte a encontrarlo.
               </p>
 
               <ul className="mt-12 grid grid-cols-2 gap-x-6 gap-y-9 sm:grid-cols-4">
@@ -130,31 +131,7 @@ export default async function ContactPage() {
           <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] lg:gap-14">
             <ContactForm vehicles={vehicles} />
 
-            <div className="relative hidden min-h-[32rem] overflow-hidden bg-charcoal lg:block">
-              <Image
-                src="/images/brand/interior.jpg"
-                alt="Interior en cuero de un vehículo de MILLE"
-                fill
-                sizes="40vw"
-                className="object-cover"
-              />
-              <div
-                aria-hidden
-                className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent"
-              />
-              <div className="absolute inset-x-0 bottom-0 p-10">
-                <p className="font-display text-2xl leading-[1.2] text-cream uppercase">
-                  Más que carros,
-                  <br />
-                  es un estilo de vida.
-                </p>
-                <p className="eyebrow mt-6 leading-[1.9] text-cream/60">
-                  Autos extraordinarios
-                  <br />
-                  para personas extraordinarias
-                </p>
-              </div>
-            </div>
+            <ContactPanel />
           </div>
         </Container>
       </section>
@@ -175,8 +152,8 @@ export default async function ContactPage() {
                   ¿Prefieres hablar ahora?
                 </h2>
                 <p className="mt-3 max-w-md font-serif text-[0.9375rem] leading-relaxed text-cream/70">
-                  Escríbenos por WhatsApp y recibe atención inmediata de un
-                  asesor especializado.
+                  Escríbenos por WhatsApp y te respondemos directamente,
+                  sin intermediarios.
                 </p>
               </div>
               <ExternalButtonLink

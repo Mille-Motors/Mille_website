@@ -88,7 +88,7 @@ export function ContactForm({ vehicles }: { vehicles: Vehicle[] }) {
           required
         />
         <Select label="Vehículo de interés" name="vehiculo" defaultValue="">
-          <option value="">Sin definir</option>
+          <option value="">Aún no lo tengo definido</option>
           {vehicles.map((vehicle) => (
             <option key={vehicle.id} value={vehicle.slug}>
               {vehicleTitle(vehicle)} · {vehicle.year}

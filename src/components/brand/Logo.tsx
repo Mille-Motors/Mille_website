@@ -33,7 +33,9 @@ export function Shield({
   );
 }
 
-function Wordmark({
+/** Exported so brand pieces that need the wordmark alone — no shield —
+ * can reuse the exact same tone-driven styling instead of recreating it. */
+export function Wordmark({
   tone = "ink",
   className,
   size = "md",
