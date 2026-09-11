@@ -57,11 +57,12 @@ export default async function VehicleDetailPage(
 
   return (
     <>
-      {/* Breadcrumb + headline over the dark band, as in the comps. */}
-      <section className="bg-black text-cream">
+      {/* Breadcrumb + headline over the MILLE burgundy, not a generic dark
+          band — carries the same treatment for cars and motos alike. */}
+      <section className="bg-burgundy text-cream">
         <Container width="wide">
           <nav aria-label="Ruta" className="pt-6">
-            <ol className="flex flex-wrap items-center gap-1.5 text-xs text-cream/55">
+            <ol className="flex flex-wrap items-center gap-1.5 text-xs text-cream/50">
               <li>
                 <Link href="/" className="transition-colors hover:text-cream">
                   Inicio
@@ -92,6 +93,8 @@ export default async function VehicleDetailPage(
             </ol>
           </nav>
 
+          {/* Stacks breadcrumb → title → year·km → price → status on phones;
+              title+meta beside price+status from desktop up. */}
           <div className="flex flex-col gap-6 pt-7 pb-10 lg:flex-row lg:items-end lg:justify-between lg:pb-12">
             <div>
               <h1 className="font-display text-[clamp(2.25rem,5vw,3.5rem)] leading-[1.04] text-cream">
@@ -111,7 +114,7 @@ export default async function VehicleDetailPage(
                   COP
                 </span>
               </p>
-              <StatusPill status={vehicle.status} />
+              <StatusPill status={vehicle.status} tone="onBurgundy" />
             </div>
           </div>
         </Container>

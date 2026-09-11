@@ -84,6 +84,28 @@ export function MobileMenu({
                   <li key={item.href}>
                     <Link
                       href={item.href}
+                      onClick={() => {
+                        // The menu must close on every link, including one
+                        // that points at the current pathname+hash (e.g.
+                        // "Sobre MILLE" clicked again from #mille): a click
+                        // there triggers no navigation for the pathname
+                        // watcher above to react to, so it has to close here
+                        // unconditionally instead of waiting on a route
+                        // change that may never come.
+                        setOpen(false);
+
+                        // Same destination as where we already are: Next
+                        // won't re-run its own scroll-to-hash for a URL that
+                        // isn't actually changing, so do it ourselves.
+                        const [path, hash] = item.href.split("#");
+                        const atDestination =
+                          (path || "/") === pathname && hash;
+                        if (atDestination) {
+                          document
+                            .getElementById(hash)
+                            ?.scrollIntoView({ behavior: "instant", block: "start" });
+                        }
+                      }}
                       className="block py-5 font-display text-2xl text-ink"
                     >
                       {item.label}

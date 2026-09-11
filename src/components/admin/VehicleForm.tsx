@@ -14,11 +14,12 @@ import {
   DRIVETRAINS,
   FUEL_TYPES,
   TRANSMISSIONS,
-  VEHICLE_CATEGORIES,
+  VEHICLE_TYPES,
   VEHICLE_STATUSES,
 } from "@/types/vehicle";
 import type { Vehicle, VehicleDraft, VehicleImage } from "@/types/vehicle";
 import { statusMeta } from "@/lib/vehicle-status";
+import { categoriesFor, typeLabel } from "@/lib/categories";
 
 const DESCRIPTION_LIMIT = 1000;
 
@@ -30,6 +31,7 @@ function emptyDraft(): VehicleDraft {
     year: new Date().getFullYear(),
     price: 0,
     mileage: 0,
+    vehicleType: "auto",
     category: "SUV",
     fuelType: "Gasolina",
     transmission: "Automática",
@@ -56,6 +58,7 @@ function toDraft(vehicle: Vehicle): VehicleDraft {
     year: vehicle.year,
     price: vehicle.price,
     mileage: vehicle.mileage,
+    vehicleType: vehicle.vehicleType,
     category: vehicle.category,
     fuelType: vehicle.fuelType,
     transmission: vehicle.transmission,
@@ -288,6 +291,27 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
               onChange={(e) => set("interiorColor", e.target.value)}
             />
             <Select
+              label="Tipo"
+              required
+              value={draft.vehicleType}
+              onChange={(e) => {
+                const type = e.target.value as VehicleDraft["vehicleType"];
+                // The category list belongs to the type, so switching type
+                // resets it to that universe's first option.
+                setDraft((current) => ({
+                  ...current,
+                  vehicleType: type,
+                  category: categoriesFor(type)[0],
+                }));
+              }}
+            >
+              {VEHICLE_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {typeLabel[t]}
+                </option>
+              ))}
+            </Select>
+            <Select
               label="Categoría"
               required
               value={draft.category}
@@ -295,7 +319,7 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
                 set("category", e.target.value as VehicleDraft["category"])
               }
             >
-              {VEHICLE_CATEGORIES.map((c) => (
+              {categoriesFor(draft.vehicleType).map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>

@@ -1,28 +1,28 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/cn";
-import { formatCOP, formatMileage, vehicleTitle } from "@/lib/format";
-import { statusLabel } from "@/lib/vehicle-status";
+import { formatCOP, formatMileage } from "@/lib/format";
 import type { Vehicle } from "@/types/vehicle";
 
 /** Sizes tell the image optimiser what widths a card actually renders at. */
-const CARD_SIZES =
-  "(min-width: 1280px) 22vw, (min-width: 1024px) 30vw, (min-width: 640px) 45vw, 88vw";
+const CARD_SIZES = "(min-width: 1024px) 31vw, (min-width: 640px) 46vw, 92vw";
 
+/**
+ * A badge only when it says something. Most cars carry none — if every card
+ * has one, none of them mean anything.
+ */
 function badgeFor(vehicle: Vehicle) {
-  if (vehicle.status === "sold" || vehicle.status === "reserved") {
-    return { label: statusLabel(vehicle.status), tone: "dark" as const };
+  if (vehicle.status === "sold") {
+    return { label: "Vendido", className: "bg-ink/85 text-cream" };
   }
-  if (vehicle.fuelType.startsWith("Híbrido")) {
-    return { label: "Híbrido", tone: "light" as const };
+  if (vehicle.status === "reserved") {
+    return { label: "Reservado", className: "bg-burgundy text-cream" };
   }
   if (vehicle.fuelType === "Eléctrico") {
-    return { label: "Eléctrico", tone: "light" as const };
+    return { label: "Eléctrico", className: "bg-cream/92 text-ink" };
   }
-  if (vehicle.featured) {
-    return { label: "Destacado", tone: "burgundy" as const };
+  if (vehicle.fuelType.startsWith("Híbrido")) {
+    return { label: "Híbrido", className: "bg-cream/92 text-ink" };
   }
   return null;
 }
@@ -38,15 +38,20 @@ export function VehicleCard({
   className?: string;
   sizes?: string;
 }) {
-  const title = vehicleTitle(vehicle);
   const badge = badgeFor(vehicle);
   const cover = vehicle.images[0];
-  const dimmed = vehicle.status === "sold";
+  const sold = vehicle.status === "sold";
+  const name = [vehicle.model, vehicle.version].filter(Boolean).join(" ");
 
   return (
     <article
       className={cn(
-        "group relative flex h-full w-full flex-col border border-stone bg-paper transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:border-stone-strong hover:shadow-subtle",
+        // Warm paper, not a dark slab: the card belongs to the page rather
+        // than sitting on it. The whole thing is the link target, and the
+        // focus ring is drawn here so the keyboard lands on the card.
+        "group relative flex h-full w-full flex-col overflow-hidden border border-stone bg-paper",
+        "transition-colors duration-300 hover:border-stone-strong",
+        "has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-burgundy",
         className,
       )}
     >
@@ -58,40 +63,47 @@ export function VehicleCard({
           sizes={sizes}
           priority={priority}
           className={cn(
-            "object-cover transition-transform duration-[600ms] ease-out group-hover:scale-[1.02]",
-            dimmed && "opacity-70 saturate-[0.6]",
+            "object-cover transition-transform duration-[700ms] ease-out group-hover:scale-[1.015]",
+            sold && "opacity-55 saturate-[0.45]",
           )}
         />
         {badge ? (
-          <Badge tone={badge.tone} className="absolute top-0 right-0">
+          <span
+            className={cn(
+              "label-caps absolute top-0 left-0 px-3 py-2 text-[10px]",
+              badge.className,
+            )}
+          >
             {badge.label}
-          </Badge>
+          </span>
         ) : null}
       </div>
 
-      <div className="flex flex-1 flex-col px-5 pt-5 pb-5">
-        <h3 className="font-display text-[1.3125rem] leading-tight text-ink">
-          <Link href={`/vehiculos/${vehicle.slug}`} className="after:absolute after:inset-0">
-            {title}
+      {/* Hairline that warms up on hover, in place of a heavy border. */}
+      <span
+        aria-hidden
+        className="h-px w-full bg-burgundy/25 transition-colors duration-300 group-hover:bg-burgundy"
+      />
+
+      <div className="flex flex-1 flex-col px-5 pt-4 pb-5">
+        <p className="label-caps text-ink-muted">{vehicle.make}</p>
+
+        <h3 className="mt-1.5 font-display text-[clamp(1.375rem,1.9vw,1.625rem)] leading-tight text-ink">
+          <Link
+            href={`/vehiculos/${vehicle.slug}`}
+            className="after:absolute after:inset-0 focus-visible:outline-none"
+          >
+            {name}
           </Link>
         </h3>
 
-        <p className="mt-2.5 flex items-center gap-2.5 font-serif text-[0.9375rem] text-ink-muted tabular">
-          <span>{vehicle.year}</span>
-          <span aria-hidden className="h-3 w-px bg-stone-strong" />
-          <span>{formatMileage(vehicle.mileage)}</span>
+        <p className="mt-2 font-serif text-[0.9375rem] leading-snug text-ink-muted tabular">
+          {vehicle.year} · {formatMileage(vehicle.mileage)} · {vehicle.fuelType}
         </p>
 
-        <div className="mt-auto flex items-end justify-between gap-4 pt-5">
-          <p className="font-display text-[1.375rem] leading-none text-ink tabular">
-            {formatCOP(vehicle.price)}
-          </p>
-          <ArrowRight
-            aria-hidden
-            strokeWidth={1.25}
-            className="size-5 shrink-0 text-ink-muted transition-[transform,color] duration-300 group-hover:translate-x-1 group-hover:text-burgundy"
-          />
-        </div>
+        <p className="mt-auto pt-4 font-display text-[1.5rem] leading-none text-burgundy tabular">
+          {formatCOP(vehicle.price)}
+        </p>
       </div>
     </article>
   );

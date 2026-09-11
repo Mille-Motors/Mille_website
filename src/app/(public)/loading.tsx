@@ -23,7 +23,7 @@ export default function HomeLoading() {
         <Container width="wide">
           <Skeleton className="h-9 w-72" />
           <div className="mt-9">
-            <VehicleGridSkeleton count={4} columns={4} />
+            <VehicleGridSkeleton count={3} />
           </div>
           <div className="mt-14">
             <LoadingHint>

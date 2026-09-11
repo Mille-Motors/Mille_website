@@ -1,13 +1,35 @@
-export const VEHICLE_CATEGORIES = [
+/**
+ * A car and a bike are different kinds of thing, not two categories of the
+ * same list. The type comes first; the category lives inside it.
+ */
+export const VEHICLE_TYPES = ["auto", "moto"] as const;
+
+export type VehicleType = (typeof VEHICLE_TYPES)[number];
+
+export const AUTO_CATEGORIES = [
   "SUV",
   "Sedán",
   "Híbrido",
   "Eléctrico",
   "Deportivo",
-  "Moto",
+  "4x4",
 ] as const;
 
-export type VehicleCategory = (typeof VEHICLE_CATEGORIES)[number];
+export type AutoCategory = (typeof AUTO_CATEGORIES)[number];
+
+export const MOTO_CATEGORIES = [
+  "ADV",
+  "Sport",
+  "Naked",
+  "Touring",
+  "Enduro",
+  "Cruiser",
+  "Scooter",
+] as const;
+
+export type MotoCategory = (typeof MOTO_CATEGORIES)[number];
+
+export type VehicleCategory = AutoCategory | MotoCategory;
 
 export const VEHICLE_STATUSES = [
   "available",
@@ -42,6 +64,13 @@ export interface VehicleImage {
   alt: string;
 }
 
+/**
+ * Kept flat rather than a discriminated union: every surface reads
+ * `category` as a label and the admin form writes it through one generic
+ * setter, which a union would force to narrow at every call site for no
+ * real safety gain. `categoriesFor()` in lib/categories.ts is the single
+ * place that decides which categories belong to which type.
+ */
 export interface Vehicle {
   id: string;
   slug: string;
@@ -53,6 +82,7 @@ export interface Vehicle {
   price: number;
   /** Kilometres. */
   mileage: number;
+  vehicleType: VehicleType;
   category: VehicleCategory;
   fuelType: FuelType;
   transmission: Transmission;

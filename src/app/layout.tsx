@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, EB_Garamond, Instrument_Serif } from "next/font/google";
-import { Reveal, revealBootstrapScript } from "@/components/ui/Reveal";
+import { Reveal } from "@/components/ui/Reveal";
 import { site } from "@/data/site";
 import "./globals.css";
 
@@ -54,12 +54,8 @@ export default function RootLayout({
     <html
       lang="es-CO"
       className={`${instrumentSerif.variable} ${ebGaramond.variable} ${dmSans.variable}`}
-      // The reveal bootstrap script stamps data-reveal on <html> before React
-      // hydrates, so the server and client markup differ here by design.
-      suppressHydrationWarning
     >
       <body className="min-h-dvh bg-cream text-ink antialiased">
-        <script dangerouslySetInnerHTML={{ __html: revealBootstrapScript }} />
         {children}
         <Reveal />
       </body>

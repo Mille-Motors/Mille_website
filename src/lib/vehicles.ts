@@ -4,6 +4,7 @@ import type {
   Vehicle,
   VehicleCategory,
   VehicleStatus,
+  VehicleType,
 } from "@/types/vehicle";
 
 /**
@@ -76,7 +77,9 @@ export async function getRelatedVehicles(
   vehicle: Vehicle,
   limit = 3,
 ): Promise<Vehicle[]> {
-  const pool = (await getVehicles()).filter((v) => v.id !== vehicle.id);
+  const pool = (await getVehicles()).filter(
+    (v) => v.id !== vehicle.id && v.vehicleType === vehicle.vehicleType,
+  );
   const score = (candidate: Vehicle) => {
     let value = 0;
     if (candidate.category === vehicle.category) value += 2;
@@ -107,13 +110,52 @@ export async function getInventoryStats(): Promise<InventoryStats> {
   return computeStats(await getVehicles({ includeNonPublic: true }));
 }
 
-/** Filter option lists, derived from the data rather than hardcoded twice. */
-export async function getFilterFacets() {
-  const vehicles = await getVehicles();
-  const makes = [...new Set(vehicles.map((v) => v.make))].sort();
-  const years = [...new Set(vehicles.map((v) => v.year))].sort((a, b) => b - a);
-  const categories = [...new Set(vehicles.map((v) => v.category))];
-  const maxPrice = Math.max(...vehicles.map((v) => v.price));
-  const minPrice = Math.min(...vehicles.map((v) => v.price));
-  return { makes, years, categories, maxPrice, minPrice };
+export interface InventoryFacets {
+  makes: string[];
+  /** Descending, so the newest model year is offered first. */
+  years: number[];
+  minYear: number;
+  maxYear: number;
+  categories: VehicleCategory[];
+  minPrice: number;
+  maxPrice: number;
+  counts: { auto: number; moto: number; all: number };
+}
+
+/**
+ * Filter options, derived from the inventory that is actually visible rather
+ * than hardcoded. Pass a type to narrow them to that universe: browsing motos
+ * should never be offered a make that only exists among the cars.
+ *
+ * Today the source is the mocks; when it becomes a database the derivation
+ * moves with it and the callers stay the same.
+ */
+export async function getFilterFacets(
+  type: VehicleType | "all" = "all",
+): Promise<InventoryFacets> {
+  const all = await getVehicles();
+  const scoped = type === "all" ? all : all.filter((v) => v.vehicleType === type);
+  // Fall back to the full inventory so an empty universe still yields a
+  // usable (if unfiltered) set of bounds instead of Infinity.
+  const pool = scoped.length > 0 ? scoped : all;
+
+  const years = [...new Set(pool.map((v) => v.year))].sort((a, b) => b - a);
+  const prices = pool.map((v) => v.price);
+
+  return {
+    makes: [...new Set(pool.map((v) => v.make))].sort((a, b) =>
+      a.localeCompare(b, "es"),
+    ),
+    years,
+    minYear: Math.min(...years),
+    maxYear: Math.max(...years),
+    categories: [...new Set(pool.map((v) => v.category))],
+    minPrice: Math.min(...prices),
+    maxPrice: Math.max(...prices),
+    counts: {
+      auto: all.filter((v) => v.vehicleType === "auto").length,
+      moto: all.filter((v) => v.vehicleType === "moto").length,
+      all: all.length,
+    },
+  };
 }
