@@ -81,38 +81,44 @@ export function MobileMenu({
 
             <nav aria-label="Principal móvil" className="px-5 sm:px-8">
               <ul className="divide-y divide-stone">
-                {mainNav.map((item) => (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={() => {
-                        // The menu must close on every link, including one
-                        // that points at the current pathname+hash (e.g.
-                        // "Sobre MILLE" clicked again from #mille): a click
-                        // there triggers no navigation for the pathname
-                        // watcher above to react to, so it has to close here
-                        // unconditionally instead of waiting on a route
-                        // change that may never come.
-                        setOpen(false);
-
-                        // Same destination as where we already are: Next
-                        // won't re-run its own scroll-to-hash for a URL that
-                        // isn't actually changing, so do it ourselves.
-                        const [path, hash] = item.href.split("#");
-                        const atDestination =
-                          (path || "/") === pathname && hash;
-                        if (atDestination) {
-                          document
-                            .getElementById(hash)
-                            ?.scrollIntoView({ behavior: "instant", block: "start" });
-                        }
-                      }}
-                      className="block py-5 font-display text-2xl text-ink"
-                    >
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
+                {mainNav.map((item) => {
+                  const isMille = item.href === "/#mille";
+                  const linkClassName = "block py-5 font-display text-2xl text-ink";
+                  return (
+                    <li key={item.href}>
+                      {isMille ? (
+                        // Native anchor: a plain document navigation from any
+                        // other page, so the browser's own hash scroll lands
+                        // it — no client router, no reveal timing to race.
+                        <a
+                          href={item.href}
+                          onClick={() => {
+                            setOpen(false);
+                            // Already there: clicking an identical href is a
+                            // no-op navigation, so scroll manually instead of
+                            // depending on one.
+                            if (pathname === "/" && window.location.hash === "#mille") {
+                              document
+                                .getElementById("mille")
+                                ?.scrollIntoView({ block: "start" });
+                            }
+                          }}
+                          className={linkClassName}
+                        >
+                          {item.label}
+                        </a>
+                      ) : (
+                        <Link
+                          href={item.href}
+                          onClick={() => setOpen(false)}
+                          className={linkClassName}
+                        >
+                          {item.label}
+                        </Link>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </nav>
 

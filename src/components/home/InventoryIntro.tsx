@@ -12,18 +12,11 @@ export function InventoryIntro() {
     <section className="bg-burgundy">
       <Container width="wide">
         <div className="py-14 lg:py-20">
-          <Rule
-            data-reveal="rule"
-            className="bg-cream/25"
-          />
-          <Eyebrow className="mt-7 text-cream/55" data-reveal data-reveal-delay="1">
+          <Rule className="bg-cream/25" />
+          <Eyebrow className="mt-7 text-cream/55">
             El inventario de hoy
           </Eyebrow>
-          <p
-            data-reveal
-            data-reveal-delay="2"
-            className="mt-5 max-w-3xl font-display text-[clamp(1.625rem,3.4vw,2.5rem)] leading-[1.18] text-cream"
-          >
+          <p className="mt-5 max-w-3xl font-display text-[clamp(1.625rem,3.4vw,2.5rem)] leading-[1.18] text-cream">
             Eso es hacia dónde vamos.
             <br />
             Esto es lo que tenemos hoy.

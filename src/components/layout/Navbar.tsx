@@ -32,21 +32,31 @@ export function Navbar({
 
           <nav aria-label="Principal" className="hidden lg:block">
             <ul className="flex items-center gap-9">
-              {mainNav.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      "font-serif text-[0.9375rem] transition-colors",
-                      dark
-                        ? "text-cream/80 hover:text-cream"
-                        : "text-ink-soft hover:text-burgundy",
+              {mainNav.map((item) => {
+                const linkClassName = cn(
+                  "font-serif text-[0.9375rem] transition-colors",
+                  dark
+                    ? "text-cream/80 hover:text-cream"
+                    : "text-ink-soft hover:text-burgundy",
+                );
+                return (
+                  <li key={item.href}>
+                    {item.href === "/#mille" ? (
+                      // Native anchor, not Next's router: a plain document
+                      // navigation to "/#mille" from any other page always
+                      // lands with the browser's own hash scroll, with no
+                      // client-side reveal/hydration timing to race.
+                      <a href={item.href} className={linkClassName}>
+                        {item.label}
+                      </a>
+                    ) : (
+                      <Link href={item.href} className={linkClassName}>
+                        {item.label}
+                      </Link>
                     )}
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           </nav>
 

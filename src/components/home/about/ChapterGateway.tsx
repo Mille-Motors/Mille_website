@@ -20,19 +20,11 @@ export function ChapterGateway() {
     <div className="border-t border-stone">
       <Container width="wide">
         <div className="py-16 lg:py-24">
-          <ChapterLabel number="03" title="La puerta de entrada" data-reveal />
-          <p
-            data-reveal
-            data-reveal-delay="1"
-            className="mt-8 max-w-3xl font-display text-[clamp(1.5rem,3.2vw,2.375rem)] leading-[1.18] text-ink"
-          >
+          <ChapterLabel number="03" title="La puerta de entrada" />
+          <p className="mt-8 max-w-3xl font-display text-[clamp(1.5rem,3.2vw,2.375rem)] leading-[1.18] text-ink">
             La compraventa es la puerta de entrada. No el destino.
           </p>
-          <p
-            data-reveal
-            data-reveal-delay="2"
-            className="mt-6 max-w-lg font-serif text-[1.0625rem] leading-[1.8] text-ink-soft"
-          >
+          <p className="mt-6 max-w-lg font-serif text-[1.0625rem] leading-[1.8] text-ink-soft">
             Lo que queremos construir es una marca que pueda existir con
             naturalidad en frases como estas.
           </p>
@@ -41,7 +33,6 @@ export function ChapterGateway() {
             {sayable.map((phrase) => (
               <li
                 key={phrase.text}
-                data-reveal
                 className={cn("flex max-w-4xl items-start gap-4", phrase.indent)}
               >
                 <span
@@ -57,7 +48,7 @@ export function ChapterGateway() {
             ))}
           </ul>
 
-          <div data-reveal className="mt-16 flex max-w-lg items-center gap-5 lg:mt-20">
+          <div className="mt-16 flex max-w-lg items-center gap-5 lg:mt-20">
             <span aria-hidden className="h-px w-10 shrink-0 bg-stone-strong" />
             <p className="font-serif text-[0.9375rem] leading-[1.7] text-ink-muted italic">
               Ninguna se puede decir todavía. En eso estamos.

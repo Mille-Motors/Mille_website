@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, EB_Garamond, Instrument_Serif } from "next/font/google";
-import { Reveal } from "@/components/ui/Reveal";
 import { site } from "@/data/site";
 import "./globals.css";
 
@@ -57,7 +56,6 @@ export default function RootLayout({
     >
       <body className="min-h-dvh bg-cream text-ink antialiased">
         {children}
-        <Reveal />
       </body>
     </html>
   );

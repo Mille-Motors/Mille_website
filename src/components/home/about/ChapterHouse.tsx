@@ -11,23 +11,11 @@ export function ChapterHouse() {
     <div className="border-t border-stone">
       <Container width="wide">
         <div className="pt-16 pb-10 lg:pt-24 lg:pb-12">
-          <ChapterLabel
-            number="04"
-            title="House of Motor Culture"
-            data-reveal
-          />
-          <p
-            data-reveal
-            data-reveal-delay="1"
-            className="mt-8 max-w-3xl font-display text-[clamp(1.5rem,3.2vw,2.375rem)] leading-[1.18] text-ink"
-          >
+          <ChapterLabel number="04" title="House of Motor Culture" />
+          <p className="mt-8 max-w-3xl font-display text-[clamp(1.5rem,3.2vw,2.375rem)] leading-[1.18] text-ink">
             Queremos convertir MILLE en una casa para la cultura motor.
           </p>
-          <p
-            data-reveal
-            data-reveal-delay="2"
-            className="mt-6 max-w-2xl font-serif text-[1.0625rem] leading-[1.8] text-ink-soft"
-          >
+          <p className="mt-6 max-w-2xl font-serif text-[1.0625rem] leading-[1.8] text-ink-soft">
             No una casa nuestra: una donde quepa cualquiera a quien le muevan
             las máquinas. No nos une una marca, ni un tipo de combustible, ni
             un rango de precio. Nos une que nos importe lo que está bien hecho.

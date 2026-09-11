@@ -17,24 +17,12 @@ export function ChapterFuture() {
       <Container width="wide" className="lg:px-0">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-stretch lg:gap-16">
           <div className="pt-14 lg:py-24 lg:pr-12 lg:pl-14">
-            <ChapterLabel
-              number="06"
-              title="Hacia dónde queremos ir"
-              data-reveal
-            />
-            <p
-              data-reveal
-              data-reveal-delay="1"
-              className="mt-8 font-display text-[clamp(1.875rem,3.6vw,2.75rem)] leading-[1.1] text-ink uppercase"
-            >
+            <ChapterLabel number="06" title="Hacia dónde queremos ir" />
+            <p className="mt-8 font-display text-[clamp(1.875rem,3.6vw,2.75rem)] leading-[1.1] text-ink uppercase">
               Esto apenas empieza.
             </p>
 
-            <ul
-              data-reveal
-              data-reveal-delay="2"
-              className="mt-10 border-t border-stone"
-            >
+            <ul className="mt-10 border-t border-stone">
               {directions.map((item) => (
                 <li
                   key={item.key}
@@ -50,11 +38,7 @@ export function ChapterFuture() {
               ))}
             </ul>
 
-            <div
-              data-reveal
-              data-reveal-delay="3"
-              className="mt-9 flex max-w-lg items-center gap-5"
-            >
+            <div className="mt-9 flex max-w-lg items-center gap-5">
               <span aria-hidden className="h-px w-10 shrink-0 bg-stone-strong" />
               <p className="font-serif text-[0.9375rem] leading-[1.7] text-ink-muted italic">
                 Nada de esto existe todavía. Es el mapa, no el recorrido.
@@ -62,10 +46,7 @@ export function ChapterFuture() {
             </div>
           </div>
 
-          <div
-            data-reveal
-            className="relative aspect-[4/3] w-full overflow-hidden bg-charcoal lg:order-first lg:aspect-auto lg:h-full lg:min-h-[32rem]"
-          >
+          <div className="relative aspect-[4/3] w-full overflow-hidden bg-charcoal lg:order-first lg:aspect-auto lg:h-full lg:min-h-[32rem]">
             <Image
               src="/images/vehicles/bmw-r-1250-gs-adventure/01.jpg"
               alt="Motociclista en una BMW R 1250 GS Adventure en una carretera de montaña"
