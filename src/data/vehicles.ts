@@ -27,7 +27,7 @@ export const mockVehicles: Vehicle[] = [
     fuelType: "Eléctrico",
     transmission: "Automática",
     drivetrain: "Trasera (RWD)",
-    engine: "Motor eléctrico con batería de 83,9 kWh",
+    engine: "Motor eléctrico con batería de 80 kWh",
     power: "340 hp",
     exteriorColor: "Gris Mineral",
     interiorColor: "Cuero Sensatec negro",
@@ -37,8 +37,8 @@ export const mockVehicles: Vehicle[] = [
     description:
       "Un eléctrico que se conduce como un BMW de tracción trasera. Autonomía suficiente para la semana entera en Bogotá y carga rápida cuando toca salir de la ciudad.",
     equipment: [
-      "Autonomía homologada de 590 km",
-      "Carga rápida DC hasta 200 kW",
+      "Autonomía aproximada de 500 km",
+      "Carga rápida DC",
       "Pantalla curva BMW Curved Display",
       "Asientos deportivos calefactados",
       "Sonido Harman Kardon",

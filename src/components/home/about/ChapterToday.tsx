@@ -8,23 +8,23 @@ import { Container } from "@/components/ui/Container";
 const work = [
   {
     number: "01",
-    verb: "Seleccionamos",
-    body: "No publicamos todo lo que llega. Solo vehículos que miraríamos dos veces si fueran para nosotros.",
+    verb: "Reunimos",
+    body: "Vehículos distintos, porque también son distintas las razones para quererlos. Puede ser el carro que alguien soñó durante años, el que marca una nueva etapa o simplemente el que encaja perfecto en su vida.",
   },
   {
     number: "02",
     verb: "Presentamos",
-    body: "Fotografías cuidadas, el precio a la vista y una ficha técnica MILLE armada por nosotros a partir de datos verificables.",
+    body: "Fotografías pensadas para que el vehículo se entienda antes de verlo en persona, información clara, precio a la vista y una Ficha Técnica MILLE construida con datos verificables.",
   },
   {
     number: "03",
     verb: "Conectamos",
-    body: "Ponemos en contacto a quien vende con quien está buscando, y respondemos por lo que aparece publicado.",
+    body: "Acercamos a quien quiere vender con quien está buscando algo que realmente le haga sentido. El contacto es directo, sin intermediarios de por medio.",
   },
   {
     number: "04",
     verb: "Acompañamos",
-    body: "Resolvemos dudas, coordinamos la cita y seguimos ahí hasta que el carro cambia de dueño.",
+    body: "Estamos presentes desde la primera pregunta hasta que las llaves cambian de manos. No desaparecemos después de la venta.",
   },
 ];
 
@@ -47,8 +47,10 @@ export function ChapterToday() {
             data-reveal-delay="2"
             className="mt-6 max-w-xl font-serif text-[1.0625rem] leading-[1.8] text-ink-soft"
           >
-            MILLE empieza como una vitrina curada de vehículos. Es lo único que
-            hacemos por ahora, y preferimos hacerlo bien antes que hacer más.
+            MILLE empieza como una vitrina de vehículos y de las historias que
+            pueden empezar con ellos. Hoy nos enfocamos en mostrarlos bien,
+            entenderlos y conectar a las personas correctas. Preferimos
+            empezar por ahí y hacerlo bien.
           </p>
 
           <dl className="mt-12 border-t border-stone lg:mt-16">

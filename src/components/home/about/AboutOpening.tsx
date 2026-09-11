@@ -20,8 +20,8 @@ export function AboutOpening() {
         <div className="lg:pb-2">
           <span aria-hidden className="block h-px w-16 bg-burgundy/60" />
           <p className="mt-6 max-w-sm font-serif text-[1.0625rem] leading-[1.75] text-ink-soft">
-            MILLE es un proyecto que apenas empieza. Esto es por qué existe y
-            hacia dónde queremos llevarlo.
+            MILLE es un proyecto que apenas empieza. Esta es la historia de
+            por qué existe y hacia dónde queremos llevarlo.
           </p>
         </div>
       </div>
