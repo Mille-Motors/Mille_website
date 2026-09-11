@@ -90,3 +90,41 @@ export function ExternalButtonLink({
     </a>
   );
 }
+
+/**
+ * Same shape as `ExternalButtonLink`, for a WhatsApp CTA that may not have a
+ * real line yet. With a href it behaves identically; with `null` (no number
+ * provisioned) it keeps the CTA's place in the layout but renders inert,
+ * with a consistent "coming soon" label instead of whatever the caller
+ * would normally say — never a link that looks live but opens nothing real.
+ */
+export function WhatsappButtonLink({
+  href,
+  variant = "primary",
+  size = "md",
+  className,
+  children,
+  ...rest
+}: Omit<ExternalButtonLinkProps, "href"> & { href: string | null }) {
+  if (!href) {
+    return (
+      <span
+        aria-disabled="true"
+        className={cn(
+          base,
+          variants[variant],
+          sizes[size],
+          "pointer-events-none cursor-not-allowed opacity-50",
+          className,
+        )}
+      >
+        WhatsApp próximamente
+      </span>
+    );
+  }
+  return (
+    <ExternalButtonLink href={href} variant={variant} size={size} className={className} {...rest}>
+      {children}
+    </ExternalButtonLink>
+  );
+}

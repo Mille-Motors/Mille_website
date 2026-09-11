@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, EB_Garamond, Instrument_Serif } from "next/font/google";
 import Image from "next/image";
-import { ButtonLink, ExternalButtonLink } from "@/components/ui/Button";
+import { ButtonLink, WhatsappButtonLink } from "@/components/ui/Button";
 import { WhatsappIcon } from "@/components/ui/BrandIcons";
 import { Container } from "@/components/ui/Container";
 import { Footer } from "@/components/layout/Footer";
@@ -67,14 +67,14 @@ export default function NotFound() {
                 <InventoryCTALink variant="ghost" size="lg">
                   Ver inventario
                 </InventoryCTALink>
-                <ExternalButtonLink
+                <WhatsappButtonLink
                   href={generalWhatsappUrl()}
                   variant="outline"
                   size="lg"
                 >
                   <WhatsappIcon className="size-4" />
                   WhatsApp
-                </ExternalButtonLink>
+                </WhatsappButtonLink>
               </div>
 
               <p className="eyebrow mt-16 leading-[1.9] text-ink-muted/70">

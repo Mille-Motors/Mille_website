@@ -1,18 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Check, X } from "lucide-react";
-import { Button, ExternalButtonLink } from "@/components/ui/Button";
-import { WhatsappIcon } from "@/components/ui/BrandIcons";
+import { useEffect, useRef } from "react";
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Field";
 import { vehicleTitle } from "@/lib/format";
-import { requestWhatsappUrl } from "@/lib/whatsapp";
 import type { Vehicle } from "@/types/vehicle";
 
 const copy = {
   info: {
     title: "Solicitar información",
-    intro: "Cuéntanos qué necesitas saber. Al enviarlo, lo compartimos por WhatsApp.",
+    intro: "Cuéntanos qué necesitas saber.",
     cta: "Enviar solicitud",
   },
   cita: {
@@ -24,23 +22,20 @@ const copy = {
 } as const;
 
 /**
- * There is no backend, so this can't honestly claim to submit anything: it
- * builds a prefilled WhatsApp message from the fields and opens it — the
- * actual send happens there, as the user's own action.
+ * There is no backend and no provisioned contact channel yet, so this can't
+ * submit or claim to submit anything. Fields and validation stay in place —
+ * the form is ready — but the CTA is disabled with a plain, discrete note
+ * instead of a fake success state.
  */
 export function RequestModal({
   vehicle,
   intent,
   onClose,
-  onSent,
 }: {
   vehicle: Vehicle;
   intent: keyof typeof copy;
   onClose: () => void;
-  onSent: () => void;
 }) {
-  const [status, setStatus] = useState<"idle" | "done">("idle");
-  const [waHref, setWaHref] = useState("");
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,21 +49,6 @@ export function RequestModal({
       window.removeEventListener("keydown", onKey);
     };
   }, [onClose]);
-
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const href = requestWhatsappUrl(vehicle, intent, {
-      nombre: String(data.get("nombre") ?? ""),
-      telefono: String(data.get("telefono") ?? ""),
-      correo: String(data.get("correo") ?? ""),
-      mensaje: String(data.get("mensaje") ?? ""),
-    });
-    setWaHref(href);
-    window.open(href, "_blank", "noopener,noreferrer");
-    setStatus("done");
-    onSent();
-  };
 
   const text = copy[intent];
 
@@ -110,64 +90,46 @@ export function RequestModal({
           </button>
         </div>
 
-        {status === "done" ? (
-          <div className="px-6 py-12 text-center">
-            <span className="mx-auto inline-flex size-14 items-center justify-center rounded-full border border-burgundy/30 text-burgundy">
-              <Check aria-hidden className="size-7" strokeWidth={1.2} />
-            </span>
-            <h3 className="mt-7 font-display text-2xl text-ink uppercase">
-              Tu mensaje está listo.
-            </h3>
-            <p className="mt-4 font-serif text-[1.0625rem] leading-relaxed text-ink-soft">
-              Abrimos WhatsApp en una pestaña nueva con tu mensaje ya escrito.
-              Solo confírmalo desde ahí para enviarlo.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Button variant="ghost" size="lg" onClick={onClose}>
-                Cerrar
-              </Button>
-              <ExternalButtonLink href={waHref} size="lg">
-                <WhatsappIcon className="size-4" />
-                Abrir WhatsApp
-              </ExternalButtonLink>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={submit} className="grid gap-4 px-6 py-6">
-            <p className="font-serif text-[0.9375rem] leading-relaxed text-ink-soft">
-              {text.intro}
-            </p>
-            <Input label="Nombre" name="nombre" autoComplete="name" required />
-            <Input
-              label="Teléfono"
-              name="telefono"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              required
-            />
-            <Input
-              label="Correo"
-              name="correo"
-              type="email"
-              autoComplete="email"
-              required
-            />
-            <Textarea
-              label="Mensaje"
-              name="mensaje"
-              rows={3}
-              defaultValue={
-                intent === "cita"
-                  ? `Quisiera agendar una cita para ver el ${vehicleTitle(vehicle)}.`
-                  : ""
-              }
-            />
-            <Button type="submit" size="lg">
-              {text.cta}
-            </Button>
-          </form>
-        )}
+        <form
+          onSubmit={(event) => event.preventDefault()}
+          className="grid gap-4 px-6 py-6"
+        >
+          <p className="font-serif text-[0.9375rem] leading-relaxed text-ink-soft">
+            {text.intro}
+          </p>
+          <Input label="Nombre" name="nombre" autoComplete="name" required />
+          <Input
+            label="Teléfono"
+            name="telefono"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            required
+          />
+          <Input
+            label="Correo"
+            name="correo"
+            type="email"
+            autoComplete="email"
+            required
+          />
+          <Textarea
+            label="Mensaje"
+            name="mensaje"
+            rows={3}
+            defaultValue={
+              intent === "cita"
+                ? `Quisiera agendar una cita para ver el ${vehicleTitle(vehicle)}.`
+                : ""
+            }
+          />
+          <Button type="submit" size="lg" disabled>
+            {text.cta}
+          </Button>
+          <p className="text-center text-xs text-ink-muted">
+            Envío habilitado al lanzamiento.
+          </p>
+        </form>
       </div>
     </div>
   );

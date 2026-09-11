@@ -1,4 +1,4 @@
-import { ExternalButtonLink } from "@/components/ui/Button";
+import { WhatsappButtonLink } from "@/components/ui/Button";
 import { WhatsappIcon } from "@/components/ui/BrandIcons";
 import { formatCOP } from "@/lib/format";
 import { vehicleWhatsappUrl } from "@/lib/whatsapp";
@@ -12,14 +12,14 @@ export function StickyWhatsapp({ vehicle }: { vehicle: Vehicle }) {
         <p className="min-w-0 shrink font-display text-lg leading-none text-ink tabular">
           {formatCOP(vehicle.price)}
         </p>
-        <ExternalButtonLink
+        <WhatsappButtonLink
           href={vehicleWhatsappUrl(vehicle)}
           size="md"
           className="ml-auto flex-1 justify-center"
         >
           <WhatsappIcon className="size-4" />
           WhatsApp
-        </ExternalButtonLink>
+        </WhatsappButtonLink>
       </div>
     </div>
   );

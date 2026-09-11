@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { ArrowRight, Mail, MapPin } from "lucide-react";
-import { ExternalButtonLink } from "@/components/ui/Button";
+import { WhatsappButtonLink } from "@/components/ui/Button";
 import { InstagramIcon, WhatsappIcon } from "@/components/ui/BrandIcons";
 import { Container } from "@/components/ui/Container";
 import { Eyebrow } from "@/components/ui/Eyebrow";
@@ -14,30 +14,29 @@ import { getVehicles } from "@/lib/vehicles";
 
 export const metadata: Metadata = {
   title: "Contacto",
-  description:
-    "Escríbenos por WhatsApp, Instagram o correo. Estamos en Bogotá, Colombia.",
+  description: "Contáctanos. MILLE está en Bogotá, Colombia.",
 };
 
 const channels = [
   {
     icon: WhatsappIcon,
     label: "WhatsApp",
-    detail: "Respuesta inmediata",
+    detail: site.phone ? "Respuesta inmediata" : "Disponible al lanzamiento",
     href: generalWhatsappUrl(),
     external: true,
   },
   {
     icon: InstagramIcon,
     label: "Instagram",
-    detail: "Síguenos",
-    href: site.instagram.url,
+    detail: site.instagram ? "Síguenos" : "Disponible al lanzamiento",
+    href: site.instagram?.url ?? null,
     external: true,
   },
   {
     icon: Mail,
     label: "Correo",
-    detail: site.email,
-    href: `mailto:${site.email}`,
+    detail: site.email ?? "Disponible al lanzamiento",
+    href: site.email ? `mailto:${site.email}` : null,
     external: false,
   },
   {
@@ -152,7 +151,7 @@ export default async function ContactPage() {
                   sin intermediarios.
                 </p>
               </div>
-              <ExternalButtonLink
+              <WhatsappButtonLink
                 href={generalWhatsappUrl()}
                 variant="onDark"
                 size="lg"
@@ -161,7 +160,7 @@ export default async function ContactPage() {
                 <WhatsappIcon className="size-4" />
                 Hablar por WhatsApp
                 <ArrowRight aria-hidden className="size-4" strokeWidth={1.5} />
-              </ExternalButtonLink>
+              </WhatsappButtonLink>
             </div>
           </div>
         </Container>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ButtonLink, ExternalButtonLink } from "@/components/ui/Button";
+import { ButtonLink, WhatsappButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Rule } from "@/components/ui/Rule";
@@ -135,10 +135,10 @@ function NoResults({
           tienes en mente y lo rastreamos.
         </p>
         <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-          <ExternalButtonLink href={generalWhatsappUrl()} size="lg">
+          <WhatsappButtonLink href={generalWhatsappUrl()} size="lg">
             <WhatsappIcon className="size-4" />
             Escríbenos
-          </ExternalButtonLink>
+          </WhatsappButtonLink>
           <ButtonLink
             href={inventoryHref({ tipo: filters.tipo })}
             variant="ghost"

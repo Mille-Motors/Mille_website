@@ -6,6 +6,8 @@ import { Container } from "@/components/ui/Container";
 import { site } from "@/data/site";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
 
+const whatsappHref = generalWhatsappUrl();
+
 const year = new Date().getFullYear();
 
 export function Footer() {
@@ -38,28 +40,32 @@ export function Footer() {
                   Contacto
                 </Link>
               </li>
-              <li>
-                <a
-                  href={site.instagram.url}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="inline-flex items-center gap-2 font-serif text-[0.9375rem] text-ink-soft transition-colors hover:text-burgundy"
-                >
-                  <InstagramIcon className="size-4" />
-                  Instagram
-                </a>
-              </li>
-              <li>
-                <a
-                  href={generalWhatsappUrl()}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="inline-flex items-center gap-2 font-serif text-[0.9375rem] text-ink-soft transition-colors hover:text-burgundy"
-                >
-                  <WhatsappIcon className="size-4" />
-                  WhatsApp
-                </a>
-              </li>
+              {site.instagram ? (
+                <li>
+                  <a
+                    href={site.instagram.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="inline-flex items-center gap-2 font-serif text-[0.9375rem] text-ink-soft transition-colors hover:text-burgundy"
+                  >
+                    <InstagramIcon className="size-4" />
+                    Instagram
+                  </a>
+                </li>
+              ) : null}
+              {whatsappHref ? (
+                <li>
+                  <a
+                    href={whatsappHref}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="inline-flex items-center gap-2 font-serif text-[0.9375rem] text-ink-soft transition-colors hover:text-burgundy"
+                  >
+                    <WhatsappIcon className="size-4" />
+                    WhatsApp
+                  </a>
+                </li>
+              ) : null}
               <li className="inline-flex items-center gap-1.5 font-serif text-[0.9375rem] text-ink-muted">
                 <MapPin aria-hidden className="size-3.5" strokeWidth={1.5} />
                 {site.city}, {site.country}
