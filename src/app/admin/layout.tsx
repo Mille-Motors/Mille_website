@@ -1,23 +1,19 @@
 import type { Metadata } from "next";
-import { AdminInventoryProvider } from "@/components/admin/AdminInventoryProvider";
-import { AdminShell } from "@/components/admin/AdminShell";
-import { getVehicles } from "@/lib/vehicles";
 
+/**
+ * El admin entero queda fuera de los buscadores. Esta capa no monta nada
+ * más: la pantalla de login no debe llevar la barra lateral, así que el
+ * armazón autenticado vive en el layout del grupo (panel).
+ */
 export const metadata: Metadata = {
   title: { default: "Administración", template: "%s | MILLE Admin" },
   robots: { index: false, follow: false },
 };
 
-export default async function AdminLayout({
+export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const seed = await getVehicles({ includeNonPublic: true });
-
-  return (
-    <AdminInventoryProvider seed={seed}>
-      <AdminShell>{children}</AdminShell>
-    </AdminInventoryProvider>
-  );
+  return children;
 }

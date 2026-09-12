@@ -1,5 +1,4 @@
-import { categoriesFor, categoryFromSlug, categorySlug } from "@/lib/categories";
-import type { Vehicle, VehicleCategory, VehicleType } from "@/types/vehicle";
+import type { VehicleType } from "@/types/vehicle";
 import { VEHICLE_TYPES } from "@/types/vehicle";
 
 export const SORT_KEYS = [
@@ -20,16 +19,34 @@ export const sortLabels: Record<SortKey, string> = {
   "anio-desc": "Más nuevos",
 };
 
+/** Cómo se traduce cada orden de la URL a la consulta de la base. */
+export const sortToQuery: Record<
+  SortKey,
+  "recent" | "price-asc" | "price-desc" | "mileage-asc" | "year-desc"
+> = {
+  recientes: "recent",
+  "precio-asc": "price-asc",
+  "precio-desc": "price-desc",
+  "km-asc": "mileage-asc",
+  "anio-desc": "year-desc",
+};
+
 /**
- * `tipo` absent means the whole inventory. There is no separate "unselected"
- * state: /vehiculos and an explicit all view are the same page, and the
- * canonical URL for it carries no `tipo` at all.
+ * Que falte `tipo` significa el inventario entero. No hay un estado "sin
+ * seleccionar" aparte: /vehiculos y la vista explícita de todo son la misma
+ * página, y su URL canónica no lleva `tipo`.
  */
 export type TypeFilter = VehicleType | "all";
 
+/**
+ * `categoria` viaja como slug, que es lo que va en la URL y lo que la base
+ * sabe buscar. Antes era la etiqueta ("Sedán") porque la taxonomía vivía en
+ * un mapa fijo del código; ahora las categorías son filas administrables y
+ * el slug es su identidad estable.
+ */
 export interface InventoryFilters {
   tipo: TypeFilter;
-  categoria?: VehicleCategory;
+  categoria?: string;
   marca?: string;
   minYear?: number;
   maxYear?: number;
@@ -38,7 +55,7 @@ export interface InventoryFilters {
   orden: SortKey;
 }
 
-/** Raw searchParams as Next hands them over. */
+/** searchParams tal como los entrega Next. */
 export type RawSearchParams = Record<string, string | string[] | undefined>;
 
 function first(value: string | string[] | undefined): string | undefined {
@@ -46,8 +63,8 @@ function first(value: string | string[] | undefined): string | undefined {
 }
 
 /**
- * An absent or unparseable bound means "no limit on that side" — never 0,
- * which would silently filter everything out.
+ * Un límite ausente o ilegible significa "sin tope por ese lado" — nunca 0,
+ * que filtraría todo en silencio.
  */
 function bound(value: string | string[] | undefined): number | undefined {
   const raw = first(value);
@@ -57,28 +74,28 @@ function bound(value: string | string[] | undefined): number | undefined {
 }
 
 /**
- * @param knownMakes Every make in the inventory, not just the ones in the
- * chosen universe. A make that exists but has nothing in this universe is a
- * real, empty answer — dropping it would silently widen the results instead.
+ * @param knownMakes Todas las marcas del inventario, no solo las del
+ * universo elegido. Una marca que existe pero no tiene nada en este universo
+ * es un cero honesto: descartarla ampliaría los resultados en silencio.
+ * @param knownCategorySlugs Igual, para las categorías del universo elegido.
  */
 export function parseFilters(
   params: RawSearchParams,
   knownMakes: string[],
+  knownCategorySlugs: string[] = [],
 ): InventoryFilters {
   const rawType = first(params.tipo);
   const tipo: TypeFilter = VEHICLE_TYPES.includes(rawType as VehicleType)
     ? (rawType as VehicleType)
     : "all";
 
-  const rawCategory = first(params.categoria);
-  const categoria = rawCategory ? categoryFromSlug(rawCategory) : undefined;
-
+  const rawCategory = first(params.categoria)?.toLowerCase();
   const marca = first(params.marca);
   const orden = first(params.orden);
 
   let minYear = bound(params.minYear);
   let maxYear = bound(params.maxYear);
-  // A reversed range is a slip, not an empty result: read it as written.
+  // Un rango al revés es un desliz, no un resultado vacío: se lee como venía.
   if (minYear && maxYear && minYear > maxYear) [minYear, maxYear] = [maxYear, minYear];
 
   let minPrice = bound(params.minPrice);
@@ -89,10 +106,9 @@ export function parseFilters(
 
   return {
     tipo,
-    // A category only survives if it belongs to the chosen universe.
     categoria:
-      categoria && (tipo === "all" || categoriesFor(tipo).includes(categoria))
-        ? categoria
+      rawCategory && knownCategorySlugs.includes(rawCategory)
+        ? rawCategory
         : undefined,
     marca: marca && knownMakes.includes(marca) ? marca : undefined,
     minYear,
@@ -103,49 +119,7 @@ export function parseFilters(
   };
 }
 
-export function applyFilters(
-  vehicles: Vehicle[],
-  filters: InventoryFilters,
-): Vehicle[] {
-  let out = vehicles;
-
-  if (filters.tipo !== "all") {
-    out = out.filter((v) => v.vehicleType === filters.tipo);
-  }
-  if (filters.categoria) out = out.filter((v) => v.category === filters.categoria);
-  if (filters.marca) out = out.filter((v) => v.make === filters.marca);
-
-  // Each bound is independent: one side alone is a valid, open-ended range.
-  if (filters.minYear !== undefined) out = out.filter((v) => v.year >= filters.minYear!);
-  if (filters.maxYear !== undefined) out = out.filter((v) => v.year <= filters.maxYear!);
-  if (filters.minPrice !== undefined) {
-    out = out.filter((v) => v.price >= filters.minPrice!);
-  }
-  if (filters.maxPrice !== undefined) {
-    out = out.filter((v) => v.price <= filters.maxPrice!);
-  }
-
-  const sorted = [...out];
-  switch (filters.orden) {
-    case "precio-asc":
-      sorted.sort((a, b) => a.price - b.price);
-      break;
-    case "precio-desc":
-      sorted.sort((a, b) => b.price - a.price);
-      break;
-    case "km-asc":
-      sorted.sort((a, b) => a.mileage - b.mileage);
-      break;
-    case "anio-desc":
-      sorted.sort((a, b) => b.year - a.year);
-      break;
-    default:
-      sorted.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-  }
-  return sorted;
-}
-
-/** Filters only — the type selector and sort order are not filters. */
+/** Solo filtros — el selector de tipo y el orden no lo son. */
 export function activeFilterCount(filters: InventoryFilters): number {
   return [
     filters.categoria,
@@ -158,13 +132,14 @@ export function activeFilterCount(filters: InventoryFilters): number {
 }
 
 /**
- * The canonical URL for a filter set. `tipo=all` and the default sort are
- * omitted so the plain /vehiculos URL stays clean and shareable.
+ * La URL canónica de un conjunto de filtros. `tipo=all` y el orden por
+ * defecto se omiten para que /vehiculos a secas siga siendo limpia y
+ * compartible.
  */
 export function buildQuery(filters: Partial<InventoryFilters>): string {
   const params = new URLSearchParams();
   if (filters.tipo && filters.tipo !== "all") params.set("tipo", filters.tipo);
-  if (filters.categoria) params.set("categoria", categorySlug[filters.categoria]);
+  if (filters.categoria) params.set("categoria", filters.categoria);
   if (filters.marca) params.set("marca", filters.marca);
   if (filters.minYear) params.set("minYear", String(filters.minYear));
   if (filters.maxYear) params.set("maxYear", String(filters.maxYear));
@@ -176,9 +151,9 @@ export function buildQuery(filters: Partial<InventoryFilters>): string {
 }
 
 /**
- * Round price steps that span the inventory, so the selects offer figures a
- * person would actually think in. Coarser as the numbers grow: nobody filters
- * a 500-million-peso car in 25-million increments.
+ * Escalones redondos de precio que cubren el inventario, para que los
+ * selects ofrezcan cifras en las que alguien piensa de verdad. Más gruesos a
+ * medida que crecen: nadie filtra un carro de 500 millones de 25 en 25.
  */
 export function priceLadder(min: number, max: number): number[] {
   const M = 1_000_000;

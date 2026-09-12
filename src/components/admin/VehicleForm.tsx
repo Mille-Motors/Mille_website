@@ -3,36 +3,66 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Save } from "lucide-react";
+import { ArrowLeft, ArrowRight, ExternalLink, Save } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
-import { ImageUploader } from "@/components/admin/ImageUploader";
-import { useAdminInventory } from "@/components/admin/AdminInventoryProvider";
+import { ImageManager } from "@/components/admin/ImageManager";
 import { Button } from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Field";
+import { PublicationPill } from "@/components/ui/PublicationPill";
+import { adminJson } from "@/lib/admin-client";
+import { typeLabel } from "@/lib/categories";
 import { vehicleTitle } from "@/lib/format";
+import { statusMeta } from "@/lib/vehicle-status";
 import {
+  AVAILABILITY_STATUSES,
   DRIVETRAINS,
   FUEL_TYPES,
   TRANSMISSIONS,
   VEHICLE_TYPES,
-  VEHICLE_STATUSES,
 } from "@/types/vehicle";
-import type { Vehicle, VehicleDraft, VehicleImage } from "@/types/vehicle";
-import { statusMeta } from "@/lib/vehicle-status";
-import { categoriesFor, typeLabel } from "@/lib/categories";
+import type {
+  AvailabilityStatus,
+  Vehicle,
+  VehicleCategory,
+  VehicleType,
+} from "@/types/vehicle";
 
-const DESCRIPTION_LIMIT = 1000;
+const DESCRIPTION_LIMIT = 4000;
 
-function emptyDraft(): VehicleDraft {
+/** Exactamente lo que el formulario posee. El slug y las fechas son del servidor. */
+interface Draft {
+  vehicleType: VehicleType;
+  make: string;
+  model: string;
+  version: string;
+  year: number;
+  price: number;
+  mileage: number;
+  categoryId: string;
+  fuelType: string;
+  transmission: string;
+  drivetrain: string;
+  engine: string;
+  power: string;
+  exteriorColor: string;
+  interiorColor: string;
+  city: string;
+  availability: AvailabilityStatus;
+  featured: boolean;
+  description: string;
+}
+
+function emptyDraft(categories: VehicleCategory[]): Draft {
+  const firstAuto = categories.find((c) => c.vehicleType === "auto");
   return {
+    vehicleType: "auto",
     make: "",
     model: "",
     version: "",
     year: new Date().getFullYear(),
     price: 0,
     mileage: 0,
-    vehicleType: "auto",
-    category: "SUV",
+    categoryId: firstAuto?.id ?? categories[0]?.id ?? "",
     fuelType: "Gasolina",
     transmission: "Automática",
     drivetrain: "4x4 (AWD)",
@@ -41,25 +71,22 @@ function emptyDraft(): VehicleDraft {
     exteriorColor: "",
     interiorColor: "",
     city: "Bogotá, CO",
-    status: "available",
+    availability: "available",
     featured: false,
     description: "",
-    equipment: [],
-    images: [],
   };
 }
 
-/** Exactly the fields the form owns. Id, slug and createdAt belong to the store. */
-function toDraft(vehicle: Vehicle): VehicleDraft {
+function toDraft(vehicle: Vehicle): Draft {
   return {
+    vehicleType: vehicle.vehicleType,
     make: vehicle.make,
     model: vehicle.model,
     version: vehicle.version,
     year: vehicle.year,
     price: vehicle.price,
     mileage: vehicle.mileage,
-    vehicleType: vehicle.vehicleType,
-    category: vehicle.category,
+    categoryId: vehicle.category.id,
     fuelType: vehicle.fuelType,
     transmission: vehicle.transmission,
     drivetrain: vehicle.drivetrain,
@@ -68,63 +95,136 @@ function toDraft(vehicle: Vehicle): VehicleDraft {
     exteriorColor: vehicle.exteriorColor,
     interiorColor: vehicle.interiorColor,
     city: vehicle.city,
-    status: vehicle.status,
+    availability: vehicle.availability,
     featured: vehicle.featured,
     description: vehicle.description,
-    equipment: vehicle.equipment,
-    images: vehicle.images,
   };
 }
 
-export function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
+/**
+ * Crear y editar son el mismo formulario.
+ *
+ * Al crear, el vehículo nace en borrador y no se publica solo: publicar es
+ * una decisión aparte que se toma desde la lista o desde aquí, cuando ya
+ * tiene fotos. Las imágenes solo se pueden gestionar sobre un vehículo que
+ * ya existe, porque hay que subirlas a algún sitio.
+ *
+ * Si guardar falla, el borrador se queda como estaba: nada se pierde por un
+ * error de red.
+ */
+export function VehicleForm({
+  vehicle,
+  categories,
+}: {
+  vehicle?: Vehicle;
+  categories: VehicleCategory[];
+}) {
   const router = useRouter();
-  const { create, update } = useAdminInventory();
-  const [draft, setDraft] = useState<VehicleDraft>(
-    vehicle ? toDraft(vehicle) : emptyDraft(),
-  );
-  const [equipmentText, setEquipmentText] = useState(draft.equipment.join("\n"));
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
   const editing = Boolean(vehicle);
-  const set = <K extends keyof VehicleDraft>(key: K, value: VehicleDraft[K]) =>
-    setDraft((current) => ({ ...current, [key]: value }));
 
-  const validate = (): boolean => {
+  const [draft, setDraft] = useState<Draft>(
+    vehicle ? toDraft(vehicle) : emptyDraft(categories),
+  );
+  const [equipmentText, setEquipmentText] = useState(
+    (vehicle?.equipment ?? []).join("\n"),
+  );
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const set = <K extends keyof Draft>(key: K, value: Draft[K]) => {
+    setDraft((current) => ({ ...current, [key]: value }));
+    setSaved(false);
+  };
+
+  const typeCategories = categories.filter(
+    (category) => category.vehicleType === draft.vehicleType,
+  );
+
+  function validate(): boolean {
     const next: Record<string, string> = {};
     if (!draft.make.trim()) next.make = "Indica la marca.";
     if (!draft.model.trim()) next.model = "Indica el modelo.";
-    if (!draft.year || draft.year < 1950) next.year = "Año no válido.";
+    if (!draft.year || draft.year < 1900) next.year = "Año no válido.";
     if (!draft.price || draft.price <= 0) next.price = "Indica un precio.";
     if (draft.mileage < 0) next.mileage = "Kilometraje no válido.";
+    if (!draft.categoryId) next.categoryId = "Elige una categoría.";
     if (!draft.description.trim()) next.description = "Escribe una descripción.";
+    if (!draft.city.trim()) next.city = "Indica la ciudad.";
     setErrors(next);
     return Object.keys(next).length === 0;
-  };
+  }
 
-  const save = (status: VehicleDraft["status"]) => {
+  async function save() {
+    if (saving) return;
     if (!validate()) return;
-    const payload: VehicleDraft = {
+
+    setSaving(true);
+    setFormError(null);
+
+    const payload = {
       ...draft,
-      status,
       equipment: equipmentText
         .split("\n")
         .map((line) => line.trim())
         .filter(Boolean),
-      images:
-        draft.images.length > 0
-          ? draft.images
-          : [
-              {
-                src: "/images/brand/night.jpg",
-                alt: `${vehicleTitle(draft)} sin fotografía asignada`,
-              },
-            ],
     };
 
-    if (vehicle) update(vehicle.id, payload);
-    else create(payload);
-    router.push("/admin/vehiculos");
-  };
+    const result = editing
+      ? await adminJson<{ vehicle: Vehicle }>(
+          `/api/admin/vehicles/${vehicle!.id}`,
+          "PATCH",
+          payload,
+        )
+      : await adminJson<{ vehicle: Vehicle }>(
+          "/api/admin/vehicles",
+          "POST",
+          payload,
+        );
+
+    setSaving(false);
+
+    if (!result.ok) {
+      setFormError(result.message);
+      // El servidor valida de nuevo y puede tener razón donde el formulario
+      // no la tenía: sus errores por campo mandan.
+      if (result.fields) setErrors(result.fields);
+      return;
+    }
+
+    if (!editing) {
+      // Recién creado: se va a su pantalla de edición, que es donde se
+      // pueden subir las fotos y publicarlo.
+      router.push(`/admin/vehiculos/${result.data.vehicle.id}/editar`);
+      router.refresh();
+      return;
+    }
+
+    setSaved(true);
+    router.refresh();
+  }
+
+  async function togglePublication() {
+    if (!vehicle || saving) return;
+    setSaving(true);
+    setFormError(null);
+
+    const result = await adminJson(
+      `/api/admin/vehicles/${vehicle.id}/publish`,
+      "POST",
+      {
+        publication: vehicle.publication === "published" ? "draft" : "published",
+      },
+    );
+
+    setSaving(false);
+    if (!result.ok) {
+      setFormError(result.message);
+      return;
+    }
+    router.refresh();
+  }
 
   const title = editing ? "Editar vehículo" : "Crear vehículo";
 
@@ -132,7 +232,11 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
     <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
       <AdminPageHeader
         title={title}
-        subtitle="Completa la información y sube las fotos del vehículo."
+        subtitle={
+          editing
+            ? "Edita la información y administra las fotos del vehículo."
+            : "Completa la información. El vehículo se guarda como borrador y las fotos se suben en el siguiente paso."
+        }
         breadcrumb={
           <nav aria-label="Ruta">
             <ol className="flex items-center gap-2 text-xs text-ink-muted">
@@ -152,20 +256,23 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
           </nav>
         }
         action={
-          <Link
-            href="/admin/vehiculos"
-            className="label-caps inline-flex items-center gap-2 rounded-xs border border-stone px-4 py-2.5 text-ink transition-colors hover:border-ink/40"
-          >
-            <ArrowLeft aria-hidden className="size-3.5" strokeWidth={1.5} />
-            Volver
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            {vehicle ? <PublicationPill status={vehicle.publication} /> : null}
+            <Link
+              href="/admin/vehiculos"
+              className="label-caps inline-flex items-center gap-2 rounded-xs border border-stone px-4 py-2.5 text-ink transition-colors hover:border-ink/40"
+            >
+              <ArrowLeft aria-hidden className="size-3.5" strokeWidth={1.5} />
+              Volver
+            </Link>
+          </div>
         }
       />
 
       <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          save(draft.status === "draft" ? "available" : draft.status);
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save();
         }}
         className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]"
       >
@@ -190,6 +297,7 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
             <Input
               label="Versión"
               value={draft.version}
+              error={errors.version}
               onChange={(e) => set("version", e.target.value)}
             />
             <Input
@@ -224,9 +332,8 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
               label="Combustible"
               required
               value={draft.fuelType}
-              onChange={(e) =>
-                set("fuelType", e.target.value as VehicleDraft["fuelType"])
-              }
+              error={errors.fuelType}
+              onChange={(e) => set("fuelType", e.target.value)}
             >
               {FUEL_TYPES.map((f) => (
                 <option key={f} value={f}>
@@ -238,9 +345,8 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
               label="Transmisión"
               required
               value={draft.transmission}
-              onChange={(e) =>
-                set("transmission", e.target.value as VehicleDraft["transmission"])
-              }
+              error={errors.transmission}
+              onChange={(e) => set("transmission", e.target.value)}
             >
               {TRANSMISSIONS.map((t) => (
                 <option key={t} value={t}>
@@ -252,9 +358,8 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
               label="Tracción"
               required
               value={draft.drivetrain}
-              onChange={(e) =>
-                set("drivetrain", e.target.value as VehicleDraft["drivetrain"])
-              }
+              error={errors.drivetrain}
+              onChange={(e) => set("drivetrain", e.target.value)}
             >
               {DRIVETRAINS.map((d) => (
                 <option key={d} value={d}>
@@ -275,13 +380,14 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
             />
             <Input
               label="Ciudad"
+              required
               value={draft.city}
+              error={errors.city}
               onChange={(e) => set("city", e.target.value)}
             />
 
             <Input
               label="Color exterior"
-              required
               value={draft.exteriorColor}
               onChange={(e) => set("exteriorColor", e.target.value)}
             />
@@ -295,14 +401,16 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
               required
               value={draft.vehicleType}
               onChange={(e) => {
-                const type = e.target.value as VehicleDraft["vehicleType"];
-                // The category list belongs to the type, so switching type
-                // resets it to that universe's first option.
+                const type = e.target.value as VehicleType;
+                // La categoría pertenece al tipo: cambiar de universo la
+                // reinicia a la primera del nuevo.
+                const first = categories.find((c) => c.vehicleType === type);
                 setDraft((current) => ({
                   ...current,
                   vehicleType: type,
-                  category: categoriesFor(type)[0],
+                  categoryId: first?.id ?? "",
                 }));
+                setSaved(false);
               }}
             >
               {VEHICLE_TYPES.map((t) => (
@@ -314,30 +422,33 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
             <Select
               label="Categoría"
               required
-              value={draft.category}
-              onChange={(e) =>
-                set("category", e.target.value as VehicleDraft["category"])
-              }
+              value={draft.categoryId}
+              error={errors.categoryId}
+              onChange={(e) => set("categoryId", e.target.value)}
             >
-              {categoriesFor(draft.vehicleType).map((c) => (
-                <option key={c} value={c}>
-                  {c}
+              {typeCategories.length === 0 ? (
+                <option value="">No hay categorías para este tipo</option>
+              ) : null}
+              {typeCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                  {category.active ? "" : " (inactiva)"}
                 </option>
               ))}
             </Select>
 
             <Select
-              label="Estado"
+              label="Disponibilidad"
               required
-              value={draft.status}
+              value={draft.availability}
               onChange={(e) =>
-                set("status", e.target.value as VehicleDraft["status"])
+                set("availability", e.target.value as AvailabilityStatus)
               }
               containerClassName="sm:col-span-2"
             >
-              {VEHICLE_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {statusMeta[s].label}
+              {AVAILABILITY_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {statusMeta[status].label}
                 </option>
               ))}
             </Select>
@@ -375,35 +486,74 @@ export function VehicleForm({ vehicle }: { vehicle?: Vehicle }) {
               label="Equipamiento (una línea por ítem)"
               rows={5}
               value={equipmentText}
-              onChange={(e) => setEquipmentText(e.target.value)}
+              onChange={(e) => {
+                setEquipmentText(e.target.value);
+                setSaved(false);
+              }}
             />
           </div>
         </section>
 
         <section className="self-start border border-stone bg-paper px-5 py-6 sm:px-7 sm:py-7">
           <h2 className="font-display text-2xl text-ink">Fotos del vehículo</h2>
-          <div className="mt-7">
-            <ImageUploader
-              value={draft.images}
-              onChange={(images: VehicleImage[]) => set("images", images)}
-              altPrefix={vehicleTitle(draft) || "Vehículo MILLE"}
-            />
-          </div>
+          {vehicle ? (
+            <div className="mt-7">
+              <ImageManager vehicle={vehicle} />
+            </div>
+          ) : (
+            <p className="mt-6 font-serif text-[0.9375rem] leading-relaxed text-ink-soft">
+              Guarda el vehículo primero. Las fotos se suben a su ficha, así que
+              necesitan que exista.
+            </p>
+          )}
         </section>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end xl:col-span-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="lg"
-            onClick={() => save("draft")}
-          >
-            <Save aria-hidden className="size-4" strokeWidth={1.5} />
-            Guardar borrador
-          </Button>
-          <Button type="submit" size="lg">
-            {editing ? "Guardar cambios" : "Publicar"}
-            <ArrowRight aria-hidden className="size-4" strokeWidth={1.5} />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end xl:col-span-2">
+          {formError ? (
+            <p role="alert" className="mr-auto text-xs text-burgundy">
+              {formError}
+            </p>
+          ) : saved ? (
+            <p className="mr-auto text-xs text-ink-muted">Cambios guardados.</p>
+          ) : null}
+
+          {vehicle ? (
+            <>
+              <a
+                href={`/vehiculos/${vehicle.slug}`}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="label-caps inline-flex h-13 items-center justify-center gap-2.5 rounded-xs border border-stone px-8 text-ink transition-colors hover:border-ink/40"
+              >
+                Ver ficha pública
+                <ExternalLink aria-hidden className="size-3.5" strokeWidth={1.5} />
+              </a>
+              <Button
+                type="button"
+                variant="ghost"
+                size="lg"
+                disabled={saving}
+                onClick={() => void togglePublication()}
+              >
+                {vehicle.publication === "published" ? "Despublicar" : "Publicar"}
+              </Button>
+            </>
+          ) : null}
+
+          <Button type="submit" size="lg" disabled={saving}>
+            {saving ? (
+              "Guardando…"
+            ) : editing ? (
+              <>
+                <Save aria-hidden className="size-4" strokeWidth={1.5} />
+                Guardar cambios
+              </>
+            ) : (
+              <>
+                Guardar borrador
+                <ArrowRight aria-hidden className="size-4" strokeWidth={1.5} />
+              </>
+            )}
           </Button>
         </div>
       </form>

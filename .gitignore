@@ -43,3 +43,9 @@ node_modules
 
 # QA artefacts — screenshots are regenerated on demand, not product source
 /qa/screenshots/
+
+# env template is names only — never values — so it is tracked on purpose
+!.env.example
+
+# Prisma Client is generated from prisma/schema.prisma at install/build time
+/src/generated/

@@ -10,7 +10,7 @@ import { InventoryAnchorScroll } from "@/components/vehicle/InventoryAnchorScrol
 import { TypeSelector } from "@/components/vehicle/TypeSelector";
 import { VehicleGrid } from "@/components/vehicle/VehicleGrid";
 import { typeNoun } from "@/lib/categories";
-import { applyFilters, inventoryHref, parseFilters } from "@/lib/filters";
+import { inventoryHref, parseFilters, sortToQuery } from "@/lib/filters";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
 import { getFilterFacets, getVehicles } from "@/lib/vehicles";
 
@@ -29,19 +29,37 @@ const context = {
 export default async function InventoryPage(props: PageProps<"/vehiculos">) {
   const searchParams = await props.searchParams;
 
-  // Facets are scoped to the chosen universe, so the filters never offer a
-  // make or a year that this universe does not actually have. Parsed in two
-  // passes because the scope itself comes from the URL.
+  // Las facetas se acotan al universo elegido, para que los filtros nunca
+  // ofrezcan una marca o un año que ese universo no tiene. Se parsea en dos
+  // pasadas porque el ámbito sale de la propia URL.
   const preliminary = parseFilters(searchParams, []);
-  const [vehicles, facets] = await Promise.all([
-    getVehicles(),
+  const [facets, globalFacets] = await Promise.all([
     getFilterFacets(preliminary.tipo),
+    getFilterFacets("all"),
   ]);
-  // Validated against every make in the inventory, while the dropdown is
-  // still scoped: "Carros + KTM" is an honest zero, not a silent full list.
-  const allMakes = [...new Set(vehicles.map((v) => v.make))];
-  const filters = parseFilters(searchParams, allMakes);
-  const results = applyFilters(vehicles, filters);
+
+  // La marca se valida contra todo el inventario aunque el desplegable esté
+  // acotado: "Carros + KTM" es un cero honesto, no una lista completa en
+  // silencio. La categoría sí se valida contra el universo, porque una
+  // categoría pertenece a uno solo.
+  const filters = parseFilters(
+    searchParams,
+    globalFacets.makes,
+    facets.categories.map((category) => category.slug),
+  );
+
+  // El filtrado y el orden ocurren en la base: el navegador no necesita
+  // recibir el inventario entero para descartar la mayor parte.
+  const results = await getVehicles({
+    vehicleType: filters.tipo === "all" ? undefined : filters.tipo,
+    categorySlug: filters.categoria,
+    make: filters.marca,
+    minYear: filters.minYear,
+    maxYear: filters.maxYear,
+    minPrice: filters.minPrice,
+    maxPrice: filters.maxPrice,
+    sort: sortToQuery[filters.orden],
+  });
 
   const noun =
     filters.tipo === "all"
@@ -81,11 +99,7 @@ export default async function InventoryPage(props: PageProps<"/vehiculos">) {
 
           {filters.tipo !== "all" ? (
             <div className="mt-8">
-              <CategoryNav
-                filters={filters}
-                type={filters.tipo}
-                available={facets.categories}
-              />
+              <CategoryNav filters={filters} categories={facets.categories} />
             </div>
           ) : null}
 

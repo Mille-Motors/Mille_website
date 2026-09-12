@@ -14,16 +14,15 @@ import { VehicleEquipment } from "@/components/vehicle/VehicleEquipment";
 import { VehicleGallery } from "@/components/vehicle/VehicleGallery";
 import { VehicleSpecs, specRows } from "@/components/vehicle/VehicleSpecs";
 import { formatCOP, formatMileage, vehicleTitle } from "@/lib/format";
-import {
-  getAllVehicleSlugs,
-  getRelatedVehicles,
-  getVehicleBySlug,
-} from "@/lib/vehicles";
+import { getRelatedVehicles, getVehicleBySlug } from "@/lib/vehicles";
 
-export async function generateStaticParams() {
-  const slugs = await getAllVehicleSlugs();
-  return slugs.map((slug) => ({ slug }));
-}
+/**
+ * No hay `generateStaticParams`: la base es la fuente de verdad y publicar
+ * desde el admin tiene que verse de inmediato, no en el siguiente build.
+ * Prerenderizar aquí ataría además cada despliegue a que la base esté
+ * disponible en tiempo de compilación. Con 22 vehículos, consultar por
+ * petición no cuesta nada, y `revalidatePath` se encarga del caché de ruta.
+ */
 
 export async function generateMetadata(
   props: PageProps<"/vehiculos/[slug]">,
@@ -114,7 +113,7 @@ export default async function VehicleDetailPage(
                   COP
                 </span>
               </p>
-              <StatusPill status={vehicle.status} tone="onBurgundy" />
+              <StatusPill status={vehicle.availability} tone="onBurgundy" />
             </div>
           </div>
         </Container>

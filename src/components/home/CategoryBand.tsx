@@ -7,6 +7,11 @@ import { inventoryHref } from "@/lib/filters";
  * A curated shortcut into the inventory, not a mirror of the taxonomy: five
  * car categories plus motos as a whole universe. Each one lands on a real
  * filtered view.
+ *
+ * Los slugs están escritos aquí a propósito: esta banda es una decisión
+ * editorial sobre qué destacar, no un reflejo de la tabla de categorías. Si
+ * una de ellas se renombra o se desactiva, el enlace sigue siendo válido y
+ * cae en el estado vacío honesto del inventario.
  */
 type Entry = {
   label: string;
@@ -17,7 +22,7 @@ type Entry = {
 const entries: Entry[] = [
   {
     label: "SUV",
-    href: inventoryHref({ tipo: "auto", categoria: "SUV" }),
+    href: inventoryHref({ tipo: "auto", categoria: "suv" }),
     mark: (
       <>
         <path d="M3 15.5h18M5 15.5v-3.2l2.2-4.3h9.6l2.2 4.3v3.2" />
@@ -29,7 +34,7 @@ const entries: Entry[] = [
   },
   {
     label: "Sedanes",
-    href: inventoryHref({ tipo: "auto", categoria: "Sedán" }),
+    href: inventoryHref({ tipo: "auto", categoria: "sedan" }),
     mark: (
       <>
         <path d="M2.5 15.3h19M4.5 15.3v-2.4l2.3-3.6c.4-.6.8-.8 1.5-.8h7.4c.7 0 1.1.2 1.5.8l2.3 3.6v2.4" />
@@ -41,7 +46,7 @@ const entries: Entry[] = [
   },
   {
     label: "Híbridos",
-    href: inventoryHref({ tipo: "auto", categoria: "Híbrido" }),
+    href: inventoryHref({ tipo: "auto", categoria: "hibrido" }),
     mark: (
       <>
         <path d="M12 21c0-5.5 2.2-9.4 6.5-11.6C19 14 17.2 19 12 21Z" />
@@ -52,12 +57,12 @@ const entries: Entry[] = [
   },
   {
     label: "Eléctricos",
-    href: inventoryHref({ tipo: "auto", categoria: "Eléctrico" }),
+    href: inventoryHref({ tipo: "auto", categoria: "electrico" }),
     mark: <path d="M13.4 2.5 5.8 13.4h4.9L9.9 21.5 18.2 10h-5.2l.4-7.5Z" />,
   },
   {
     label: "Deportivos",
-    href: inventoryHref({ tipo: "auto", categoria: "Deportivo" }),
+    href: inventoryHref({ tipo: "auto", categoria: "deportivo" }),
     mark: (
       <>
         <path d="M2 15.2h20M3.8 15.2v-2l3.1-2.9c.5-.5 1-.7 1.7-.7h6.1c.9 0 1.5.3 2.2.9l3.1 2.7v2" />

@@ -1,27 +1,30 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
-import { categoriesFor, categoryPlural } from "@/lib/categories";
 import { inventoryHref, type InventoryFilters } from "@/lib/filters";
-import type { VehicleCategory, VehicleType } from "@/types/vehicle";
 
 /**
- * Categories read as editorial navigation rather than another dropdown.
- * Only the ones that actually have vehicles behind them are offered.
+ * Las categorías se leen como navegación editorial y no como otro
+ * desplegable. Solo se ofrecen las que tienen vehículos detrás: la lista
+ * viene de las facetas del inventario visible, no de una tabla completa.
  *
- * Phones get a three-column grid, not a horizontal scroller: every option has
- * to be readable without discovering that the row slides.
+ * En teléfono se dibuja como rejilla de tres columnas y no como carrusel:
+ * todas las opciones tienen que leerse sin descubrir que la fila se desliza.
  */
+export interface CategoryOption {
+  id: string;
+  name: string;
+  pluralName: string;
+  slug: string;
+}
+
 export function CategoryNav({
   filters,
-  type,
-  available,
+  categories,
 }: {
   filters: InventoryFilters;
-  type: VehicleType;
-  /** Categories present in the visible inventory for this universe. */
-  available: VehicleCategory[];
+  /** Categorías presentes en el inventario visible de este universo. */
+  categories: CategoryOption[];
 }) {
-  const categories = categoriesFor(type).filter((c) => available.includes(c));
   if (categories.length === 0) return null;
 
   const base = { tipo: filters.tipo, marca: filters.marca, orden: filters.orden };
@@ -34,19 +37,21 @@ export function CategoryNav({
       active: !filters.categoria,
     },
     ...categories.map((category) => ({
-      key: category,
-      label: categoryPlural[category],
-      href: inventoryHref({ ...base, categoria: category }),
-      active: filters.categoria === category,
+      key: category.id,
+      label: category.pluralName,
+      href: inventoryHref({ ...base, categoria: category.slug }),
+      active: filters.categoria === category.slug,
     })),
   ];
 
   return (
-    <nav aria-label={`Categorías de ${type === "moto" ? "motos" : "carros"}`}>
+    <nav
+      aria-label={`Categorías de ${filters.tipo === "moto" ? "motos" : "carros"}`}
+    >
       <ul
         className={cn(
-          // Grid on phones so nothing hides off-screen; an inline row from
-          // tablet up, where it fits.
+          // Rejilla en teléfono para que nada quede fuera de pantalla; fila
+          // en línea desde tablet, donde sí cabe.
           "grid grid-cols-3 border-t border-l border-stone",
           "sm:flex sm:flex-wrap sm:gap-x-9 sm:border-0",
         )}
@@ -60,7 +65,7 @@ export function CategoryNav({
               href={entry.href}
               aria-current={entry.active ? "page" : undefined}
               className={cn(
-                // 48px of height on phones keeps the touch target comfortable.
+                // 48px de alto en teléfono mantiene el objetivo táctil cómodo.
                 "flex h-12 items-center justify-center px-2 text-center font-serif text-[0.875rem] transition-colors",
                 "sm:h-auto sm:justify-start sm:border-b-2 sm:px-0 sm:py-2 sm:text-base",
                 entry.active

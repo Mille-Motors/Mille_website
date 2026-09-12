@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
+  Inbox,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -15,11 +16,14 @@ import {
 } from "lucide-react";
 import { Logo, Shield } from "@/components/brand/Logo";
 import { cn } from "@/lib/cn";
+import { createSupabaseBrowserClient } from "@/server/auth/supabase-browser";
+import type { AdminSession } from "@/types/admin";
 
 const nav = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard, exact: true },
   { label: "Vehículos", href: "/admin/vehiculos", icon: Car, exact: true },
   { label: "Nuevo vehículo", href: "/admin/vehiculos/nuevo", icon: Plus, exact: true },
+  { label: "Solicitudes", href: "/admin/solicitudes", icon: Inbox, exact: false },
   { label: "Categorías", href: "/admin/categorias", icon: Layers, exact: false },
   { label: "Configuración", href: "/admin/configuracion", icon: Settings, exact: false },
 ];
@@ -51,20 +55,44 @@ function NavList({ pathname }: { pathname: string }) {
   );
 }
 
-function SidebarFooter() {
+/**
+ * Cerrar sesión de verdad: borra la sesión de Supabase y, con ella, las
+ * cookies. El `refresh` posterior obliga al servidor a reevaluar la ruta, de
+ * modo que volver atrás con el botón del navegador no devuelve una pantalla
+ * privada renderizada de antes.
+ */
+function SidebarFooter({ session }: { session: AdminSession }) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+
+  const initials = session.email.slice(0, 2).toUpperCase();
+
+  async function signOut() {
+    if (pending) return;
+    setPending(true);
+    const supabase = createSupabaseBrowserClient();
+    await supabase.auth.signOut();
+    router.refresh();
+    router.replace("/admin/login");
+  }
+
   return (
     <div className="mt-auto border-t border-cream/10 px-4 py-5">
       <div className="flex items-center gap-3">
-        <span className="label-caps inline-flex size-9 items-center justify-center rounded-full bg-cream/10 text-[10px] text-cream">
-          AP
+        <span className="label-caps inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-cream/10 text-[10px] text-cream">
+          {initials}
         </span>
         <div className="min-w-0">
-          <p className="font-serif text-sm text-cream">Admin</p>
+          <p className="truncate font-serif text-sm text-cream" title={session.email}>
+            {session.name ?? session.email}
+          </p>
           <button
             type="button"
-            className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-cream/50 transition-colors hover:text-cream/80"
+            onClick={signOut}
+            disabled={pending}
+            className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-cream/50 transition-colors hover:text-cream/80 disabled:opacity-50"
           >
-            Cerrar sesión
+            {pending ? "Cerrando…" : "Cerrar sesión"}
             <LogOut aria-hidden className="size-3" strokeWidth={1.4} />
           </button>
         </div>
@@ -73,7 +101,13 @@ function SidebarFooter() {
   );
 }
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+export function AdminShell({
+  session,
+  children,
+}: {
+  session: AdminSession;
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [seenPath, setSeenPath] = useState(pathname);
@@ -103,7 +137,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <nav aria-label="Administración" className="px-3">
           <NavList pathname={pathname} />
         </nav>
-        <SidebarFooter />
+        <SidebarFooter session={session} />
       </aside>
 
       {/* Mobile top bar */}
@@ -149,7 +183,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <nav aria-label="Administración" className="px-3">
               <NavList pathname={pathname} />
             </nav>
-            <SidebarFooter />
+            <SidebarFooter session={session} />
           </div>
         </div>
       ) : null}

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
-import { categoryPlural, typeLabel } from "@/lib/categories";
+import { typeLabel } from "@/lib/categories";
 import { formatCOP } from "@/lib/format";
 import {
   activeFilterCount,
@@ -305,7 +305,12 @@ export function FilterBar({
       </div>
 
       {activeCount > 0 ? (
-        <ActiveChips filters={filters} onPatch={patch} onClear={clearAll} />
+        <ActiveChips
+          filters={filters}
+          facets={facets}
+          onPatch={patch}
+          onClear={clearAll}
+        />
       ) : null}
 
       {sheetOpen ? (
@@ -376,10 +381,12 @@ export function FilterBar({
 /** Active filters, as quiet removable text rather than SaaS pills. */
 function ActiveChips({
   filters,
+  facets,
   onPatch,
   onClear,
 }: {
   filters: InventoryFilters;
+  facets: InventoryFacets;
   onPatch: (patch: Patch) => void;
   onClear: () => void;
 }) {
@@ -389,8 +396,11 @@ function ActiveChips({
     chips.push({ label: filters.marca, clear: { marca: undefined } });
   }
   if (filters.categoria) {
+    // La etiqueta sale de las facetas: las categorías ya no son un mapa fijo
+    // en el código, y un slug suelto no es algo que nadie quiera leer.
+    const category = facets.categories.find((c) => c.slug === filters.categoria);
     chips.push({
-      label: categoryPlural[filters.categoria],
+      label: category?.pluralName ?? filters.categoria,
       clear: { categoria: undefined },
     });
   }

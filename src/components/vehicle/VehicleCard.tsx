@@ -12,10 +12,10 @@ const CARD_SIZES = "(min-width: 1024px) 31vw, (min-width: 640px) 46vw, 92vw";
  * has one, none of them mean anything.
  */
 function badgeFor(vehicle: Vehicle) {
-  if (vehicle.status === "sold") {
+  if (vehicle.availability === "sold") {
     return { label: "Vendido", className: "bg-ink/85 text-cream" };
   }
-  if (vehicle.status === "reserved") {
+  if (vehicle.availability === "reserved") {
     return { label: "Reservado", className: "bg-burgundy text-cream" };
   }
   if (vehicle.fuelType === "Eléctrico") {
@@ -40,7 +40,7 @@ export function VehicleCard({
 }) {
   const badge = badgeFor(vehicle);
   const cover = vehicle.images[0];
-  const sold = vehicle.status === "sold";
+  const sold = vehicle.availability === "sold";
   const name = [vehicle.model, vehicle.version].filter(Boolean).join(" ");
 
   return (

@@ -2,8 +2,8 @@ import { AdminPageHeader } from "@/components/admin/AdminShell";
 import { ButtonLink } from "@/components/ui/Button";
 
 /**
- * Placeholder for admin sections that only become meaningful once the
- * backend exists. Present so the sidebar has no dead links.
+ * Marcador para secciones del admin que todavía no tienen nada real que
+ * administrar. Existe para que la barra lateral no tenga enlaces muertos.
  */
 export function AdminPending({
   title,

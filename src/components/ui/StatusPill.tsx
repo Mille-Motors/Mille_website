@@ -1,29 +1,25 @@
 import { cn } from "@/lib/cn";
 import { statusMeta } from "@/lib/vehicle-status";
-import type { VehicleStatus } from "@/types/vehicle";
+import type { AvailabilityStatus } from "@/types/vehicle";
 
 /**
- * `onBurgundy` restyles the same three statuses for the vinotinto detail
- * hero, where the default green/pill treatment either disappears or reads as
- * a fourth strong color competing with the palette. Available becomes a
- * quiet hairline instead of a filled badge — it is the default state, not an
- * achievement — while reserved and sold stay legible without introducing
- * anything outside cream/burgundy.
+ * `onBurgundy` reestiliza los mismos tres estados para el hero vinotinto del
+ * detalle, donde el tratamiento verde por defecto o desaparece o se lee como
+ * un cuarto color fuerte compitiendo con la paleta. Disponible pasa a ser un
+ * filete discreto en vez de una insignia rellena — es el estado normal, no un
+ * logro — mientras reservado y vendido siguen legibles sin meter nada fuera
+ * de crema y vinotinto.
  */
-const onBurgundy: Record<VehicleStatus, string> = {
+const onBurgundy: Record<AvailabilityStatus, string> = {
   available: "border-cream/30 text-cream/75",
   reserved: "border-cream/40 bg-cream text-burgundy",
   sold: "border-cream/30 bg-cream/15 text-cream/80",
-  // Never actually shown here — drafts aren't public — kept only so the
-  // record stays total over VehicleStatus.
-  draft: "border-cream/30 bg-cream/15 text-cream/80",
 };
 
-const onBurgundyDot: Record<VehicleStatus, string> = {
+const onBurgundyDot: Record<AvailabilityStatus, string> = {
   available: "bg-cream/60",
   reserved: "bg-burgundy",
   sold: "bg-cream/60",
-  draft: "bg-cream/60",
 };
 
 export function StatusPill({
@@ -31,7 +27,7 @@ export function StatusPill({
   tone = "default",
   className,
 }: {
-  status: VehicleStatus;
+  status: AvailabilityStatus;
   tone?: "default" | "onBurgundy";
   className?: string;
 }) {
