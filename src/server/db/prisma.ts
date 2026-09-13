@@ -32,11 +32,23 @@ function createClient(): PrismaClient {
   return new PrismaClient({
     adapter: new PrismaPg({
       connectionString,
-      // El pooler cierra las conexiones ociosas por su cuenta; soltarlas
-      // antes desde aquí evita quedarse con sockets muertos entre invocaciones.
+      // Una piscina pequeña a propósito.
+      //
+      // El pooler de Supabase en modo sesión dedica una conexión real de
+      // Postgres a cada conexión de cliente, y aquí hay muchos procesos
+      // pidiendo a la vez: cada función serverless es uno, y `next build`
+      // levanta siete workers que prerenderizan en paralelo. Multiplicar eso
+      // por una piscina grande agota el pooler y se manifiesta como
+      // "timeout exceeded when trying to connect" en mitad del build.
+      //
+      // Estas rutas hacen una o dos consultas y terminan, así que dos
+      // conexiones por proceso sobran. Es más rápido esperar un turno que
+      // pelearse por un cupo que no existe.
+      max: 2,
       idleTimeoutMillis: 10_000,
-      connectionTimeoutMillis: 10_000,
-      max: 5,
+      // Con margen para aguantar la cola del pooler en un pico en vez de
+      // rendirse y tumbar el build.
+      connectionTimeoutMillis: 20_000,
     }),
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });

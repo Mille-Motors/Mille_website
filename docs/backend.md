@@ -284,6 +284,31 @@ afectada.
 admin tiene que verse de inmediato, y prerenderizar ataría cada despliegue a
 que la base esté disponible en tiempo de compilación.
 
+### Un slug inválido responde 200, no 404
+
+Se comprobó y se decidió dejarlo así.
+
+`/vehiculos/<slug-que-no-existe>` devuelve **200** con la página de "vehículo
+no encontrado" dentro: el contenido es el correcto, el `<title>` es el
+correcto y lleva `noindex`; lo que no es correcto es el código de estado.
+
+La causa es el orden de renderizado. Hay tres `loading.tsx` en la cadena
+—`(public)`, `(public)/vehiculos` y `(public)/vehiculos/[slug]`— y el de más
+arriba abre un Suspense que envía el esqueleto en cuanto empieza la
+respuesta. Para cuando la consulta descubre que el vehículo no existe, la
+cabecera 200 ya salió. Se intentó resolverlo con un layout de paso por
+encima de la frontera y no bastó: la frontera está más arriba todavía.
+
+Arreglarlo exige quitar esos esqueletos de carga, que son parte del frontend
+aprobado. Cambiar la experiencia de navegación de todo el inventario por el
+código de estado de una URL rota es un mal canje, y más estando el sitio
+entero en `noindex`. La API sí responde 404 de verdad
+(`GET /api/vehicles/<slug>`), que es donde importa para un cliente
+programático.
+
+Cuando se levante el `noindex` para el lanzamiento conviene volver a mirarlo:
+ahí un 200 en una URL inexistente sí tiene coste real.
+
 ## Administración
 
 `/admin`. No hay ningún enlace desde el sitio público, y no lo habrá: se

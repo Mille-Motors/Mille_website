@@ -17,6 +17,10 @@ const MAX_PER_WINDOW = 5;
 
 const hits = new Map<string, number[]>();
 
+function recent(key: string, now: number): number[] {
+  return (hits.get(key) ?? []).filter((at) => now - at < WINDOW_MS);
+}
+
 /** La IP del cliente según el proxy que tenga Vercel delante. */
 export function clientKey(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -24,24 +28,39 @@ export function clientKey(request: Request): string {
   return request.headers.get("x-real-ip") ?? "unknown";
 }
 
+/**
+ * Comprueba el límite sin consumirlo.
+ *
+ * Se cuentan los envíos que llegan a escribir, no los intentos. Alguien que
+ * se equivoca cinco veces escribiendo su teléfono está rellenando el
+ * formulario, no atacándolo, y dejarlo fuera diez minutos por eso convierte
+ * una protección antispam en un obstáculo para el cliente. Lo que hay que
+ * limitar son las filas que acaban en la base, que es lo que cuesta.
+ *
+ * Los intentos inválidos siguen siendo baratos: hay tope de cuerpo y la
+ * validación corta antes de tocar la base.
+ */
 export function enforceRateLimit(key: string): void {
   const now = Date.now();
-  const recent = (hits.get(key) ?? []).filter((at) => now - at < WINDOW_MS);
-
-  if (recent.length >= MAX_PER_WINDOW) {
+  if (recent(key, now).length >= MAX_PER_WINDOW) {
     throw new ApiError(
       "RATE_LIMITED",
       "Recibimos varios mensajes tuyos. Espera unos minutos antes de enviar otro.",
     );
   }
+}
 
-  recent.push(now);
-  hits.set(key, recent);
+/** Consume una unidad del límite. Se llama solo cuando algo se escribió. */
+export function recordRateLimitHit(key: string): void {
+  const now = Date.now();
+  const times = recent(key, now);
+  times.push(now);
+  hits.set(key, times);
 
   // El mapa no puede crecer sin fin en un proceso de vida larga.
   if (hits.size > 5000) {
-    for (const [entryKey, times] of hits) {
-      if (times.every((at) => now - at >= WINDOW_MS)) hits.delete(entryKey);
+    for (const [entryKey, stamps] of hits) {
+      if (stamps.every((at) => now - at >= WINDOW_MS)) hits.delete(entryKey);
     }
   }
 }

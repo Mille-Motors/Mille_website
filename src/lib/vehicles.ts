@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import {
   getInventoryFacets,
   getPublicVehicleBySlug,
@@ -36,9 +38,13 @@ export async function getFeaturedVehicles(limit = 4): Promise<Vehicle[]> {
   return listFeaturedVehicles(limit);
 }
 
-export async function getVehicleBySlug(slug: string): Promise<Vehicle | null> {
-  return getPublicVehicleBySlug(slug);
-}
+/**
+ * Memoizada por petición: `generateMetadata` y la propia página piden la
+ * misma ficha, y deben ver lo mismo sin que eso signifique dos consultas.
+ */
+export const getVehicleBySlug = cache(
+  async (slug: string): Promise<Vehicle | null> => getPublicVehicleBySlug(slug),
+);
 
 export async function getRelatedVehicles(
   vehicle: Vehicle,

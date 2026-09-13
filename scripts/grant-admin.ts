@@ -41,21 +41,48 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString }),
 });
 
-async function findAuthUserId(target: string): Promise<string | null> {
+/**
+ * Busca la cuenta en el directorio de Supabase.
+ *
+ * Distingue tres situaciones que conviene no confundir: la encontramos, no
+ * existe ninguna con ese correo, o no pudimos ni mirar. La segunda es casi
+ * siempre una errata en el correo, y avisar de ello ahorra el rato de
+ * intentar entrar con una cuenta que nunca va a autenticar.
+ */
+type AuthLookup =
+  | { state: "found"; id: string }
+  | { state: "absent" }
+  | { state: "unreadable" };
+
+async function findAuthUser(target: string): Promise<AuthLookup> {
   try {
     const rows = await prisma.$queryRaw<{ id: string }[]>`
       SELECT id::text AS id FROM auth.users WHERE lower(email) = ${target} LIMIT 1
     `;
-    return rows[0]?.id ?? null;
+    const id = rows[0]?.id;
+    return id ? { state: "found", id } : { state: "absent" };
   } catch {
-    // auth.users no es accesible con este rol. No es fatal: la fila se
-    // enlaza sola en el primer inicio de sesión.
-    return null;
+    // auth.users no es accesible con este rol: se enlazará en el primer
+    // inicio de sesión, que también resuelve por correo.
+    return { state: "unreadable" };
+  }
+}
+
+/** Los correos que sí existen, para poder señalar la errata. */
+async function listAuthEmails(): Promise<string[]> {
+  try {
+    const rows = await prisma.$queryRaw<{ email: string }[]>`
+      SELECT email FROM auth.users WHERE email IS NOT NULL ORDER BY created_at
+    `;
+    return rows.map((row) => row.email);
+  } catch {
+    return [];
   }
 }
 
 async function main() {
-  const authUserId = await findAuthUserId(email!);
+  const lookup = await findAuthUser(email!);
+  const authUserId = lookup.state === "found" ? lookup.id : null;
 
   if (revoke) {
     const existing = await prisma.adminUser.findUnique({ where: { email: email! } });
@@ -88,13 +115,40 @@ async function main() {
   });
 
   console.log(`Superadmin activo: ${admin.email}`);
-  console.log(
-    authUserId
-      ? "  Vinculado con su usuario de Supabase Auth."
-      : "  Todavía sin usuario en Supabase Auth: créalo en Authentication → Users.\n" +
-          "  El vínculo se hará solo en su primer inicio de sesión.",
+
+  if (lookup.state === "found") {
+    console.log("  Vinculado con su usuario de Supabase Auth.");
+    console.log("  Entra en /admin/login con ese correo y su contraseña.");
+    return;
+  }
+
+  if (lookup.state === "unreadable") {
+    console.log(
+      "  No se pudo consultar auth.users con este rol. Si la cuenta existe,\n" +
+        "  el vínculo se hará solo en su primer inicio de sesión.",
+    );
+    return;
+  }
+
+  // No hay ninguna cuenta con ese correo. Es lo más parecido a una errata, y
+  // callarlo dejaría una fila que nunca podrá autenticar.
+  console.warn(
+    `\n  AVISO: no existe ninguna cuenta en Supabase Auth con ${email}.\n` +
+      "  Esta fila no podrá iniciar sesión hasta que exista.",
   );
-  console.log("  Entra en /admin/login con ese correo y su contraseña.");
+  const existing = await listAuthEmails();
+  if (existing.length > 0) {
+    console.warn("\n  Cuentas que sí existen en Supabase Auth:");
+    for (const found of existing) console.warn(`    · ${found}`);
+    console.warn(
+      "\n  Si te equivocaste de correo, revoca esta fila y concede la correcta:\n" +
+        `    npm run admin:grant -- ${email} --revoke`,
+    );
+  } else {
+    console.warn(
+      "\n  Crea la cuenta en Supabase → Authentication → Users → Add user.",
+    );
+  }
 }
 
 main()

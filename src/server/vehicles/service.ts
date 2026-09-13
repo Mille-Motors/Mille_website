@@ -3,6 +3,7 @@ import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db/prisma";
 import { conflict, notFound } from "@/server/http/errors";
+import { publicationBlockers } from "@/lib/publication";
 import { uniqueVehicleSlug } from "@/server/vehicles/slug";
 import {
   toDbAvailability,
@@ -464,20 +465,6 @@ export async function updateVehicle(
   });
 
   return toVehicleDto(record as VehicleRecord);
-}
-
-/** Lo mínimo para que un vehículo pueda estar en el sitio público. */
-export function publicationBlockers(vehicle: Vehicle): string[] {
-  const blockers: string[] = [];
-  if (!vehicle.make.trim() || !vehicle.model.trim()) {
-    blockers.push("Faltan la marca o el modelo.");
-  }
-  if (vehicle.price <= 0) blockers.push("Falta el precio.");
-  if (!vehicle.description.trim()) blockers.push("Falta la descripción.");
-  if (vehicle.images.length === 0 || vehicle.images[0].id === "placeholder") {
-    blockers.push("Falta al menos una fotografía.");
-  }
-  return blockers;
 }
 
 export async function setPublication(

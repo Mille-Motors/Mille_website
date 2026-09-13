@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { SUPABASE_PUBLIC_KEY, SUPABASE_URL } from "@/server/auth/config";
+import { assertSupabaseConfig } from "@/server/auth/config";
 
 /**
  * En Next.js 16 el antiguo `middleware.ts` se llama `proxy.ts`.
@@ -21,12 +21,19 @@ import { SUPABASE_PUBLIC_KEY, SUPABASE_URL } from "@/server/auth/config";
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  // Sin configuración de Supabase no hay sesión que refrescar. Se deja pasar
-  // para que el sitio público siga funcionando y el admin falle con un
-  // mensaje claro en vez de un 500 opaco desde el proxy.
-  if (!SUPABASE_URL || !SUPABASE_PUBLIC_KEY) return response;
+  // Sin configuración de Supabase —o con una mal formada— no hay sesión que
+  // refrescar. Se deja pasar para que el sitio público siga funcionando y
+  // sea la página del admin la que explique qué falta, en vez de un 500
+  // opaco desde el proxy. Pasa por la misma validación que el resto para no
+  // tener dos ideas distintas de qué es una configuración correcta.
+  let config: { url: string; key: string };
+  try {
+    config = assertSupabaseConfig();
+  } catch {
+    return response;
+  }
 
-  const supabase = createServerClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY, {
+  const supabase = createServerClient(config.url, config.key, {
     cookies: {
       getAll() {
         return request.cookies.getAll();
