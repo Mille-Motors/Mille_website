@@ -7,10 +7,16 @@ import { PrismaClient } from "@/generated/prisma/client";
  * Cliente Prisma del runtime.
  *
  * Prisma 7 no lleva motor nativo: la conexión la abre `pg` a través del
- * driver adapter, y por eso la URL se pasa aquí y no en el schema. Apunta al
- * *session pooler* de Supabase, que es el que aguanta el patrón de muchas
- * conexiones cortas de las funciones serverless. Las migraciones usan la
- * conexión directa (DIRECT_URL) desde prisma7.config.ts.
+ * driver adapter, y por eso la URL se pasa aquí y no en el schema.
+ *
+ * DATABASE_URL apunta al *transaction pooler* de Supavisor (6543). Es el
+ * modo que corresponde a un despliegue serverless: devuelve la conexión de
+ * servidor al terminar cada transacción, de modo que muchas instancias
+ * efímeras comparten pocas conexiones reales de Postgres. El modo sesión
+ * (5432) dedica una conexión por cliente y se agota en cuanto Vercel escala.
+ *
+ * Las migraciones NO pueden ir por aquí: necesitan DDL, advisory locks y
+ * estado de sesión. Usan DIRECT_URL desde prisma7.config.ts.
  *
  * Se construye de forma perezosa, en el primer uso real, por dos razones:
  * `next build` evalúa los módulos de cada ruta para recoger su
@@ -32,22 +38,26 @@ function createClient(): PrismaClient {
   return new PrismaClient({
     adapter: new PrismaPg({
       connectionString,
-      // Una piscina pequeña a propósito.
+
+      // NO se define `statementNameGenerator`, y es una decisión, no un
+      // olvido: sin él el adaptador manda las sentencias sin nombre y no las
+      // cachea, que es justo lo que exige un pooler en modo transacción.
+      // Activarlo daría "prepared statement already exists" en cuanto dos
+      // peticiones cayeran en la misma conexión de servidor.
       //
-      // El pooler de Supabase en modo sesión dedica una conexión real de
-      // Postgres a cada conexión de cliente, y aquí hay muchos procesos
-      // pidiendo a la vez: cada función serverless es uno, y `next build`
-      // levanta siete workers que prerenderizan en paralelo. Multiplicar eso
-      // por una piscina grande agota el pooler y se manifiesta como
-      // "timeout exceeded when trying to connect" en mitad del build.
-      //
-      // Estas rutas hacen una o dos consultas y terminan, así que dos
-      // conexiones por proceso sobran. Es más rápido esperar un turno que
-      // pelearse por un cupo que no existe.
+      // Tampoco hace falta `?pgbouncer=true` en la URL: ese parámetro era
+      // del motor Rust de Prisma 5/6. En Prisma 7 está en la lista de
+      // parámetros heredados que el CLI ignora, y el adaptador no lo mira.
+
+      // Piscina pequeña a propósito. Cada instancia serverless tiene la
+      // suya, así que el número se multiplica por cuantas Vercel levante; y
+      // `next build` arranca siete workers que prerenderizan en paralelo.
+      // Con el pooler en modo transacción dos conexiones por proceso cubren
+      // los pares de consultas que las páginas lanzan con Promise.all, sin
+      // acumular conexiones ociosas.
       max: 2,
       idleTimeoutMillis: 10_000,
-      // Con margen para aguantar la cola del pooler en un pico en vez de
-      // rendirse y tumbar el build.
+      // Margen para esperar turno en un pico en vez de rendirse.
       connectionTimeoutMillis: 20_000,
     }),
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],

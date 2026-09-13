@@ -35,16 +35,46 @@ Dos reglas que sostienen el resto:
 Los nombres están en `.env.example`. Para trabajar en local, cópialo a
 `.env.local` y rellénalo.
 
-| Variable | Para qué | Dónde se consigue |
-| --- | --- | --- |
-| `DATABASE_URL` | Runtime de la app | Supabase → Connect → **Session pooler** |
-| `DIRECT_URL` | Migraciones y seed | Supabase → Connect → **Direct connection** |
-| `NEXT_PUBLIC_SUPABASE_URL` | Auth y Storage | Supabase → Project Settings → API |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Auth y Storage | Supabase → API Keys |
+| Variable | Para qué | Dónde se consigue | Puerto |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | Runtime de la app | Supabase → Connect → **Transaction pooler** | 6543 |
+| `DIRECT_URL` | Migraciones y seed | Supabase → Connect → **Direct connection** | 5432 |
+| `NEXT_PUBLIC_SUPABASE_URL` | Auth y Storage | Supabase → Project Settings → API | — |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Auth y Storage | Supabase → API Keys | — |
 
-El pooler aguanta el patrón de conexiones cortas de las funciones
-serverless; la conexión directa es la que admite el DDL y los advisory locks
-que necesita Prisma Migrate. Por eso son dos.
+Son dos conexiones porque hacen dos cosas distintas.
+
+**El runtime va por el pooler en modo transacción.** Supavisor devuelve la
+conexión de servidor al terminar cada transacción, de modo que muchas
+instancias serverless comparten pocas conexiones reales de Postgres. El modo
+sesión (5432) dedica una conexión por cliente y se agota en cuanto Vercel
+escala; durante el QA ya dio `timeout exceeded when trying to connect` con
+solo los siete workers de `next build`.
+
+**Las migraciones van por la conexión directa.** Necesitan DDL, advisory
+locks y estado de sesión, y nada de eso sobrevive a un pooler que recicla la
+conexión entre transacciones.
+
+### Por qué NO lleva `?pgbouncer=true`
+
+En Prisma 5 y 6, con el motor Rust, había que añadir ese parámetro para
+desactivar las sentencias preparadas al pasar por un pooler. **En Prisma 7 no
+aplica y añadirlo no haría nada:** figura en la lista de parámetros heredados
+que el CLI ignora.
+
+Lo que de verdad importa ahora está en `@prisma/adapter-pg`: solo cachea
+sentencias preparadas si se le pasa `statementNameGenerator`, y
+deliberadamente no se le pasa. Sin él manda las sentencias sin nombre, que es
+lo que el modo transacción admite.
+
+> Si alguien añade `statementNameGenerator` buscando rendimiento, romperá
+> producción con `prepared statement "s0" already exists` en cuanto dos
+> peticiones caigan en la misma conexión de servidor. Está anotado en
+> `src/server/db/prisma.ts`, junto al código.
+
+Se verificó contra el pooler real: 30 ejecuciones idénticas seguidas, 40
+consultas en paralelo, transacción interactiva y transacción por lotes, más
+`BigInt` y `text[]` de ida y vuelta. Sin un solo error.
 
 Si tu proyecto todavía muestra una *anon key* en lugar de una *publishable
 key*, define `NEXT_PUBLIC_SUPABASE_ANON_KEY`: la aplicación acepta
@@ -357,6 +387,36 @@ No hay ningún camino por el que se despliegue un inventario inventado.
 Las migraciones **no** corren solas en el despliegue. Se aplican a propósito
 desde una máquina con `npm run db:deploy`, para que ningún build pueda
 alterar el esquema de producción por su cuenta.
+
+## Deuda de dependencias
+
+`npm audit` reporta **4 avisos de severidad alta**. Los cuatro salen de la
+misma raíz, el CLI de Prisma:
+
+```
+prisma (devDependency)
+├─┬ @prisma/config
+│ └── deepmerge-ts   ← agotamiento de pila al fusionar objetos recursivos
+└── mysql2           ← degradación del plugin de auth, y zlib sin límite
+```
+
+**No llegan al runtime.** `prisma` es `devDependency` —solo se usa para
+`generate`, `migrate` y `seed`— mientras que lo que se despliega es
+`@prisma/client`, que no depende de ninguno de los dos. `mysql2` es el driver
+de MySQL que el CLI trae para otras bases de datos; este proyecto es Postgres
+y nada lo importa. Se comprobó: no hay una sola referencia a `mysql2` ni a
+`deepmerge-ts` en `src/`, `prisma/` ni `scripts/`.
+
+**No se ejecuta `npm audit fix --force`.** Lo que haría es degradar a
+`prisma@6`, que es un cambio mayor: Prisma 6 usa el motor Rust en vez del
+compilador de consultas en TypeScript, con lo que volverían a hacer falta los
+parámetros heredados de conexión y cambiaría el modelo de driver adapters
+entero. Cambiar la arquitectura de acceso a datos para silenciar un aviso en
+un paquete que no se despliega es un mal canje.
+
+**Qué hacer con esto:** revisar al actualizar Prisma. En cuanto el CLI
+publique una versión con `@prisma/config` sobre `deepmerge-ts >= 8` y un
+`mysql2 > 3.23.0`, los cuatro avisos desaparecen sin tocar nada más.
 
 ## Pendiente, a propósito
 
