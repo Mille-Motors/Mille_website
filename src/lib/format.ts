@@ -33,6 +33,37 @@ export function vehicleTitle(vehicle: {
     .join(" ");
 }
 
+/**
+ * Agrupa los miles a la colombiana: 289900000 -> "289.900.000".
+ *
+ * Trabaja sobre la cadena de dígitos y no sobre un number, para que un campo
+ * a medio escribir se pueda formatear sin pasar por una conversión que
+ * perdería los ceros a la izquierda o convertiría "" en 0.
+ */
+export function groupDigits(digits: string): string {
+  const clean = digits.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+  if (clean === "") return "";
+  return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+/** Los dígitos de una cadena cualquiera. "$ 1.000" -> "1000". */
+export function onlyDigits(input: string): string {
+  return input.replace(/\D/g, "");
+}
+
+/**
+ * El número que representa un texto escrito por una persona, o `null` si no
+ * escribió nada. Devolver null y no 0 es la diferencia entre "sin rellenar" y
+ * "cero kilómetros", que para MILLE son cosas distintas: un importado nuevo
+ * tiene 0 km de verdad.
+ */
+export function parseGrouped(input: string): number | null {
+  const digits = onlyDigits(input);
+  if (digits === "") return null;
+  const value = Number(digits);
+  return Number.isSafeInteger(value) ? value : null;
+}
+
 export function slugify(input: string): string {
   return input
     .normalize("NFD")

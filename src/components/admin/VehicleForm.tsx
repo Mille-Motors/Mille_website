@@ -8,6 +8,7 @@ import { AdminPageHeader } from "@/components/admin/AdminShell";
 import { ImageManager } from "@/components/admin/ImageManager";
 import { Button } from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Field";
+import { NumberField } from "@/components/ui/NumberField";
 import { PublicationPill } from "@/components/ui/PublicationPill";
 import { adminJson } from "@/lib/admin-client";
 import { typeLabel } from "@/lib/categories";
@@ -36,8 +37,9 @@ interface Draft {
   model: string;
   version: string;
   year: number;
-  price: number;
-  mileage: number;
+  /** `null` es "sin rellenar". 0 es cero de verdad, y en kilometraje es válido. */
+  price: number | null;
+  mileage: number | null;
   categoryId: string;
   fuelType: string;
   transmission: string;
@@ -60,8 +62,8 @@ function emptyDraft(categories: VehicleCategory[]): Draft {
     model: "",
     version: "",
     year: new Date().getFullYear(),
-    price: 0,
-    mileage: 0,
+    price: null,
+    mileage: null,
     categoryId: firstAuto?.id ?? categories[0]?.id ?? "",
     fuelType: "Gasolina",
     transmission: "Automática",
@@ -147,8 +149,11 @@ export function VehicleForm({
     if (!draft.make.trim()) next.make = "Indica la marca.";
     if (!draft.model.trim()) next.model = "Indica el modelo.";
     if (!draft.year || draft.year < 1900) next.year = "Año no válido.";
-    if (!draft.price || draft.price <= 0) next.price = "Indica un precio.";
-    if (draft.mileage < 0) next.mileage = "Kilometraje no válido.";
+    if (draft.price === null || draft.price <= 0) next.price = "Indica un precio.";
+    // Se compara contra null explícitamente: 0 km es un valor legítimo —un
+    // importado nuevo, una unidad sin uso— y `!draft.mileage` lo rechazaría.
+    if (draft.mileage === null) next.mileage = "Indica el kilometraje.";
+    else if (draft.mileage < 0) next.mileage = "Kilometraje no válido.";
     if (!draft.categoryId) next.categoryId = "Elige una categoría.";
     if (!draft.description.trim()) next.description = "Escribe una descripción.";
     if (!draft.city.trim()) next.city = "Indica la ciudad.";
@@ -165,6 +170,9 @@ export function VehicleForm({
 
     const payload = {
       ...draft,
+      // validate() ya garantizó que ninguno es null.
+      price: draft.price ?? 0,
+      mileage: draft.mileage ?? 0,
       equipment: equipmentText
         .split("\n")
         .map((line) => line.trim())
@@ -309,23 +317,23 @@ export function VehicleForm({
               error={errors.year}
               onChange={(e) => set("year", Number(e.target.value))}
             />
-            <Input
+            <NumberField
               label="Precio"
-              type="number"
               required
-              inputMode="numeric"
-              value={draft.price || ""}
+              prefix="$"
+              max={100_000_000_000}
+              value={draft.price}
               error={errors.price}
-              onChange={(e) => set("price", Number(e.target.value))}
+              onChange={(next) => set("price", next)}
             />
-            <Input
+            <NumberField
               label="Kilometraje"
-              type="number"
               required
-              inputMode="numeric"
-              value={draft.mileage || ""}
+              suffix="km"
+              max={2_000_000}
+              value={draft.mileage}
               error={errors.mileage}
-              onChange={(e) => set("mileage", Number(e.target.value))}
+              onChange={(next) => set("mileage", next)}
             />
 
             <Select
