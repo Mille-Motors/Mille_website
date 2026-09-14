@@ -79,8 +79,9 @@ describe("consulta de vehículos del admin", () => {
 });
 
 describe("consulta de solicitudes del admin", () => {
-  it("por defecto: 25 por página, página 1, sin filtros", () => {
+  it("por defecto: bandeja activa, 25 por página, página 1, sin filtros", () => {
     const q = adminInquiryQuerySchema.parse({});
+    assert.equal(q.view, "activas");
     assert.equal(q.limit, 25);
     assert.equal(q.page, 1);
     assert.equal(q.status, undefined);
@@ -95,6 +96,7 @@ describe("consulta de solicitudes del admin", () => {
       vehicleType: "moto",
       q: "ana",
     });
+    assert.equal(q.view, "activas");
     assert.equal(q.status, "new");
     assert.equal(q.type, "appointment");
     assert.equal(q.vehicleType, "moto");

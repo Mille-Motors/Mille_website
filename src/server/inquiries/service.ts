@@ -9,6 +9,7 @@ import type {
   InquiryInput,
 } from "@/server/inquiries/schemas";
 import type { InquiryStatus, InquiryType, Inquiry } from "@/types/vehicle";
+import { inquiryViewStatuses } from "@/lib/inquiry-views";
 import type {
   InquiryStatus as DbInquiryStatus,
   InquiryType as DbInquiryType,
@@ -150,7 +151,13 @@ export async function createInquiry(
 function inquiryWhere(query: AdminInquiryQuery): Prisma.InquiryWhereInput {
   const where: Prisma.InquiryWhereInput = {};
 
-  if (query.status) where.status = toDbStatus[query.status];
+  // Siempre se acota por bandeja. Sin esto una solicitud cerrada seguiría
+  // apareciendo entre las pendientes, que es justo lo que se quería separar.
+  const statuses = query.status
+    ? [query.status]
+    : inquiryViewStatuses[query.view];
+  where.status = { in: statuses.map((status) => toDbStatus[status]) };
+
   if (query.type) where.type = toDbType[query.type];
 
   if (query.vehicleId === "none") {
@@ -252,6 +259,25 @@ export async function countInquiriesByStatus(): Promise<
     closed: rows.find((r) => r.status === "CLOSED")?._count._all ?? 0,
     spam: rows.find((r) => r.status === "SPAM")?._count._all ?? 0,
   };
+}
+
+/**
+ * Borrado definitivo. No hay papelera: una solicitud que alguien decidió
+ * eliminar —cerrada o spam— se va de verdad.
+ *
+ * Devuelve lo que había para que quien llama pueda dejar constancia de qué
+ * se borró; la fila ya no estará para consultarla después.
+ */
+export async function deleteInquiry(id: string): Promise<Inquiry> {
+  try {
+    const record = await prisma.inquiry.delete({
+      where: { id },
+      include: inquiryInclude,
+    });
+    return toInquiryDto(record);
+  } catch {
+    throw notFound("Esa solicitud no existe.");
+  }
 }
 
 export async function setInquiryStatus(

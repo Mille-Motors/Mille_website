@@ -3,24 +3,24 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bike, Car, ChevronDown, Search, X } from "lucide-react";
+import { Bike, Car, ChevronDown, Search, Trash2, X } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { adminJson } from "@/lib/admin-client";
+import { adminJson, adminRequest } from "@/lib/admin-client";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/format";
 import { typeLabel } from "@/lib/categories";
-import { INQUIRY_STATUSES, INQUIRY_TYPES, VEHICLE_TYPES } from "@/types/vehicle";
+import {
+  INQUIRY_VIEWS,
+  allowsDeletion,
+  inquiryViewLabels,
+  inquiryViewStatuses,
+  type InquiryView,
+} from "@/lib/inquiry-views";
+import { INQUIRY_TYPES, VEHICLE_TYPES } from "@/types/vehicle";
 import type { Inquiry, InquiryStatus, InquiryType } from "@/types/vehicle";
 import type { AdminInquiryQuery } from "@/server/inquiries/schemas";
 import type { InquiryVehicleOption } from "@/server/inquiries/service";
-
-const statusLabels: Record<InquiryStatus, string> = {
-  new: "Nuevas",
-  contacted: "Contactadas",
-  closed: "Cerradas",
-  spam: "Spam",
-};
 
 /** Singular, para la insignia de una fila. */
 const statusBadge: Record<InquiryStatus, string> = {
@@ -49,6 +49,8 @@ function buildHref(query: Partial<AdminInquiryQuery>): string {
     if (value === undefined || value === null || value === "") return;
     params.set(key, String(value));
   };
+  // La bandeja de trabajo es la de por defecto, así que no ensucia la URL.
+  if (query.view && query.view !== "activas") set("view", query.view);
   set("status", query.status);
   set("type", query.type);
   set("vehicleType", query.vehicleType);
@@ -94,6 +96,107 @@ function Select({
   );
 }
 
+const rowAction =
+  "label-caps rounded-xs border border-stone px-3 py-1.5 text-[10px] text-ink transition-colors hover:border-ink/40 disabled:opacity-40";
+
+/**
+ * Acciones de una solicitud.
+ *
+ * Borrar y "spam y eliminar" piden confirmación en la propia fila, igual que
+ * el borrado de vehículos: es definitivo y no debe caber en un solo clic.
+ */
+function RowActions({
+  inquiry,
+  view,
+  busy,
+  onStatus,
+  onDelete,
+}: {
+  inquiry: Inquiry;
+  view: InquiryView;
+  busy: boolean;
+  onStatus: (id: string, status: InquiryStatus) => void;
+  onDelete: (id: string, reason?: "spam") => void;
+}) {
+  const [confirming, setConfirming] = useState<null | "delete" | "spam">(null);
+
+  if (confirming) {
+    return (
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <span className="font-serif text-xs text-ink-soft">
+          {confirming === "spam"
+            ? "¿Marcar como spam y eliminarla definitivamente? Esta acción no se puede deshacer."
+            : "¿Eliminar esta solicitud definitivamente? Esta acción no se puede deshacer."}
+        </span>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onDelete(inquiry.id, confirming === "spam" ? "spam" : undefined)}
+          className="label-caps rounded-xs bg-burgundy px-3 py-1.5 text-[10px] text-cream disabled:opacity-40"
+        >
+          Sí, eliminar
+        </button>
+        <button
+          type="button"
+          onClick={() => setConfirming(null)}
+          className={rowAction}
+        >
+          Cancelar
+        </button>
+      </div>
+    );
+  }
+
+  // Dentro de una bandeja solo se ofrecen los estados que sacan la solicitud
+  // de ella o la mueven dentro: repetir el estado actual no hace nada.
+  const moves = (["new", "contacted", "closed", "spam"] as const).filter(
+    (status) => status !== inquiry.status,
+  );
+
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-2">
+      {moves.map((status) => (
+        <button
+          key={status}
+          type="button"
+          disabled={busy}
+          onClick={() => onStatus(inquiry.id, status)}
+          className={rowAction}
+        >
+          {status === "spam" ? "Marcar como spam" : statusBadge[status]}
+        </button>
+      ))}
+
+      {view === "activas" ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setConfirming("spam")}
+          className={cn(rowAction, "hover:border-burgundy/40 hover:text-burgundy")}
+        >
+          Spam y eliminar
+        </button>
+      ) : null}
+
+      {allowsDeletion(view) ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setConfirming("delete")}
+          aria-label={`Eliminar la solicitud de ${inquiry.name}`}
+          className={cn(
+            rowAction,
+            "inline-flex items-center gap-1.5 hover:border-burgundy/40 hover:text-burgundy",
+          )}
+        >
+          <Trash2 aria-hidden className="size-3" strokeWidth={1.5} />
+          Eliminar solicitud
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export function InquiriesAdmin({
   inquiries,
   counts,
@@ -112,9 +215,8 @@ export function InquiriesAdmin({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(query.q ?? "");
-  // Si la URL cambia por otra vía —atrás, Limpiar filtros— el input tiene que
-  // seguirla. Se deriva durante el render en vez de con un efecto, que
-  // encadenaría un segundo render por cada navegación.
+
+  // Si la URL cambia por otra vía —atrás, Limpiar filtros— el input la sigue.
   const [seenQ, setSeenQ] = useState(query.q);
   if (seenQ !== query.q) {
     setSeenQ(query.q);
@@ -136,7 +238,23 @@ export function InquiriesAdmin({
     router.refresh();
   }
 
-  /** Cambiar un filtro vuelve a la página 1. */
+  async function remove(id: string, reason?: "spam") {
+    if (busy) return;
+    setBusy(id);
+    setError(null);
+    const result = await adminRequest(
+      `/api/admin/inquiries/${id}${reason ? `?reason=${reason}` : ""}`,
+      { method: "DELETE" },
+    );
+    setBusy(null);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    router.refresh();
+  }
+
+  /** Cambiar bandeja o filtro vuelve a la página 1. */
   function go(patch: Partial<AdminInquiryQuery>) {
     startTransition(() =>
       router.push(buildHref({ ...query, ...patch, page: 1 })),
@@ -151,7 +269,9 @@ export function InquiriesAdmin({
         : "border-stone text-ink-soft hover:border-stone-strong",
     );
 
-  const allCount = Object.values(counts).reduce((sum, n) => sum + n, 0);
+  const viewCount = (view: InquiryView) =>
+    inquiryViewStatuses[view].reduce((sum, status) => sum + counts[status], 0);
+
   const activeCount = [
     query.status,
     query.type,
@@ -160,13 +280,28 @@ export function InquiriesAdmin({
     query.q,
   ].filter((value) => value !== undefined).length;
 
-  // El selector de vehículo se acota al universo elegido, para no ofrecer un
-  // carro cuando se está mirando motos.
+  // El selector de vehículo se acota al universo elegido.
   const vehicles = query.vehicleType
     ? vehicleOptions.filter((option) => option.vehicleType === query.vehicleType)
     : vehicleOptions;
 
   const pages = Math.max(1, Math.ceil(total / query.limit));
+  const subStatuses = inquiryViewStatuses[query.view];
+
+  const emptyCopy: Record<InquiryView, { title: string; description: string }> = {
+    activas: {
+      title: "No hay solicitudes pendientes.",
+      description: "Todo lo que ha llegado está cerrado o marcado como spam.",
+    },
+    cerradas: {
+      title: "No hay solicitudes cerradas.",
+      description: "Aquí quedan las que ya atendiste, por si hace falta consultarlas.",
+    },
+    spam: {
+      title: "No hay solicitudes marcadas como spam.",
+      description: "Lo que marques como spam aparecerá aquí.",
+    },
+  };
 
   return (
     <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
@@ -176,31 +311,53 @@ export function InquiriesAdmin({
       />
 
       <div className={cn("grid gap-4", navigating && "opacity-60")} aria-busy={navigating}>
-        {/* Estado, que es el filtro de uso diario */}
+        {/* Bandejas */}
         <div className="-mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
           <div className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
-            <button
-              type="button"
-              onClick={() => go({ status: undefined })}
-              className={chip(!query.status)}
-            >
-              Todas <span className="opacity-60 tabular">{allCount}</span>
-            </button>
-            {INQUIRY_STATUSES.map((key) => (
+            {INQUIRY_VIEWS.map((view) => (
               <button
-                key={key}
+                key={view}
                 type="button"
-                onClick={() => go({ status: query.status === key ? undefined : key })}
-                className={chip(query.status === key)}
+                onClick={() => go({ view, status: undefined })}
+                aria-current={query.view === view ? "page" : undefined}
+                className={chip(query.view === view)}
               >
-                {statusLabels[key]}{" "}
-                <span className="opacity-60 tabular">{counts[key]}</span>
+                {inquiryViewLabels[view]}{" "}
+                <span className="opacity-60 tabular">{viewCount(view)}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Búsqueda y filtros por tipo y vehículo */}
+        {/* Dentro de Activas: nuevas o contactadas */}
+        {subStatuses.length > 1 ? (
+          <div className="-mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+            <div className="flex w-max items-center gap-2 sm:w-auto sm:flex-wrap">
+              <button
+                type="button"
+                onClick={() => go({ status: undefined })}
+                className={chip(!query.status)}
+              >
+                Todas
+              </button>
+              {subStatuses.map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() =>
+                    go({ status: query.status === status ? undefined : status })
+                  }
+                  className={chip(query.status === status)}
+                >
+                  {statusBadge[status]}{" "}
+                  <span className="opacity-60 tabular">{counts[status]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Búsqueda y filtros */}
         <div className="grid gap-4 border border-stone bg-paper px-5 py-5 sm:grid-cols-2 lg:grid-cols-4">
           <form
             onSubmit={(event) => {
@@ -251,7 +408,6 @@ export function InquiriesAdmin({
               }
               go({
                 vehicleType: (value || undefined) as "auto" | "moto" | undefined,
-                // El vehículo elegido puede no pertenecer al nuevo universo.
                 vehicleId: undefined,
               });
             }}
@@ -283,13 +439,17 @@ export function InquiriesAdmin({
           <p className="font-serif text-sm text-ink-muted tabular">
             {total} {total === 1 ? "solicitud" : "solicitudes"}
             {activeCount > 0 ? " con estos filtros" : ""}
+            {" en "}
+            {inquiryViewLabels[query.view].toLowerCase()}
           </p>
           {activeCount > 0 ? (
             <button
               type="button"
               onClick={() => {
                 setSearch("");
-                startTransition(() => router.push("/admin/solicitudes"));
+                startTransition(() =>
+                  router.push(buildHref({ view: query.view })),
+                );
               }}
               className="label-caps inline-flex items-center gap-1.5 text-[10px] text-ink-muted underline underline-offset-4 transition-colors hover:text-burgundy"
             >
@@ -313,12 +473,12 @@ export function InquiriesAdmin({
               title={
                 activeCount > 0
                   ? "No hay solicitudes con estos filtros."
-                  : "No hay solicitudes que mostrar."
+                  : emptyCopy[query.view].title
               }
               description={
                 activeCount > 0
                   ? "Prueba a quitar alguno."
-                  : "Aquí aparecerá lo que envíe la gente desde el sitio público."
+                  : emptyCopy[query.view].description
               }
             />
           </div>
@@ -398,21 +558,13 @@ export function InquiriesAdmin({
                   </p>
                 ) : null}
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {INQUIRY_STATUSES.filter((key) => key !== inquiry.status).map(
-                    (key) => (
-                      <button
-                        key={key}
-                        type="button"
-                        disabled={busy !== null}
-                        onClick={() => void setStatus(inquiry.id, key)}
-                        className="label-caps rounded-xs border border-stone px-3 py-1.5 text-[10px] text-ink transition-colors hover:border-ink/40 disabled:opacity-40"
-                      >
-                        {statusBadge[key]}
-                      </button>
-                    ),
-                  )}
-                </div>
+                <RowActions
+                  inquiry={inquiry}
+                  view={query.view}
+                  busy={busy !== null}
+                  onStatus={(id, status) => void setStatus(id, status)}
+                  onDelete={(id, reason) => void remove(id, reason)}
+                />
               </li>
             ))}
           </ul>

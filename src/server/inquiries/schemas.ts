@@ -4,6 +4,11 @@ import {
   INQUIRY_TYPES,
   VEHICLE_TYPES,
 } from "@/types/vehicle";
+import {
+  INQUIRY_VIEWS,
+  isStatusInView,
+  viewForStatus,
+} from "@/lib/inquiry-views";
 
 /**
  * Validación de solicitudes del público. Es el único endpoint que acepta
@@ -87,14 +92,37 @@ const vehicleFilter = z
     { message: "Identificador de vehículo no válido." },
   );
 
-export const adminInquiryQuerySchema = z.object({
-  status: z.enum(INQUIRY_STATUSES).optional(),
-  type: z.enum(INQUIRY_TYPES).optional(),
-  vehicleType: z.enum(VEHICLE_TYPES).optional(),
-  vehicleId: vehicleFilter,
-  q: optionalText(120),
-  limit: z.coerce.number().int().min(1).max(200).default(25),
-  page: z.coerce.number().int().min(1).default(1),
-});
+export const adminInquiryQuerySchema = z
+  .object({
+    /** La bandeja. Sin indicar nada se abre la de trabajo. */
+    view: z.enum(INQUIRY_VIEWS).optional(),
+    /** Afina dentro de la bandeja; solo vale si el estado pertenece a ella. */
+    status: z.enum(INQUIRY_STATUSES).optional(),
+    type: z.enum(INQUIRY_TYPES).optional(),
+    vehicleType: z.enum(VEHICLE_TYPES).optional(),
+    vehicleId: vehicleFilter,
+    q: optionalText(120),
+    limit: z.coerce.number().int().min(1).max(200).default(25),
+    page: z.coerce.number().int().min(1).default(1),
+  })
+  .transform((query) => {
+    // Un estado sin bandeja abre la bandeja a la que ese estado pertenece:
+    // un enlace guardado a ?status=closed debe llevar a Cerradas y no a una
+    // bandeja activa vacía. Con bandeja explícita manda la bandeja, y un
+    // estado que no vive en ella se ignora en vez de no devolver nada.
+    const view =
+      query.view ?? (query.status ? viewForStatus(query.status) : "activas");
+    const status =
+      query.status && isStatusInView(query.status, view)
+        ? query.status
+        : undefined;
+    return { ...query, view, status };
+  });
 
 export type AdminInquiryQuery = z.infer<typeof adminInquiryQuerySchema>;
+
+/**
+ * Por qué se borra. Hoy solo se distingue el spam, porque es la única razón
+ * que cambia lo que queda registrado en la auditoría.
+ */
+export const inquiryDeleteReasonSchema = z.enum(["spam"]).optional();
