@@ -53,18 +53,24 @@ export async function DELETE(_request: Request, { params }: Params) {
     const session = await requireSuperadmin();
     const { id } = await params;
     const vehicle = await requireVehicle(id);
-    const { archived } = await deleteVehicle(id);
+    const { archived, removedObjects, failedObjects } = await deleteVehicle(id);
 
     await recordAudit(
       session,
       archived ? "ARCHIVE_VEHICLE" : "DELETE_VEHICLE",
       "Vehicle",
       id,
-      { slug: vehicle.slug },
+      {
+        slug: vehicle.slug,
+        removedObjects,
+        // Queda en la auditoría para que un huérfano se pueda rastrear
+        // después, en vez de descubrirse revisando el bucket a mano.
+        ...(failedObjects.length > 0 ? { failedObjects } : {}),
+      },
     );
     revalidateInventory(vehicle.slug);
 
-    return ok({ archived });
+    return ok({ archived, removedObjects, failedObjects });
   } catch (error) {
     return fail(error, "DELETE /api/admin/vehicles/[id]");
   }

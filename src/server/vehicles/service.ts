@@ -4,6 +4,9 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db/prisma";
 import { conflict, notFound } from "@/server/http/errors";
 import { publicationBlockers } from "@/lib/publication";
+import { planVehicleDeletion } from "@/lib/vehicle-deletion";
+import { VEHICLE_IMAGE_BUCKET } from "@/server/auth/config";
+import { deleteStoredImage } from "@/server/storage/images";
 import { uniqueVehicleSlug } from "@/server/vehicles/slug";
 import {
   fromDbVehicleType,
@@ -597,22 +600,73 @@ export async function setAvailability(
   return toVehicleDto(record as VehicleRecord);
 }
 
+export interface VehicleDeletionResult {
+  archived: boolean;
+  /** Objetos del bucket borrados junto con el vehículo. */
+  removedObjects: number;
+  /** Los que no se pudieron borrar. Quien llama decide si lo registra. */
+  failedObjects: string[];
+}
+
 /**
  * Borrado real. Se reserva para vehículos sin rastro: si alguien ya preguntó
  * por él, archivarlo conserva esa conversación y borrarlo la mutilaría.
+ *
+ * El orden importa y es el motivo de que esta función exista tal cual:
+ *
+ *   1. se anotan las rutas de Storage ANTES de borrar, porque el borrado en
+ *      cascada de VehicleImage se las lleva y después ya no hay forma de
+ *      saber qué archivo pertenecía a qué vehículo;
+ *   2. se borra de la base;
+ *   3. solo si la base confirmó, se borran los archivos.
+ *
+ * Al revés —borrar los archivos primero— un fallo a mitad dejaría filas
+ * apuntando a imágenes que ya no existen, que es peor que un archivo de más.
+ * Lo que queda si falla el paso 3 es un objeto huérfano, y por eso se informa
+ * en vez de tragárselo.
  */
-export async function deleteVehicle(id: string): Promise<{ archived: boolean }> {
-  const inquiries = await prisma.inquiry.count({ where: { vehicleId: id } });
-  if (inquiries > 0) {
+export async function deleteVehicle(
+  id: string,
+): Promise<VehicleDeletionResult> {
+  const [inquiries, images] = await Promise.all([
+    prisma.inquiry.count({ where: { vehicleId: id } }),
+    prisma.vehicleImage.findMany({
+      where: { vehicleId: id },
+      select: { source: true, storagePath: true },
+    }),
+  ]);
+
+  const plan = planVehicleDeletion(inquiries, images);
+
+  if (plan.archived) {
     await prisma.vehicle.update({
       where: { id },
       data: { publicationStatus: "ARCHIVED" },
     });
-    return { archived: true };
+    return { archived: true, removedObjects: 0, failedObjects: [] };
   }
 
   await prisma.vehicle.delete({ where: { id } });
-  return { archived: false };
+
+  // La base ya no referencia nada: a partir de aquí cualquier archivo que
+  // quede es basura, y no borrarlo sería dejarla acumularse en silencio.
+  const failedObjects: string[] = [];
+  let removedObjects = 0;
+  for (const storagePath of plan.storagePaths) {
+    const removed = await deleteStoredImage(VEHICLE_IMAGE_BUCKET, storagePath);
+    if (removed) removedObjects += 1;
+    else failedObjects.push(storagePath);
+  }
+
+  if (failedObjects.length > 0) {
+    console.error("[mille:vehicles] quedaron objetos huérfanos al borrar", {
+      vehicleId: id,
+      bucket: VEHICLE_IMAGE_BUCKET,
+      failedObjects,
+    });
+  }
+
+  return { archived: false, removedObjects, failedObjects };
 }
 
 // ---------------------------------------------------------------------------
