@@ -3,6 +3,7 @@ import { adminInquiryQuerySchema } from "@/server/inquiries/schemas";
 import {
   countInquiriesByStatus,
   listInquiries,
+  listInquiryVehicleOptions,
 } from "@/server/inquiries/service";
 
 export const metadata = { title: "Solicitudes" };
@@ -19,9 +20,10 @@ export default async function AdminInquiriesPage(
   const parsed = adminInquiryQuerySchema.safeParse(searchParams);
   const query = parsed.success ? parsed.data : adminInquiryQuerySchema.parse({});
 
-  const [{ inquiries, total }, counts] = await Promise.all([
+  const [{ inquiries, total }, counts, vehicleOptions] = await Promise.all([
     listInquiries(query),
     countInquiriesByStatus(),
+    listInquiryVehicleOptions(),
   ]);
 
   return (
@@ -29,7 +31,8 @@ export default async function AdminInquiriesPage(
       inquiries={inquiries}
       counts={counts}
       total={total}
-      status={query.status}
+      query={query}
+      vehicleOptions={vehicleOptions}
     />
   );
 }

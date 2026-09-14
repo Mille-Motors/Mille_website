@@ -154,6 +154,8 @@ export interface Inquiry {
   vehicleId: string | null;
   vehicleLabel: string | null;
   vehicleSlug: string | null;
+  /** Null cuando no hay vehículo asociado o cuando ya no se puede leer. */
+  vehicleType: VehicleType | null;
   createdAt: string;
   updatedAt: string;
 }

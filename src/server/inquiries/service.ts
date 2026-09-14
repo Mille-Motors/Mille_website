@@ -1,9 +1,11 @@
 import "server-only";
 
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db/prisma";
 import { notFound } from "@/server/http/errors";
 import { vehicleTitle } from "@/lib/format";
 import type {
+  AdminInquiryQuery,
   InquiryInput,
 } from "@/server/inquiries/schemas";
 import type { InquiryStatus, InquiryType, Inquiry } from "@/types/vehicle";
@@ -38,10 +40,13 @@ const fromDbStatus: Record<DbInquiryStatus, InquiryStatus> = {
   SPAM: "spam",
 };
 
+/** Lo mínimo que hay que traer del vehículo para poder pintar una fila. */
+const inquiryInclude = {
+  vehicle: { select: { slug: true, vehicleType: true } },
+} as const;
+
 type InquiryRecord = Awaited<
-  ReturnType<typeof prisma.inquiry.findFirstOrThrow<{
-    include: { vehicle: { select: { slug: true } } };
-  }>>
+  ReturnType<typeof prisma.inquiry.findFirstOrThrow<{ include: typeof inquiryInclude }>>
 >;
 
 function toInquiryDto(record: InquiryRecord): Inquiry {
@@ -57,6 +62,11 @@ function toInquiryDto(record: InquiryRecord): Inquiry {
     vehicleId: record.vehicleId,
     vehicleLabel: record.vehicleLabel,
     vehicleSlug: record.vehicle?.slug ?? null,
+    vehicleType: record.vehicle
+      ? record.vehicle.vehicleType === "MOTO"
+        ? "moto"
+        : "auto"
+      : null,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
   };
@@ -92,6 +102,7 @@ export async function createInquiry(
         vehicleId: null,
         vehicleLabel: null,
         vehicleSlug: null,
+        vehicleType: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -123,33 +134,109 @@ export async function createInquiry(
       vehicleId,
       vehicleLabel,
     },
-    include: { vehicle: { select: { slug: true } } },
+    include: inquiryInclude,
   });
 
   return { inquiry: toInquiryDto(record), discarded: false };
 }
 
-export async function listInquiries(options: {
-  status?: InquiryStatus;
-  limit?: number;
-  page?: number;
-} = {}): Promise<{ inquiries: Inquiry[]; total: number }> {
-  const limit = options.limit ?? 100;
-  const page = options.page ?? 1;
-  const where = options.status ? { status: toDbStatus[options.status] } : {};
+/**
+ * Traduce los filtros del admin a una cláusula de Prisma.
+ *
+ * `vehicleType` no es una columna de Inquiry: se resuelve a través de la
+ * relación, que es lo que permite preguntar "¿quién ha preguntado por
+ * motos?" sin desnormalizar nada.
+ */
+function inquiryWhere(query: AdminInquiryQuery): Prisma.InquiryWhereInput {
+  const where: Prisma.InquiryWhereInput = {};
+
+  if (query.status) where.status = toDbStatus[query.status];
+  if (query.type) where.type = toDbType[query.type];
+
+  if (query.vehicleId === "none") {
+    where.vehicleId = null;
+  } else if (query.vehicleId) {
+    where.vehicleId = query.vehicleId;
+  }
+
+  if (query.vehicleType) {
+    where.vehicle = {
+      vehicleType: query.vehicleType === "moto" ? "MOTO" : "AUTO",
+    };
+  }
+
+  if (query.q) {
+    where.OR = [
+      { name: { contains: query.q, mode: "insensitive" } },
+      { email: { contains: query.q, mode: "insensitive" } },
+      { phone: { contains: query.q, mode: "insensitive" } },
+      // vehicleLabel conserva el nombre tal como se mostraba al enviarse, así
+      // que sigue encontrando solicitudes cuyo vehículo ya se borró.
+      { vehicleLabel: { contains: query.q, mode: "insensitive" } },
+    ];
+  }
+
+  return where;
+}
+
+export async function listInquiries(
+  query: AdminInquiryQuery,
+): Promise<{ inquiries: Inquiry[]; total: number }> {
+  const where = inquiryWhere(query);
 
   const [records, total] = await Promise.all([
     prisma.inquiry.findMany({
       where,
-      include: { vehicle: { select: { slug: true } } },
-      orderBy: [{ createdAt: "desc" }],
-      skip: (page - 1) * limit,
-      take: limit,
+      include: inquiryInclude,
+      // El id desempata para que la paginación sea estable.
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+      skip: (query.page - 1) * query.limit,
+      take: query.limit,
     }),
     prisma.inquiry.count({ where }),
   ]);
 
   return { inquiries: records.map(toInquiryDto), total };
+}
+
+export interface InquiryVehicleOption {
+  id: string;
+  label: string;
+  vehicleType: "auto" | "moto";
+}
+
+/**
+ * Los vehículos por los que alguien ha preguntado de verdad. La lista sale de
+ * las solicitudes, no del inventario: ofrecer los 300 vehículos cuando solo
+ * 12 tienen solicitudes convertiría el selector en un estorbo.
+ */
+export async function listInquiryVehicleOptions(): Promise<
+  InquiryVehicleOption[]
+> {
+  const rows = await prisma.inquiry.findMany({
+    where: { vehicleId: { not: null } },
+    distinct: ["vehicleId"],
+    select: {
+      vehicleId: true,
+      vehicleLabel: true,
+      vehicle: {
+        select: { make: true, model: true, version: true, year: true, vehicleType: true },
+      },
+    },
+  });
+
+  return rows
+    .filter((row): row is typeof row & { vehicleId: string } => row.vehicleId !== null)
+    .map((row) => ({
+      id: row.vehicleId,
+      // Se prefiere el nombre actual del vehículo; si se archivó y ya no se
+      // puede leer, queda la etiqueta guardada al enviarse la solicitud.
+      label: row.vehicle
+        ? `${vehicleTitle(row.vehicle)} ${row.vehicle.year}`
+        : (row.vehicleLabel ?? "Vehículo retirado"),
+      vehicleType: row.vehicle?.vehicleType === "MOTO" ? ("moto" as const) : ("auto" as const),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label, "es"));
 }
 
 export async function countInquiriesByStatus(): Promise<
@@ -175,7 +262,7 @@ export async function setInquiryStatus(
     const record = await prisma.inquiry.update({
       where: { id },
       data: { status: toDbStatus[status] },
-      include: { vehicle: { select: { slug: true } } },
+      include: inquiryInclude,
     });
     return toInquiryDto(record);
   } catch {
