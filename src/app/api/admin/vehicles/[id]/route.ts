@@ -1,4 +1,5 @@
 import { requireSuperadmin } from "@/server/auth/session";
+import { parseId } from "@/server/http/params";
 import { recordAudit } from "@/server/audit/log";
 import { fail, ok, readJson } from "@/server/http/respond";
 import { vehiclePatchSchema } from "@/server/vehicles/schemas";
@@ -14,7 +15,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_request: Request, { params }: Params) {
   try {
     await requireSuperadmin();
-    const { id } = await params;
+    const id = parseId((await params).id, "Ese vehículo");
     return ok({ vehicle: await requireVehicle(id) });
   } catch (error) {
     return fail(error, "GET /api/admin/vehicles/[id]");
@@ -24,7 +25,7 @@ export async function GET(_request: Request, { params }: Params) {
 export async function PATCH(request: Request, { params }: Params) {
   try {
     const session = await requireSuperadmin();
-    const { id } = await params;
+    const id = parseId((await params).id, "Ese vehículo");
     const patch = vehiclePatchSchema.parse(await readJson(request));
 
     const before = await requireVehicle(id);
@@ -51,7 +52,7 @@ export async function PATCH(request: Request, { params }: Params) {
 export async function DELETE(_request: Request, { params }: Params) {
   try {
     const session = await requireSuperadmin();
-    const { id } = await params;
+    const id = parseId((await params).id, "Ese vehículo");
     const vehicle = await requireVehicle(id);
     const { archived, removedObjects, failedObjects } = await deleteVehicle(id);
 

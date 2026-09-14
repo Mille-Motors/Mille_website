@@ -67,14 +67,22 @@ export default function NotFound() {
                 <InventoryCTALink variant="ghost" size="lg">
                   Ver inventario
                 </InventoryCTALink>
-                <WhatsappButtonLink
-                  href={generalWhatsappUrl()}
-                  variant="outline"
-                  size="lg"
-                >
-                  <WhatsappIcon className="size-4" />
-                  WhatsApp
-                </WhatsappButtonLink>
+                {/* Sin línea provisionada, un botón de WhatsApp inerte en la
+                    404 es un callejón sin salida más. */}
+                {site.phone ? (
+                  <WhatsappButtonLink
+                    href={generalWhatsappUrl()}
+                    variant="outline"
+                    size="lg"
+                  >
+                    <WhatsappIcon className="size-4" />
+                    WhatsApp
+                  </WhatsappButtonLink>
+                ) : (
+                  <ButtonLink href="/contacto" variant="outline" size="lg">
+                    Contáctanos
+                  </ButtonLink>
+                )}
               </div>
 
               <p className="eyebrow mt-16 leading-[1.9] text-ink-muted/70">

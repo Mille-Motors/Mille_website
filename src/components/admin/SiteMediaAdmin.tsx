@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Check, RotateCcw, Upload } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
+import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Button } from "@/components/ui/Button";
 import { adminJson, adminRequest } from "@/lib/admin-client";
 import { cn } from "@/lib/cn";
@@ -180,16 +181,16 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
             {busy === "alt" ? "Guardando…" : "Guardar texto"}
           </Button>
           {changed ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
+            <ConfirmButton
+              question="Se volverá a la fotografía original del sitio y la que subiste se eliminará definitivamente."
+              confirmLabel="Sí, restaurar"
               disabled={busy !== null}
-              onClick={() => void reset()}
+              onConfirm={() => void reset()}
+              className="label-caps inline-flex h-9 items-center justify-center gap-2.5 rounded-xs border border-stone px-4 text-[10px] text-ink transition-colors hover:border-ink/40 disabled:pointer-events-none disabled:opacity-50"
             >
               <RotateCcw aria-hidden className="size-3.5" strokeWidth={1.5} />
               {busy === "reset" ? "Restaurando…" : "Restaurar original"}
-            </Button>
+            </ConfirmButton>
           ) : null}
         </div>
       </div>

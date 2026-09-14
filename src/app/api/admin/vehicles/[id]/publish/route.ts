@@ -1,4 +1,5 @@
 import { requireSuperadmin } from "@/server/auth/session";
+import { parseId } from "@/server/http/params";
 import { recordAudit } from "@/server/audit/log";
 import { fail, ok, readJson } from "@/server/http/respond";
 import { publicationSchema } from "@/server/vehicles/schemas";
@@ -22,7 +23,7 @@ export async function POST(
 ) {
   try {
     const session = await requireSuperadmin();
-    const { id } = await params;
+    const id = parseId((await params).id, "Ese vehículo");
     const { publication } = publicationSchema.parse(await readJson(request));
 
     const vehicle = await setPublication(id, publication);

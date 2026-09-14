@@ -6,6 +6,7 @@ import { Button, WhatsappButtonLink } from "@/components/ui/Button";
 import { WhatsappIcon } from "@/components/ui/BrandIcons";
 import { RequestModal } from "@/components/vehicle/RequestModal";
 import { cn } from "@/lib/cn";
+import { site } from "@/data/site";
 import { vehicleWhatsappUrl } from "@/lib/whatsapp";
 import type { Vehicle } from "@/types/vehicle";
 
@@ -22,11 +23,22 @@ export function VehicleContactActions({
 
   return (
     <>
-      <div className={cn("grid gap-3 sm:grid-cols-3", className)}>
-        <WhatsappButtonLink href={vehicleWhatsappUrl(vehicle)} size="lg">
-          <WhatsappIcon className="size-4" />
-          Escribir por WhatsApp
-        </WhatsappButtonLink>
+      {/* Anclaje para la barra fija de móvil, que sin WhatsApp trae aquí en
+          vez de dejar un botón muerto. */}
+      <div
+        id="contactar"
+        className={cn(
+          "grid scroll-mt-24 gap-3",
+          site.phone ? "sm:grid-cols-3" : "sm:grid-cols-2",
+          className,
+        )}
+      >
+        {site.phone ? (
+          <WhatsappButtonLink href={vehicleWhatsappUrl(vehicle)} size="lg">
+            <WhatsappIcon className="size-4" />
+            Escribir por WhatsApp
+          </WhatsappButtonLink>
+        ) : null}
 
         <Button variant="outline" size="lg" onClick={() => setIntent("info")}>
           <Mail aria-hidden className="size-4" strokeWidth={1.5} />

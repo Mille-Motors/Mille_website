@@ -17,6 +17,7 @@ import {
   parseFilters,
   sortToQuery,
 } from "@/lib/filters";
+import { site } from "@/data/site";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
 import { getFilterFacets, getVehicles } from "@/lib/vehicles";
 
@@ -159,10 +160,18 @@ function NoResults({
           tienes en mente y lo rastreamos.
         </p>
         <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-          <WhatsappButtonLink href={generalWhatsappUrl()} size="lg">
-            <WhatsappIcon className="size-4" />
-            Escríbenos
-          </WhatsappButtonLink>
+          {/* Sin línea de WhatsApp, "Escríbenos" tiene que llevar a algún
+              sitio donde de verdad se pueda escribir. */}
+          {site.phone ? (
+            <WhatsappButtonLink href={generalWhatsappUrl()} size="lg">
+              <WhatsappIcon className="size-4" />
+              Escríbenos
+            </WhatsappButtonLink>
+          ) : (
+            <ButtonLink href="/contacto" size="lg">
+              Escríbenos
+            </ButtonLink>
+          )}
           <ButtonLink
             href={inventoryHref({ tipo: filters.tipo })}
             variant="ghost"

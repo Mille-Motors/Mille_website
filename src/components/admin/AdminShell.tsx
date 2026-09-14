@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Logo, Shield } from "@/components/brand/Logo";
 import { cn } from "@/lib/cn";
+import { useDialog } from "@/components/ui/use-dialog";
 import { createSupabaseBrowserClient } from "@/server/auth/supabase-browser";
 import type { AdminSession } from "@/types/admin";
 
@@ -112,6 +113,7 @@ export function AdminShell({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [seenPath, setSeenPath] = useState(pathname);
 
   // Close on navigation without an effect, which would cascade renders.
@@ -120,14 +122,9 @@ export function AdminShell({
     setOpen(false);
   }
 
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [open]);
+  // Antes solo bloqueaba el scroll: no cerraba con Escape ni llevaba el foco
+  // al panel. Mismo comportamiento que el resto de diálogos del proyecto.
+  useDialog(panelRef, open, () => setOpen(false));
 
   return (
     <div className="min-h-dvh bg-cream lg:flex">
@@ -170,7 +167,13 @@ export function AdminShell({
             onClick={() => setOpen(false)}
             className="absolute inset-0 bg-black/50"
           />
-          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-charcoal">
+          <div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menú de administración"
+            className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-charcoal"
+          >
             <div className="flex items-center justify-between px-5 py-5">
               <Logo tone="cream" size="sm" href="/admin" />
               <button

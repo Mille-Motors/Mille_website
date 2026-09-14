@@ -1,4 +1,5 @@
 import { requireSuperadmin } from "@/server/auth/session";
+import { parseId } from "@/server/http/params";
 import { recordAudit } from "@/server/audit/log";
 import { fail, ok } from "@/server/http/respond";
 import { deleteVehicleImage } from "@/server/vehicles/images";
@@ -10,7 +11,9 @@ export async function DELETE(
 ) {
   try {
     const session = await requireSuperadmin();
-    const { id, imageId } = await params;
+    const { id: rawId, imageId: rawImageId } = await params;
+    const id = parseId(rawId, "Ese vehículo");
+    const imageId = parseId(rawImageId, "Esa imagen");
 
     const vehicle = await deleteVehicleImage(id, imageId);
 

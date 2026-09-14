@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
@@ -9,6 +9,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { InventoryCTALink } from "@/components/vehicle/InventoryCTALink";
 import { mainNav, site } from "@/data/site";
 import { cn } from "@/lib/cn";
+import { useDialog } from "@/components/ui/use-dialog";
 
 export function MobileMenu({
   tone = "cream",
@@ -18,6 +19,7 @@ export function MobileMenu({
   cta: { label: string; href: string };
 }) {
   const [open, setOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const [seenPath, setSeenPath] = useState(pathname);
 
@@ -28,19 +30,8 @@ export function MobileMenu({
     setOpen(false);
   }
 
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = previous;
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  // Escape, scroll bloqueado, foco dentro y devuelto al cerrar.
+  useDialog(panelRef, open, () => setOpen(false));
 
   return (
     <>

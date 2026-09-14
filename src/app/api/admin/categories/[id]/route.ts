@@ -1,4 +1,5 @@
 import { requireSuperadmin } from "@/server/auth/session";
+import { parseId } from "@/server/http/params";
 import { recordAudit } from "@/server/audit/log";
 import { fail, ok, readJson } from "@/server/http/respond";
 import { categoryPatchSchema } from "@/server/categories/schemas";
@@ -10,7 +11,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function PATCH(request: Request, { params }: Params) {
   try {
     const session = await requireSuperadmin();
-    const { id } = await params;
+    const id = parseId((await params).id, "Esa categoría");
     const patch = categoryPatchSchema.parse(await readJson(request));
 
     const category = await updateCategory(id, patch);
@@ -34,7 +35,7 @@ export async function PATCH(request: Request, { params }: Params) {
 export async function DELETE(_request: Request, { params }: Params) {
   try {
     const session = await requireSuperadmin();
-    const { id } = await params;
+    const id = parseId((await params).id, "Esa categoría");
 
     await deleteCategory(id);
 

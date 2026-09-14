@@ -131,6 +131,12 @@ export default async function ContactPage() {
         </Container>
       </section>
 
+      {/* Este bloque promete respuesta inmediata por WhatsApp. Mientras no
+          exista la línea, prometerlo y rematar con un botón inerte sería
+          exactamente el placeholder falso que el proyecto viene evitando: se
+          oculta entero. El formulario de arriba sí funciona. Cuando
+          site.phone tenga valor, vuelve solo. */}
+      {site.phone ? (
       <section className="bg-cream pb-16 lg:pb-24">
         <Container width="wide">
           <div className="relative overflow-hidden bg-black">
@@ -165,6 +171,7 @@ export default async function ContactPage() {
           </div>
         </Container>
       </section>
+      ) : null}
     </>
   );
 }

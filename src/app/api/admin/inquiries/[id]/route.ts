@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { requireSuperadmin } from "@/server/auth/session";
+import { parseId } from "@/server/http/params";
 import { recordAudit } from "@/server/audit/log";
 import { fail, ok, readJson } from "@/server/http/respond";
 import {
@@ -13,7 +14,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function PATCH(request: Request, { params }: Params) {
   try {
     const session = await requireSuperadmin();
-    const { id } = await params;
+    const id = parseId((await params).id, "Esa solicitud");
     const { status } = inquiryPatchSchema.parse(await readJson(request));
 
     const inquiry = await setInquiryStatus(id, status);
@@ -42,7 +43,7 @@ export async function PATCH(request: Request, { params }: Params) {
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
     const session = await requireSuperadmin();
-    const { id } = await params;
+    const id = parseId((await params).id, "Esa solicitud");
     const reason = inquiryDeleteReasonSchema.parse(
       request.nextUrl.searchParams.get("reason") ?? undefined,
     );

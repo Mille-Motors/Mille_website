@@ -48,10 +48,45 @@ function supabaseImagePatterns(): NonNullable<
   }
 }
 
+/**
+ * Endurecimiento conservador de cabeceras.
+ *
+ * Deliberadamente SIN Content-Security-Policy: una CSP improvisada rompería
+ * los scripts inline de Next, las fuentes de Google, el optimizador de
+ * imágenes o las llamadas a Supabase, y depurarla en producción es su propia
+ * fase. Estas cuatro no tienen ese riesgo.
+ *
+ * `DENY` en el framing: ni el sitio público ni el Admin se embeben en ningún
+ * sitio, y un Admin enmarcable es la puerta de un clickjacking.
+ */
+const securityHeaders = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+  },
+];
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: localNetworkOrigins(),
   images: {
     remotePatterns: supabaseImagePatterns(),
+  },
+  async headers() {
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      {
+        // Una respuesta de la API privada no debe poder quedarse en ninguna
+        // caché compartida. Por defecto salían como `public, max-age=0`.
+        source: "/api/admin/:path*",
+        headers: [
+          ...securityHeaders,
+          { key: "Cache-Control", value: "no-store, private" },
+        ],
+      },
+    ];
   },
 };
 

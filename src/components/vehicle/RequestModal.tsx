@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { useDialog } from "@/components/ui/use-dialog";
 import { Input, Textarea } from "@/components/ui/Field";
 import { honeypotProps, submitInquiry } from "@/lib/inquiry-client";
 import { vehicleTitle } from "@/lib/format";
@@ -44,17 +45,9 @@ export function RequestModal({
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    dialogRef.current?.querySelector<HTMLInputElement>("input")?.focus();
-    return () => {
-      document.body.style.overflow = previous;
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [onClose]);
+  // Escape, bloqueo de scroll, foco dentro del diálogo, Tab que no se escapa
+  // por detrás y foco devuelto al cerrar.
+  useDialog(dialogRef, true, onClose);
 
   const text = copy[intent];
 

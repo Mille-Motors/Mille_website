@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, Plus, Trash2, Upload } from "lucide-react";
 import { adminJson, adminRequest } from "@/lib/admin-client";
+import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { cn } from "@/lib/cn";
 import type { Vehicle, VehicleImage } from "@/types/vehicle";
 
@@ -223,15 +224,15 @@ export function ImageManager({ vehicle }: { vehicle: Vehicle }) {
                     >
                       <Check aria-hidden className="size-3.5" strokeWidth={1.5} />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => remove(image)}
+                    <ConfirmButton
+                      question="¿Eliminar esta imagen definitivamente? Esta acción no se puede deshacer."
+                      onConfirm={() => remove(image)}
                       disabled={busy}
-                      aria-label="Eliminar imagen"
+                      ariaLabel="Eliminar imagen"
                       className="inline-flex size-7 items-center justify-center rounded-xs border border-stone text-ink-muted transition-colors hover:border-burgundy/50 hover:text-burgundy disabled:opacity-35"
                     >
                       <Trash2 aria-hidden className="size-3.5" strokeWidth={1.5} />
-                    </button>
+                    </ConfirmButton>
                   </div>
                 </div>
               </li>

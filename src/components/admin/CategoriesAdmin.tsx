@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Field";
+import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { adminJson } from "@/lib/admin-client";
 import { typeLabel } from "@/lib/categories";
 import { cn } from "@/lib/cn";
@@ -231,24 +232,19 @@ export function CategoriesAdmin({ categories }: { categories: Row[] }) {
                       Activa
                     </label>
 
-                    <button
-                      type="button"
+                    <ConfirmButton
+                      question={`¿Eliminar la categoría ${row.name} definitivamente? Esta acción no se puede deshacer.`}
                       disabled={busy || row.vehicleCount > 0}
-                      title={
-                        row.vehicleCount > 0
-                          ? "Tiene vehículos: desactívala en vez de borrarla."
-                          : "Eliminar categoría"
-                      }
-                      onClick={() =>
+                      onConfirm={() =>
                         void run(() =>
                           adminJson(`/api/admin/categories/${row.id}`, "DELETE"),
                         )
                       }
-                      aria-label={`Eliminar ${row.name}`}
+                      ariaLabel={`Eliminar ${row.name}`}
                       className="inline-flex size-8 items-center justify-center rounded-xs border border-stone text-ink-muted transition-colors hover:border-burgundy/40 hover:text-burgundy disabled:opacity-35"
                     >
                       <Trash2 aria-hidden className="size-3.5" strokeWidth={1.4} />
-                    </button>
+                    </ConfirmButton>
                   </li>
                 ))}
               </ul>

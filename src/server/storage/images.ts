@@ -3,6 +3,12 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { ApiError, badRequest } from "@/server/http/errors";
 import { sanitizeStoragePrefix } from "@/lib/storage-path";
+import {
+  ALLOWED_IMAGE_TYPES,
+  normalizeDeclaredType,
+  sniffImageType,
+  type AllowedMime,
+} from "@/lib/image-type";
 import { createSupabaseServerClient } from "@/server/auth/supabase-server";
 import { SITE_MEDIA_BUCKET, VEHICLE_IMAGE_BUCKET } from "@/server/auth/config";
 
@@ -15,49 +21,8 @@ import { SITE_MEDIA_BUCKET, VEHICLE_IMAGE_BUCKET } from "@/server/auth/config";
  * sitio) y de escritura restringida al Superadmin.
  */
 
-/** Formatos que el sitio sabe mostrar. Nada más entra. */
-const ALLOWED = {
-  "image/jpeg": ["jpg", "jpeg"],
-  "image/png": ["png"],
-  "image/webp": ["webp"],
-  "image/avif": ["avif"],
-} as const;
-
-type AllowedMime = keyof typeof ALLOWED;
-
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_IMAGES_PER_VEHICLE = 20;
-
-/**
- * Los primeros bytes del archivo, que es lo único que no se puede falsear
- * renombrándolo. El `Content-Type` que manda el navegador y la extensión son
- * pistas, no pruebas.
- */
-function sniff(bytes: Uint8Array): AllowedMime | null {
-  const startsWith = (...signature: number[]) =>
-    signature.every((byte, i) => bytes[i] === byte);
-
-  if (startsWith(0xff, 0xd8, 0xff)) return "image/jpeg";
-  if (startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) {
-    return "image/png";
-  }
-  // RIFF....WEBP
-  if (
-    startsWith(0x52, 0x49, 0x46, 0x46) &&
-    bytes[8] === 0x57 &&
-    bytes[9] === 0x45 &&
-    bytes[10] === 0x42 &&
-    bytes[11] === 0x50
-  ) {
-    return "image/webp";
-  }
-  // Caja ftyp con marca avif/avis
-  if (bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
-    const brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
-    if (brand === "avif" || brand === "avis") return "image/avif";
-  }
-  return null;
-}
 
 export interface UploadedImage {
   url: string;
@@ -93,7 +58,7 @@ export async function uploadImage(
   }
 
   const buffer = new Uint8Array(await file.arrayBuffer());
-  const detected = sniff(buffer.subarray(0, 16));
+  const detected = sniffImageType(buffer.subarray(0, 16));
   if (!detected) {
     throw new ApiError(
       "UNSUPPORTED_MEDIA_TYPE",
@@ -101,11 +66,26 @@ export async function uploadImage(
     );
   }
   // El tipo declarado tiene que coincidir con lo que el archivo realmente es.
-  if (file.type && file.type !== detected && !(detected in ALLOWED)) {
-    throw new ApiError("UNSUPPORTED_MEDIA_TYPE", "El archivo no es una imagen válida.");
+  //
+  // La condición anterior incluía `!(detected in ALLOWED)`, que nunca podía
+  // ser cierta: `detected` sale de `sniff()`, que solo devuelve claves de
+  // ALLOWED o null, y null ya lanzó arriba. Era una rama muerta que parecía
+  // validar algo y no validaba nada. No había riesgo —la subida siempre usa
+  // `detected`, nunca lo que declare el cliente— pero el código mentía.
+  //
+  // Ahora sí se comprueba lo que se pretendía: si el navegador declara un
+  // tipo y contradice al contenido real, se rechaza. Un tipo vacío es normal
+  // en algunos navegadores y lo decide el sniff. `image/jpg` se acepta como
+  // alias de `image/jpeg` porque es una grafía que se sigue viendo.
+  const declared = normalizeDeclaredType(file.type);
+  if (declared && declared !== detected) {
+    throw new ApiError(
+      "UNSUPPORTED_MEDIA_TYPE",
+      "El archivo no coincide con el tipo declarado.",
+    );
   }
 
-  const extension = ALLOWED[detected][0];
+  const extension = ALLOWED_IMAGE_TYPES[detected][0];
   // El prefijo se sanea aquí y no donde se llama: es la última frontera antes
   // de escribir, y confiar en que quien llama ya lo hizo es cómo aparecen los
   // fallos de recorrido de rutas.

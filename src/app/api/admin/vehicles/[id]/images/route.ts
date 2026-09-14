@@ -1,4 +1,5 @@
 import { requireSuperadmin } from "@/server/auth/session";
+import { parseId } from "@/server/http/params";
 import { recordAudit } from "@/server/audit/log";
 import { ApiError, badRequest } from "@/server/http/errors";
 import { fail, ok, readJson } from "@/server/http/respond";
@@ -23,7 +24,7 @@ const MAX_FILES_PER_REQUEST = 12;
 export async function POST(request: Request, { params }: Params) {
   try {
     const session = await requireSuperadmin();
-    const { id } = await params;
+    const id = parseId((await params).id, "Ese vehículo");
     await requireVehicle(id);
 
     const contentType = request.headers.get("content-type") ?? "";
@@ -67,7 +68,7 @@ export async function POST(request: Request, { params }: Params) {
 export async function PATCH(request: Request, { params }: Params) {
   try {
     const session = await requireSuperadmin();
-    const { id } = await params;
+    const id = parseId((await params).id, "Ese vehículo");
     const { images } = imageOrderSchema.parse(await readJson(request));
 
     const vehicle = await reorderVehicleImages(id, images);

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import { useDialog } from "@/components/ui/use-dialog";
 import { typeLabel } from "@/lib/categories";
 import { formatCOP } from "@/lib/format";
 import {
@@ -220,6 +221,7 @@ export function FilterBar({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
   // The sheet batches edits so a phone does not navigate on every tap.
   const [draft, setDraft] = useState<InventoryFilters>(filters);
   const activeCount = activeFilterCount(filters);
@@ -236,17 +238,8 @@ export function FilterBar({
     setSheetOpen(false);
   };
 
-  useEffect(() => {
-    if (!sheetOpen) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSheetOpen(false);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = previous;
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [sheetOpen]);
+  // Escape ya lo tenía; ahora también atrapa el foco y lo devuelve al cerrar.
+  useDialog(sheetRef, sheetOpen, () => setSheetOpen(false));
 
   const sort = (
     <Select
@@ -323,6 +316,7 @@ export function FilterBar({
             className="absolute inset-0 bg-black/45"
           />
           <div
+            ref={sheetRef}
             role="dialog"
             aria-modal="true"
             aria-label="Filtros"
