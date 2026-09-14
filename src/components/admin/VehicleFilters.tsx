@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
+import { adminVehiclesHref } from "@/lib/admin-urls";
 import { cn } from "@/lib/cn";
 import { formatCOP } from "@/lib/format";
 import { typeLabel } from "@/lib/categories";
@@ -50,28 +51,6 @@ const ADVANCED_KEYS = [
   "minPrice",
   "maxPrice",
 ] as const;
-
-export function adminVehiclesHref(query: Partial<AdminVehicleQuery>): string {
-  const params = new URLSearchParams();
-  const set = (key: string, value: unknown) => {
-    if (value === undefined || value === null || value === "") return;
-    params.set(key, String(value));
-  };
-  set("q", query.q);
-  set("vehicleType", query.vehicleType);
-  set("publication", query.publication);
-  set("availability", query.availability);
-  set("make", query.make);
-  set("categoryId", query.categoryId);
-  set("minYear", query.minYear);
-  set("maxYear", query.maxYear);
-  set("minPrice", query.minPrice);
-  set("maxPrice", query.maxPrice);
-  if (query.sort && query.sort !== "updated") set("sort", query.sort);
-  if (query.page && query.page > 1) set("page", query.page);
-  const qs = params.toString();
-  return `/admin/vehiculos${qs ? `?${qs}` : ""}`;
-}
 
 function Field({
   label,

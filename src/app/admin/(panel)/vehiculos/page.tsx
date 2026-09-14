@@ -4,8 +4,8 @@ import { AdminPageHeader } from "@/components/admin/AdminShell";
 import {
   VehicleFilters,
   VehiclePagination,
-  adminVehiclesHref,
 } from "@/components/admin/VehicleFilters";
+import { adminVehiclesHref } from "@/lib/admin-urls";
 import { VehicleTable } from "@/components/admin/VehicleTable";
 import { ButtonLink } from "@/components/ui/Button";
 import { parseTolerant } from "@/lib/query-params";

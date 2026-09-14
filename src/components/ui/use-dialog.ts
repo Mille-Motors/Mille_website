@@ -32,6 +32,22 @@ export function useDialog(
   // Se guarda quién tenía el foco para devolvérselo al cerrar.
   const restoreTo = useRef<HTMLElement | null>(null);
 
+  /**
+   * `onClose` llega casi siempre como función en línea —`() => setOpen(false)`—
+   * así que cambia de identidad en cada render. Si el efecto dependiera de
+   * ella, cualquier render con el diálogo abierto lo desmontaría y volvería a
+   * montarlo: devolvería el foco al disparador y lo saltaría de vuelta al
+   * primer elemento. En el panel de filtros pasaba a cada selección, porque
+   * elegir un valor actualiza el borrador y vuelve a renderizar.
+   *
+   * Guardándola en una ref, el efecto solo depende de si el diálogo está
+   * abierto, y Escape sigue llamando siempre a la última versión.
+   */
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -52,7 +68,7 @@ export function useDialog(
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== "Tab") return;
@@ -80,5 +96,5 @@ export function useDialog(
       document.body.style.overflow = previousOverflow;
       restoreTo.current?.focus();
     };
-  }, [open, onClose, ref]);
+  }, [open, ref]);
 }

@@ -86,7 +86,11 @@ function publicWhere(query: PublicVehicleQuery): Prisma.VehicleWhereInput {
 
   if (query.vehicleType) where.vehicleType = toDbVehicleType[query.vehicleType];
   if (query.categorySlug) {
-    where.category = { slug: query.categorySlug };
+    // `active` solo se exige en el filtro explícito. Una categoría retirada
+    // deja de ser un camino de navegación, pero los vehículos publicados que
+    // la usan siguen apareciendo en el inventario general: despublicar es una
+    // decisión sobre el vehículo, no sobre su taxonomía.
+    where.category = { slug: query.categorySlug, active: true };
   }
   if (query.make) where.make = query.make;
   if (query.featured !== undefined) where.featured = query.featured;

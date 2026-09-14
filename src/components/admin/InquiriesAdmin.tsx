@@ -7,6 +7,7 @@ import { Bike, Car, ChevronDown, Search, Trash2, X } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { adminJson, adminRequest } from "@/lib/admin-client";
+import { adminInquiriesHref } from "@/lib/admin-urls";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/format";
 import { typeLabel } from "@/lib/categories";
@@ -42,24 +43,6 @@ const typeLabels: Record<InquiryType, string> = {
   vehicle_info: "Información de vehículo",
   appointment: "Cita",
 };
-
-export function adminInquiriesHref(query: Partial<AdminInquiryQuery>): string {
-  const params = new URLSearchParams();
-  const set = (key: string, value: unknown) => {
-    if (value === undefined || value === null || value === "") return;
-    params.set(key, String(value));
-  };
-  // La bandeja de trabajo es la de por defecto, así que no ensucia la URL.
-  if (query.view && query.view !== "activas") set("view", query.view);
-  set("status", query.status);
-  set("type", query.type);
-  set("vehicleType", query.vehicleType);
-  set("vehicleId", query.vehicleId);
-  set("q", query.q);
-  if (query.page && query.page > 1) set("page", query.page);
-  const qs = params.toString();
-  return `/admin/solicitudes${qs ? `?${qs}` : ""}`;
-}
 
 const selectClass =
   "h-10 w-full cursor-pointer appearance-none rounded-xs border border-stone bg-paper px-3 pr-8 text-sm text-ink transition-colors hover:border-stone-strong focus:border-burgundy focus:outline-none";

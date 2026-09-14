@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
-import {
-  InquiriesAdmin,
-  adminInquiriesHref,
-} from "@/components/admin/InquiriesAdmin";
+import { InquiriesAdmin } from "@/components/admin/InquiriesAdmin";
+import { adminInquiriesHref } from "@/lib/admin-urls";
 import { parseTolerant } from "@/lib/query-params";
 import { adminInquiryQuerySchema } from "@/server/inquiries/schemas";
 import {
