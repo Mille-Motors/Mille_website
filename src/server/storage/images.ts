@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { ApiError, badRequest } from "@/server/http/errors";
+import { sanitizeStoragePrefix } from "@/lib/storage-path";
 import { createSupabaseServerClient } from "@/server/auth/supabase-server";
 import { SITE_MEDIA_BUCKET, VEHICLE_IMAGE_BUCKET } from "@/server/auth/config";
 
@@ -108,8 +109,7 @@ export async function uploadImage(
   // El prefijo se sanea aquí y no donde se llama: es la última frontera antes
   // de escribir, y confiar en que quien llama ya lo hizo es cómo aparecen los
   // fallos de recorrido de rutas.
-  const safePrefix = prefix.replace(/[^a-zA-Z0-9._-]/g, "-");
-  const storagePath = `${safePrefix}/${randomUUID()}.${extension}`;
+  const storagePath = `${sanitizeStoragePrefix(prefix)}/${randomUUID()}.${extension}`;
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.storage
