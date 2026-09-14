@@ -1,9 +1,14 @@
 import Image from "next/image";
+import { getSiteMediaImage } from "@/server/site-media/service";
 import { ChapterLabel } from "@/components/ui/ChapterLabel";
 import { Container } from "@/components/ui/Container";
 
 /** 01 — Full-bleed split. The photograph carries as much weight as the text. */
-export function ChapterOrigin() {
+export async function ChapterOrigin() {
+  // La fotografía se administra desde /admin/contenido. Si no se ha
+  // cambiado nunca —o la base no responde— cae a la imagen original del
+  // sitio, que vive en el repositorio.
+  const image = await getSiteMediaImage("home.about.origin");
   return (
     <div className="border-t border-stone">
       <Container width="wide" className="lg:px-0">
@@ -37,8 +42,8 @@ export function ChapterOrigin() {
 
           <div className="relative aspect-[4/3] w-full overflow-hidden bg-charcoal lg:aspect-auto lg:h-full lg:min-h-[32rem]">
             <Image
-              src="/images/vehicles/audi-rs-5-sportback/01.jpg"
-              alt="Audi RS 5 Sportback en carretera entre árboles de otoño"
+              src={image.src}
+              alt={image.alt}
               fill
               sizes="(min-width: 1024px) 52vw, 100vw"
               className="object-cover"

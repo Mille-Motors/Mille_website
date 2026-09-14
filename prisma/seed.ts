@@ -2,6 +2,7 @@ import "./env";
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { SITE_MEDIA_SLOTS } from "../src/lib/site-media";
 import { fixtureCategories } from "./fixtures/categories";
 import { mockVehicles, type FixtureVehicle } from "./fixtures/vehicles";
 
@@ -156,6 +157,38 @@ async function seedVehicles(categoryIds: Map<string, string>): Promise<void> {
   }
 }
 
+/**
+ * Registra los cuatro slots visuales con la fotografía que el sitio usa hoy.
+ *
+ * Se marcan como LEGACY porque siguen apuntando a /public: el objetivo es que
+ * pasar a administrarlas desde el admin no cambie ni un píxel de la home.
+ *
+ * Solo crea lo que falta. Si alguien ya subió una imagen desde el admin,
+ * reejecutar el seed no puede devolverle la original: eso sería revertir su
+ * trabajo sin avisar.
+ */
+async function seedSiteMedia(): Promise<number> {
+  let created = 0;
+  for (const slot of SITE_MEDIA_SLOTS) {
+    const existing = await prisma.siteMedia.findUnique({
+      where: { key: slot.key },
+      select: { id: true },
+    });
+    if (existing) continue;
+    await prisma.siteMedia.create({
+      data: {
+        key: slot.key,
+        url: slot.legacySrc,
+        storagePath: null,
+        source: "LEGACY",
+        alt: slot.legacyAlt,
+      },
+    });
+    created += 1;
+  }
+  return created;
+}
+
 async function main() {
   console.log("Sembrando categorías…");
   const categoryIds = await seedCategories();
@@ -163,6 +196,13 @@ async function main() {
 
   console.log("Sembrando vehículos…");
   await seedVehicles(categoryIds);
+
+  console.log("Registrando imágenes del sitio…");
+  const createdMedia = await seedSiteMedia();
+  const totalMedia = await prisma.siteMedia.count();
+  console.log(
+    `  ${totalMedia} slots registrados (${createdMedia} nuevos, ${totalMedia - createdMedia} ya existían).`,
+  );
 
   const [total, autos, motos, published, drafts, images] = await Promise.all([
     prisma.vehicle.count(),
@@ -181,6 +221,7 @@ async function main() {
       `  publicados: ${published}`,
       `  borradores: ${drafts}`,
       `  imágenes:   ${images}`,
+      `  slots home: ${totalMedia}`,
       "",
     ].join("\n"),
   );

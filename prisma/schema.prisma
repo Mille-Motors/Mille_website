@@ -228,6 +228,32 @@ model Inquiry {
 }
 
 // ---------------------------------------------------------------------------
+// Imágenes estructurales del sitio público
+// ---------------------------------------------------------------------------
+
+/// Las fotografías de la home que no pertenecen a ningún vehículo: el hero y
+/// las tres de la historia de MILLE.
+///
+/// No es un CMS. `key` es una clave fija definida en src/lib/site-media.ts;
+/// el admin cambia la fotografía de un slot existente, no crea slots. Una
+/// fila que no corresponda a una clave conocida se ignora.
+///
+/// Solo existe fila para los slots que alguien ya cambió: mientras un slot
+/// siga con su imagen original, el sitio la lee del registro en código. Por
+/// eso ninguna fila es obligatoria y quedarse sin base de datos no deja la
+/// home sin fotos.
+model SiteMedia {
+  id          String      @id @default(uuid()) @db.Uuid
+  key         String      @unique
+  url         String
+  storagePath String?
+  source      ImageSource @default(STORAGE)
+  alt         String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+// ---------------------------------------------------------------------------
 // Auditoría
 // ---------------------------------------------------------------------------
 

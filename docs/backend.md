@@ -38,7 +38,7 @@ Los nombres están en `.env.example`. Para trabajar en local, cópialo a
 | Variable | Para qué | Dónde se consigue | Puerto |
 | --- | --- | --- | --- |
 | `DATABASE_URL` | Runtime de la app | Supabase → Connect → **Transaction pooler** | 6543 |
-| `DIRECT_URL` | Migraciones y seed | Supabase → Connect → **Direct connection** | 5432 |
+| `DIRECT_URL` | Migraciones y seed | Supabase → Connect → **Session pooler** | 5432 |
 | `NEXT_PUBLIC_SUPABASE_URL` | Auth y Storage | Supabase → Project Settings → API | — |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Auth y Storage | Supabase → API Keys | — |
 
@@ -51,9 +51,17 @@ sesión (5432) dedica una conexión por cliente y se agota en cuanto Vercel
 escala; durante el QA ya dio `timeout exceeded when trying to connect` con
 solo los siete workers de `next build`.
 
-**Las migraciones van por la conexión directa.** Necesitan DDL, advisory
-locks y estado de sesión, y nada de eso sobrevive a un pooler que recicla la
-conexión entre transacciones.
+**Las migraciones van por una conexión en modo sesión.** Necesitan DDL,
+advisory locks y estado de sesión, y nada de eso sobrevive a un pooler que
+recicla la conexión entre transacciones.
+
+> **Por qué el pooler de sesión y no `db.<ref>.supabase.co`.** El endpoint
+> directo de Supabase solo publica registro AAAA: es IPv6 exclusivamente. Las
+> redes sin ruta IPv6 hacia AWS —y los entornos de build de muchos
+> proveedores— no llegan a él, y el síntoma es un `P1001` o un `ENOTFOUND`
+> que parece una caída de la base cuando no lo es. El pooler de sesión
+> (puerto 5432) es el reemplazo IPv4 que documenta Supabase y admite todo lo
+> que Prisma Migrate necesita.
 
 ### Por qué NO lleva `?pgbouncer=true`
 
@@ -96,6 +104,7 @@ Seis tablas. `prisma/schema.prisma` es la referencia.
 | `Vehicle` | El inventario. |
 | `VehicleImage` | Galería ordenada; `position` 0 es la portada. |
 | `Inquiry` | Lo que llega de los formularios públicos. |
+| `SiteMedia` | Las cuatro fotografías estructurales de la home. |
 | `AdminAuditLog` | Quién hizo qué. |
 
 Tres decisiones que conviene conocer:
@@ -250,6 +259,49 @@ CREATE POLICY "mille_vehicle_images_delete"
   USING (bucket_id = 'vehicle-images' AND public.is_active_superadmin());
 ```
 
+## Imágenes del sitio
+
+Las cuatro fotografías de la home que no pertenecen a ningún vehículo: el
+hero y las tres de la historia de MILLE. Se administran en
+**`/admin/contenido`** y cambiarlas no exige volver a desplegar.
+
+La lista de slots sale de `docs/FRONTEND_VISUAL_TODO.md`, donde quedó anotada
+como pendiente "cuando exista backend". No se inventó ninguno.
+
+| Clave | Dónde se ve |
+| --- | --- |
+| `home.hero` | Portada, junto al titular |
+| `home.about.origin` | Capítulo 01 — Por qué estamos aquí |
+| `home.about.house` | Placa vinotinto, House of Motor Culture |
+| `home.about.future` | Capítulo 06 — Hacia dónde queremos ir |
+
+**No es un CMS.** Las claves viven en `src/lib/site-media.ts` y son una lista
+cerrada: el admin cambia la fotografía de un slot existente, no crea slots ni
+los renombra. Una clave que no esté en esa lista se rechaza en el endpoint.
+
+### Respaldo
+
+Cada slot conoce la fotografía con la que se construyó el sitio. Si falta la
+fila o la base no responde, se sirve esa. Aquí sí corresponde —el archivo
+está en el repositorio, es parte del sitio— al contrario que con el
+inventario, donde inventar vehículos escondería una caída de producción.
+
+### Storage
+
+Bucket `site-media`, separado de `vehicle-images` a propósito: son dos ciclos
+de vida distintos y una limpieza de uno no debe poder alcanzar al otro. Mismas
+políticas y misma función `public.is_active_superadmin()`. La ruta la
+construye el servidor como `<clave-del-slot>/<uuid>.<ext>`; el nombre del
+archivo que sube la persona no llega nunca al bucket.
+
+Al reemplazar una imagen el orden es: subir la nueva, apuntar la base a ella
+y solo entonces borrar la anterior. Al revés, un fallo a medias dejaría el
+sitio apuntando a un archivo que ya no existe. Solo se borran objetos propios
+(`source = STORAGE`); las heredadas viven en `/public` y no se tocan.
+
+**Restaurar original** devuelve el slot a su fotografía de partida y borra del
+bucket la que se había subido.
+
 ## API
 
 Forma única de respuesta: `{ data }` cuando sale bien,
@@ -278,6 +330,8 @@ Forma única de respuesta: `{ data }` cuando sale bien,
 | `PATCH` `DELETE` | `/api/admin/categories/[id]` |
 | `GET` | `/api/admin/inquiries` |
 | `PATCH` | `/api/admin/inquiries/[id]` |
+| `GET` | `/api/admin/site-media` |
+| `POST` `PATCH` `DELETE` | `/api/admin/site-media/[key]` |
 
 Sin sesión responden **401**; con sesión pero sin rol, **403**.
 
@@ -308,7 +362,8 @@ esa dependencia en una V1 de 22 vehículos.
 El proyecto no usa Cache Components, así que las páginas leen la base en
 cada petición. Tras cualquier mutación del admin, `revalidateInventory()`
 invalida el caché de ruta de `/`, `/vehiculos`, `/contacto` y la ficha
-afectada.
+afectada; al cambiar una imagen del sitio, `revalidateSiteMedia()` invalida
+la home. Eso es lo que permite cambiar una fotografía sin desplegar.
 
 `/vehiculos/[slug]` **no** usa `generateStaticParams`: publicar desde el
 admin tiene que verse de inmediato, y prerenderizar ataría cada despliegue a
@@ -427,3 +482,12 @@ publique una versión con `@prisma/config` sobre `deepmerge-ts >= 8` y un
 - **Rate limit distribuido**, como se explica arriba.
 - **Sin correo transaccional.** Las solicitudes se guardan y se leen en
   `/admin/solicitudes`. No se notifica a nadie todavía.
+- **Generar descripción y equipamiento con IA.** Sería útil que el admin
+  propusiera un borrador de descripción y de equipamiento a partir de marca,
+  modelo, versión, año y unas notas, dejando *siempre* la edición manual
+  antes de guardar. No está implementado y no debe implementarse todavía: no
+  hay integración, ni claves, ni proveedor decidido.
+- **Ficha técnica MILLE.** Descrita en `docs/FRONTEND_VISUAL_TODO.md`, con su
+  nota legal. Sigue sin construirse.
+- **Deuda visual.** Las siete entradas de `docs/FRONTEND_VISUAL_TODO.md` son
+  dirección de arte y van juntas en su propia ronda, no sueltas.

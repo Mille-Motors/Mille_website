@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { getSiteMediaImage } from "@/server/site-media/service";
 import { ChapterLabel } from "@/components/ui/ChapterLabel";
 import { Container } from "@/components/ui/Container";
 
@@ -11,7 +12,11 @@ const directions = [
 ];
 
 /** 06 — Split the other way round, so the rhythm alternates against 01. */
-export function ChapterFuture() {
+export async function ChapterFuture() {
+  // La fotografía se administra desde /admin/contenido. Si no se ha
+  // cambiado nunca —o la base no responde— cae a la imagen original del
+  // sitio, que vive en el repositorio.
+  const image = await getSiteMediaImage("home.about.future");
   return (
     <div className="border-t border-stone">
       <Container width="wide" className="lg:px-0">
@@ -48,8 +53,8 @@ export function ChapterFuture() {
 
           <div className="relative aspect-[4/3] w-full overflow-hidden bg-charcoal lg:order-first lg:aspect-auto lg:h-full lg:min-h-[32rem]">
             <Image
-              src="/images/vehicles/bmw-r-1250-gs-adventure/01.jpg"
-              alt="Motociclista en una BMW R 1250 GS Adventure en una carretera de montaña"
+              src={image.src}
+              alt={image.alt}
               fill
               sizes="(min-width: 1024px) 50vw, 100vw"
               className="object-cover"

@@ -59,3 +59,10 @@ export function assertSupabaseConfig(): { url: string; key: string } {
 
 /** Bucket de imágenes de vehículos. Lectura pública, escritura autenticada. */
 export const VEHICLE_IMAGE_BUCKET = "vehicle-images";
+
+/**
+ * Bucket de las imágenes estructurales del sitio. Separado del de vehículos
+ * a propósito: son dos ciclos de vida distintos, y una limpieza de uno nunca
+ * debe poder alcanzar al otro.
+ */
+export const SITE_MEDIA_BUCKET = "site-media";

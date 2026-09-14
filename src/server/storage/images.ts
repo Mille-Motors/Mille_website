@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { ApiError, badRequest } from "@/server/http/errors";
 import { createSupabaseServerClient } from "@/server/auth/supabase-server";
-import { VEHICLE_IMAGE_BUCKET } from "@/server/auth/config";
+import { SITE_MEDIA_BUCKET, VEHICLE_IMAGE_BUCKET } from "@/server/auth/config";
 
 /**
  * Subida de imágenes a Supabase Storage.
@@ -65,13 +65,22 @@ export interface UploadedImage {
   bytes: number;
 }
 
+/** Los dos buckets del proyecto. No se acepta ninguno más. */
+export type StorageBucket =
+  | typeof VEHICLE_IMAGE_BUCKET
+  | typeof SITE_MEDIA_BUCKET;
+
 /**
- * Valida y sube un archivo. El nombre original nunca llega al bucket: la
- * ruta se construye a partir del id del vehículo y un UUID, de modo que no
- * hay forma de escaparse del prefijo ni de colisionar con otro archivo.
+ * Valida y sube un archivo a un bucket conocido.
+ *
+ * El nombre original nunca llega al bucket: la ruta la construye el servidor
+ * a partir de un prefijo controlado y un UUID, así que no hay forma de
+ * escaparse del prefijo, de colisionar con otro archivo ni de colar un
+ * `../` por el nombre.
  */
-export async function uploadVehicleImage(
-  vehicleId: string,
+export async function uploadImage(
+  bucket: StorageBucket,
+  prefix: string,
   file: File,
 ): Promise<UploadedImage> {
   if (file.size === 0) throw badRequest("El archivo está vacío.");
@@ -96,11 +105,15 @@ export async function uploadVehicleImage(
   }
 
   const extension = ALLOWED[detected][0];
-  const storagePath = `vehicles/${vehicleId}/${randomUUID()}.${extension}`;
+  // El prefijo se sanea aquí y no donde se llama: es la última frontera antes
+  // de escribir, y confiar en que quien llama ya lo hizo es cómo aparecen los
+  // fallos de recorrido de rutas.
+  const safePrefix = prefix.replace(/[^a-zA-Z0-9._-]/g, "-");
+  const storagePath = `${safePrefix}/${randomUUID()}.${extension}`;
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.storage
-    .from(VEHICLE_IMAGE_BUCKET)
+    .from(bucket)
     .upload(storagePath, buffer, {
       contentType: detected,
       // Una ruta con UUID no puede existir ya; sobrescribir solo ocultaría un error.
@@ -109,16 +122,14 @@ export async function uploadVehicleImage(
     });
 
   if (error) {
-    console.error("[mille:storage] fallo al subir", { storagePath, error });
+    console.error("[mille:storage] fallo al subir", { bucket, storagePath, error });
     throw new ApiError(
       "INTERNAL_ERROR",
       "No se pudo subir la imagen. Vuelve a intentarlo.",
     );
   }
 
-  const { data } = supabase.storage
-    .from(VEHICLE_IMAGE_BUCKET)
-    .getPublicUrl(storagePath);
+  const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath);
 
   return {
     url: data.publicUrl,
@@ -133,14 +144,15 @@ export async function uploadVehicleImage(
  * llama ya decidió que la imagen se va, y dejar la fila en la base porque el
  * archivo no se pudo borrar deja el admin en un estado peor.
  */
-export async function deleteStoredImage(storagePath: string): Promise<boolean> {
+export async function deleteStoredImage(
+  bucket: StorageBucket,
+  storagePath: string,
+): Promise<boolean> {
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.storage
-    .from(VEHICLE_IMAGE_BUCKET)
-    .remove([storagePath]);
+  const { error } = await supabase.storage.from(bucket).remove([storagePath]);
 
   if (error) {
-    console.error("[mille:storage] fallo al borrar", { storagePath, error });
+    console.error("[mille:storage] fallo al borrar", { bucket, storagePath, error });
     return false;
   }
   return true;

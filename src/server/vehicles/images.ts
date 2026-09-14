@@ -6,8 +6,9 @@ import { vehicleTitle } from "@/lib/format";
 import {
   MAX_IMAGES_PER_VEHICLE,
   deleteStoredImage,
-  uploadVehicleImage,
+  uploadImage,
 } from "@/server/storage/images";
+import { VEHICLE_IMAGE_BUCKET } from "@/server/auth/config";
 import { toVehicleDto, vehicleInclude, type VehicleRecord } from "@/server/vehicles/mapper";
 import type { Vehicle } from "@/types/vehicle";
 
@@ -65,7 +66,11 @@ export async function addVehicleImages(
 
   try {
     for (const file of files) {
-      const result = await uploadVehicleImage(vehicleId, file);
+      const result = await uploadImage(
+        VEHICLE_IMAGE_BUCKET,
+        `vehicles/${vehicleId}`,
+        file,
+      );
       uploaded.push({ storagePath: result.storagePath });
       await prisma.vehicleImage.create({
         data: {
@@ -88,7 +93,7 @@ export async function addVehicleImages(
         where: { storagePath: orphan.storagePath },
         select: { id: true },
       });
-      if (!linked) await deleteStoredImage(orphan.storagePath);
+      if (!linked) await deleteStoredImage(VEHICLE_IMAGE_BUCKET, orphan.storagePath);
     }
     throw error;
   }
@@ -109,7 +114,7 @@ export async function deleteVehicleImage(
   // imágenes LEGACY viven en /public y no se tocan desde aquí.
   await prisma.vehicleImage.delete({ where: { id: imageId } });
   if (image.source === "STORAGE" && image.storagePath) {
-    await deleteStoredImage(image.storagePath);
+    await deleteStoredImage(VEHICLE_IMAGE_BUCKET, image.storagePath);
   }
 
   // Cerrar el hueco para que las posiciones sigan siendo 0..n-1.

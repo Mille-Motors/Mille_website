@@ -18,7 +18,10 @@ export type AuditAction =
   | "CREATE_CATEGORY"
   | "UPDATE_CATEGORY"
   | "DELETE_CATEGORY"
-  | "UPDATE_INQUIRY";
+  | "UPDATE_INQUIRY"
+  | "UPDATE_SITE_MEDIA"
+  | "UPDATE_SITE_MEDIA_ALT"
+  | "RESET_SITE_MEDIA";
 
 /**
  * Quién hizo qué. Nunca hace fallar la operación que registra: perder una

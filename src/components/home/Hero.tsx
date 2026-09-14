@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { getSiteMediaImage } from "@/server/site-media/service";
 import { ArrowRight } from "lucide-react";
 import { ButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
@@ -7,7 +8,11 @@ import { Rule } from "@/components/ui/Rule";
 import { InventoryCTALink } from "@/components/vehicle/InventoryCTALink";
 import { site } from "@/data/site";
 
-export function Hero() {
+export async function Hero() {
+  // La fotografía se administra desde /admin/contenido. Si no se ha
+  // cambiado nunca —o la base no responde— cae a la imagen original del
+  // sitio, que vive en el repositorio.
+  const image = await getSiteMediaImage("home.hero");
   return (
     <section className="border-b border-stone bg-cream">
       <Container width="wide" className="lg:px-0">
@@ -45,8 +50,8 @@ export function Hero() {
 
           <div className="relative order-first aspect-[4/3] w-full overflow-hidden bg-charcoal sm:aspect-[16/10] lg:order-none lg:aspect-auto lg:min-h-[36rem]">
             <Image
-              src="/images/brand/hero.jpg"
-              alt="BMW M3 con la identidad de MILLE frente a los cerros de Bogotá"
+              src={image.src}
+              alt={image.alt}
               fill
               priority
               sizes="(min-width: 1024px) 55vw, 100vw"

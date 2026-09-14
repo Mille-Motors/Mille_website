@@ -15,22 +15,28 @@ próxima ronda de dirección visual, no mezclada con cambios de contenido.
 
 ## Alcance admin por decidir
 
-`/admin/categorias` y `/admin/configuracion` existen solo para que la barra
-lateral no tenga enlaces rotos. Probablemente se retiren.
+`/admin/categorias` ya administra la taxonomía de verdad y se queda.
+`/admin/configuracion` sigue siendo informativa a propósito: no habrá nada
+que configurar hasta que existan dominio, correo, WhatsApp e Instagram.
+**Queda pendiente de decisión humana si esa pantalla se retira o se llena
+cuando llegue esa fase.**
 
-## Contenido editable desde admin — requisito futuro
+## Contenido editable desde admin — RESUELTO
 
-Cuatro fotografías de la home deberán poder reemplazarse desde el admin
-cuando exista backend. Hoy son rutas fijas bajo `public/images/`. **No hay
-controles, campos ni base de datos para esto, y no debe construirse hasta que
-los founders autoricen el backend.**
+Las cuatro fotografías de la home ya se administran desde **`/admin/contenido`**
+y cambiarlas no exige desplegar. Las claves y sus imágenes de respaldo viven
+en `src/lib/site-media.ts`; el funcionamiento está en `docs/backend.md`.
 
-| Slot | Dónde vive hoy | Archivo actual |
-| --- | --- | --- |
-| Hero de la home | `components/home/Hero.tsx` | `brand/hero.jpg` |
-| Capítulo 01, por qué estamos aquí | `components/home/about/ChapterOrigin.tsx` | `vehicles/audi-rs-5-sportback/01.jpg` |
-| House of Motor Culture | `components/home/about/HouseOfMotorCulture.tsx` | `vehicles/bmw-m4-competition/01.jpg` |
-| Capítulo 06, hacia dónde queremos ir | `components/home/about/ChapterFuture.tsx` | `vehicles/bmw-r-1250-gs-adventure/01.jpg` |
+| Slot | Clave | Componente | Imagen original |
+| --- | --- | --- | --- |
+| Hero de la home | `home.hero` | `components/home/Hero.tsx` | `brand/hero.jpg` |
+| Capítulo 01, por qué estamos aquí | `home.about.origin` | `components/home/about/ChapterOrigin.tsx` | `vehicles/audi-rs-5-sportback/01.jpg` |
+| House of Motor Culture | `home.about.house` | `components/home/about/HouseOfMotorCulture.tsx` | `vehicles/bmw-m4-competition/01.jpg` |
+| Capítulo 06, hacia dónde queremos ir | `home.about.future` | `components/home/about/ChapterFuture.tsx` | `vehicles/bmw-r-1250-gs-adventure/01.jpg` |
+
+Los componentes siguen intactos salvo el origen de la imagen: cada uno lee su
+slot y, si no se ha cambiado nunca o la base no responde, cae a la fotografía
+original del repositorio.
 
 ## Ficha técnica — decisión de producto y nota legal
 

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { getSiteMediaImage } from "@/server/site-media/service";
 import { Container } from "@/components/ui/Container";
 import { site } from "@/data/site";
 
@@ -21,7 +22,11 @@ const territory = [
   "Carretera",
 ];
 
-export function HouseOfMotorCulture() {
+export async function HouseOfMotorCulture() {
+  // La fotografía se administra desde /admin/contenido. Si no se ha
+  // cambiado nunca —o la base no responde— cae a la imagen original del
+  // sitio, que vive en el repositorio.
+  const image = await getSiteMediaImage("home.about.house");
   return (
     <Container width="wide" className="lg:px-0">
       <div className="grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
@@ -73,8 +78,8 @@ export function HouseOfMotorCulture() {
 
         <div className="relative min-h-[22rem] w-full overflow-hidden bg-charcoal lg:min-h-[38rem]">
           <Image
-            src="/images/vehicles/bmw-m4-competition/01.jpg"
-            alt="BMW M4 Competition en verde Isle of Man en una calle de la ciudad"
+            src={image.src}
+            alt={image.alt}
             fill
             sizes="(min-width: 1024px) 52vw, 100vw"
             className="object-cover"

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  ImageIcon,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -24,6 +25,7 @@ const nav = [
   { label: "Vehículos", href: "/admin/vehiculos", icon: Car, exact: true },
   { label: "Nuevo vehículo", href: "/admin/vehiculos/nuevo", icon: Plus, exact: true },
   { label: "Solicitudes", href: "/admin/solicitudes", icon: Inbox, exact: false },
+  { label: "Imágenes del sitio", href: "/admin/contenido", icon: ImageIcon, exact: false },
   { label: "Categorías", href: "/admin/categorias", icon: Layers, exact: false },
   { label: "Configuración", href: "/admin/configuracion", icon: Settings, exact: false },
 ];
