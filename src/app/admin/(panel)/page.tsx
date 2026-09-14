@@ -5,6 +5,7 @@ import { StatCards } from "@/components/admin/StatCards";
 import { VehicleTable } from "@/components/admin/VehicleTable";
 import { ButtonLink } from "@/components/ui/Button";
 import { formatDate } from "@/lib/format";
+import { adminVehicleQuerySchema } from "@/server/vehicles/schemas";
 import { getInventoryStats, listAdminVehicles } from "@/server/vehicles/service";
 
 export const metadata = { title: "Dashboard" };
@@ -16,7 +17,7 @@ export const metadata = { title: "Dashboard" };
 export default async function AdminDashboardPage() {
   const [stats, recent] = await Promise.all([
     getInventoryStats(),
-    listAdminVehicles({ limit: 5, page: 1 }),
+    listAdminVehicles(adminVehicleQuerySchema.parse({ limit: 5, page: 1 })),
   ]);
 
   return (

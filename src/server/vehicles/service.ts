@@ -6,6 +6,7 @@ import { conflict, notFound } from "@/server/http/errors";
 import { publicationBlockers } from "@/lib/publication";
 import { uniqueVehicleSlug } from "@/server/vehicles/slug";
 import {
+  fromDbVehicleType,
   toDbAvailability,
   toDbPublication,
   toDbVehicleType,
@@ -15,6 +16,7 @@ import {
 } from "@/server/vehicles/mapper";
 import type {
   AdminVehicleQuery,
+  AdminVehicleSort,
   VehicleInput,
   VehiclePatch,
 } from "@/server/vehicles/schemas";
@@ -293,10 +295,15 @@ export interface AdminVehicleList {
   limit: number;
 }
 
-/** El admin sí ve borradores y archivados: es su trabajo. */
-export async function listAdminVehicles(
-  query: AdminVehicleQuery,
-): Promise<AdminVehicleList> {
+/**
+ * Traduce la consulta del admin a una cláusula de Prisma.
+ *
+ * Todo se resuelve en la base: con 22 vehículos daría igual, pero traer el
+ * inventario entero al navegador para descartarlo allí deja de funcionar
+ * mucho antes de lo que parece, y el día que deje de funcionar habrá que
+ * reescribir la pantalla en vez de cambiar un número.
+ */
+function adminWhere(query: AdminVehicleQuery): Prisma.VehicleWhereInput {
   const where: Prisma.VehicleWhereInput = {};
 
   if (query.vehicleType) where.vehicleType = toDbVehicleType[query.vehicleType];
@@ -304,6 +311,22 @@ export async function listAdminVehicles(
   if (query.availability) {
     where.availabilityStatus = toDbAvailability[query.availability];
   }
+  if (query.make) where.make = query.make;
+  if (query.categoryId) where.categoryId = query.categoryId;
+
+  if (query.minYear !== undefined || query.maxYear !== undefined) {
+    where.year = {
+      ...(query.minYear !== undefined ? { gte: query.minYear } : {}),
+      ...(query.maxYear !== undefined ? { lte: query.maxYear } : {}),
+    };
+  }
+  if (query.minPrice !== undefined || query.maxPrice !== undefined) {
+    where.price = {
+      ...(query.minPrice !== undefined ? { gte: BigInt(query.minPrice) } : {}),
+      ...(query.maxPrice !== undefined ? { lte: BigInt(query.maxPrice) } : {}),
+    };
+  }
+
   if (query.q) {
     where.OR = [
       { make: { contains: query.q, mode: "insensitive" } },
@@ -313,11 +336,36 @@ export async function listAdminVehicles(
     ];
   }
 
+  return where;
+}
+
+const adminOrderBy: Record<
+  AdminVehicleSort,
+  Prisma.VehicleOrderByWithRelationInput[]
+> = {
+  updated: [{ updatedAt: "desc" }],
+  "created-desc": [{ createdAt: "desc" }],
+  "created-asc": [{ createdAt: "asc" }],
+  "price-asc": [{ price: "asc" }],
+  "price-desc": [{ price: "desc" }],
+  "year-asc": [{ year: "asc" }],
+  "year-desc": [{ year: "desc" }],
+};
+
+/** El admin sí ve borradores y archivados: es su trabajo. */
+export async function listAdminVehicles(
+  query: AdminVehicleQuery,
+): Promise<AdminVehicleList> {
+  const where = adminWhere(query);
+
   const [records, total] = await Promise.all([
     prisma.vehicle.findMany({
       where,
       include: vehicleInclude,
-      orderBy: [{ updatedAt: "desc" }],
+      // El id desempata para que la paginación sea estable: sin un criterio
+      // total, dos filas con el mismo updatedAt pueden cambiar de orden entre
+      // páginas y una de ellas no aparecer nunca.
+      orderBy: [...adminOrderBy[query.sort], { id: "asc" }],
       skip: (query.page - 1) * query.limit,
       take: query.limit,
     }),
@@ -329,6 +377,46 @@ export async function listAdminVehicles(
     total,
     page: query.page,
     limit: query.limit,
+  };
+}
+
+export interface AdminVehicleFilterOptions {
+  makes: string[];
+  categories: { id: string; name: string; vehicleType: VehicleType }[];
+  years: { min: number; max: number } | null;
+}
+
+/**
+ * Las opciones de los desplegables salen del inventario real, no de una lista
+ * fija: si MILLE nunca ha tenido un Porsche, filtrar por Porsche no debería
+ * ni ofrecerse. Incluye borradores y archivados, porque el admin también
+ * necesita encontrarlos.
+ */
+export async function getAdminFilterOptions(): Promise<AdminVehicleFilterOptions> {
+  const [makeRows, categories, bounds] = await Promise.all([
+    prisma.vehicle.findMany({
+      select: { make: true },
+      distinct: ["make"],
+      orderBy: { make: "asc" },
+    }),
+    prisma.category.findMany({
+      orderBy: [{ vehicleType: "asc" }, { position: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, vehicleType: true },
+    }),
+    prisma.vehicle.aggregate({ _min: { year: true }, _max: { year: true } }),
+  ]);
+
+  return {
+    makes: makeRows.map((row) => row.make).sort((a, b) => a.localeCompare(b, "es")),
+    categories: categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      vehicleType: fromDbVehicleType[category.vehicleType],
+    })),
+    years:
+      bounds._min.year !== null && bounds._max.year !== null
+        ? { min: bounds._min.year, max: bounds._max.year }
+        : null,
   };
 }
 

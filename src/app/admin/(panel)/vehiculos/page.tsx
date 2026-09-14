@@ -1,17 +1,23 @@
 import { Plus } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
-import { VehicleFilters } from "@/components/admin/VehicleFilters";
+import {
+  VehicleFilters,
+  VehiclePagination,
+} from "@/components/admin/VehicleFilters";
 import { VehicleTable } from "@/components/admin/VehicleTable";
 import { ButtonLink } from "@/components/ui/Button";
 import { adminVehicleQuerySchema } from "@/server/vehicles/schemas";
-import { listAdminVehicles } from "@/server/vehicles/service";
+import {
+  getAdminFilterOptions,
+  listAdminVehicles,
+} from "@/server/vehicles/service";
 
 export const metadata = { title: "Vehículos" };
 
 /**
- * La búsqueda y los filtros viven en la URL y se resuelven en la base, igual
- * que en el inventario público: compartir un enlace o recargar da el mismo
- * resultado, y el navegador no recibe el inventario entero para descartarlo.
+ * La búsqueda, los filtros, el orden y la página viven en la URL y se
+ * resuelven en la base. El navegador nunca recibe el inventario entero para
+ * descartarlo, que es lo que deja de funcionar cuando haya 300 vehículos.
  */
 export default async function AdminVehiclesPage(
   props: PageProps<"/admin/vehiculos">,
@@ -21,12 +27,12 @@ export default async function AdminVehiclesPage(
   // Un parámetro inválido no debe reventar la pantalla: se ignora y se
   // muestra la lista sin ese filtro.
   const parsed = adminVehicleQuerySchema.safeParse(searchParams);
-  const query = parsed.success
-    ? parsed.data
-    : adminVehicleQuerySchema.parse({});
+  const query = parsed.success ? parsed.data : adminVehicleQuerySchema.parse({});
 
-  const { vehicles, total, page, limit } = await listAdminVehicles(query);
-  const pages = Math.max(1, Math.ceil(total / limit));
+  const [{ vehicles, total }, options] = await Promise.all([
+    listAdminVehicles(query),
+    getAdminFilterOptions(),
+  ]);
 
   return (
     <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
@@ -41,17 +47,13 @@ export default async function AdminVehiclesPage(
         }
       />
 
-      <VehicleFilters query={query} total={total} />
+      <VehicleFilters query={query} options={options} total={total} />
 
       <div className="mt-6">
         <VehicleTable vehicles={vehicles} />
       </div>
 
-      {pages > 1 ? (
-        <p className="mt-6 font-serif text-sm text-ink-muted tabular">
-          Página {page} de {pages} · {total} vehículos
-        </p>
-      ) : null}
+      <VehiclePagination query={query} total={total} />
     </div>
   );
 }

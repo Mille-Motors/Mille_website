@@ -100,12 +100,66 @@ export const imageOrderSchema = z.object({
     .max(40),
 });
 
+/** Cómo se puede ordenar el listado interno. */
+export const ADMIN_VEHICLE_SORTS = [
+  "updated",
+  "created-desc",
+  "created-asc",
+  "price-asc",
+  "price-desc",
+  "year-asc",
+  "year-desc",
+] as const;
+
+export type AdminVehicleSort = (typeof ADMIN_VEHICLE_SORTS)[number];
+
+/**
+ * Un parámetro vacío en la URL ("?marca=") tiene que leerse como ausencia de
+ * filtro y no como un filtro por cadena vacía, que no devolvería nada.
+ */
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .optional()
+    .transform((value) => (value === "" ? undefined : value));
+
+const optionalId = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => (value === "" ? undefined : value))
+  .refine((value) => value === undefined || z.uuid().safeParse(value).success, {
+    message: "Identificador no válido.",
+  });
+
+const optionalInt = (min: number, max: number) =>
+  z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((value) => {
+      if (value === undefined || value === "") return undefined;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? Math.trunc(parsed) : undefined;
+    })
+    .refine((value) => value === undefined || (value >= min && value <= max), {
+      message: "Valor fuera de rango.",
+    });
+
 export const adminVehicleQuerySchema = z.object({
-  q: trimmed(120).optional(),
+  q: optionalText(120),
   vehicleType: z.enum(VEHICLE_TYPES).optional(),
   publication: z.enum(PUBLICATION_STATUSES).optional(),
   availability: z.enum(AVAILABILITY_STATUSES).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
+  make: optionalText(60),
+  categoryId: optionalId,
+  minYear: optionalInt(1900, 2100),
+  maxYear: optionalInt(1900, 2100),
+  minPrice: optionalInt(0, 100_000_000_000),
+  maxPrice: optionalInt(0, 100_000_000_000),
+  sort: z.enum(ADMIN_VEHICLE_SORTS).default("updated"),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
   page: z.coerce.number().int().min(1).default(1),
 });
 
