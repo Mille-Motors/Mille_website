@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
+import {
+  INVENTORY_ANCHOR_ID,
+  scrollToInventory,
+} from "@/components/vehicle/inventory-anchor";
 
 /**
  * Next's built-in scroll-to-hash on a cross-page Link navigation isn't
@@ -11,10 +15,9 @@ import { useEffect } from "react";
  */
 export function InventoryAnchorScroll() {
   useEffect(() => {
-    if (window.location.hash !== "#inventario") return;
-    document
-      .getElementById("inventario")
-      ?.scrollIntoView({ behavior: "instant", block: "start" });
+    if (window.location.hash !== `#${INVENTORY_ANCHOR_ID}`) return;
+    // Al llegar ya pidiendo el ancla no hay nada que animar: se aterriza allí.
+    scrollToInventory("instant");
   }, []);
 
   return null;

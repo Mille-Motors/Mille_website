@@ -3,6 +3,10 @@
 import { useSyncExternalStore, type ComponentProps, type MouseEvent } from "react";
 import { usePathname } from "next/navigation";
 import { ButtonLink } from "@/components/ui/Button";
+import {
+  INVENTORY_ANCHOR_ID,
+  scrollToInventory,
+} from "@/components/vehicle/inventory-anchor";
 
 type Props = Omit<ComponentProps<typeof ButtonLink>, "href">;
 
@@ -46,14 +50,12 @@ export function InventoryCTALink({ onClick, ...props }: Props) {
     onClick?.(event);
     if (!onInventory) return;
     event.preventDefault();
-    document
-      .getElementById("inventario")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (window.location.hash !== "#inventario") {
+    scrollToInventory();
+    if (window.location.hash !== `#${INVENTORY_ANCHOR_ID}`) {
       window.history.replaceState(
         null,
         "",
-        `${window.location.pathname}${window.location.search}#inventario`,
+        `${window.location.pathname}${window.location.search}#${INVENTORY_ANCHOR_ID}`,
       );
     }
   };
