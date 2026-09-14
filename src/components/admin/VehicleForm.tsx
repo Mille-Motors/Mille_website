@@ -525,27 +525,31 @@ export function VehicleForm({
             <p className="mr-auto text-xs text-ink-muted">Cambios guardados.</p>
           ) : null}
 
-          {vehicle ? (
-            <>
-              <a
-                href={`/vehiculos/${vehicle.slug}`}
+          {/* Solo cuando está publicado: el sitio público únicamente sirve
+              PUBLISHED, así que en borrador o archivado este enlace abría
+              deliberadamente una pestaña con un 404. */}
+          {vehicle?.publication === "published" ? (
+            <a
+              href={`/vehiculos/${vehicle.slug}`}
                 target="_blank"
                 rel="noreferrer noopener"
                 className="label-caps inline-flex h-13 items-center justify-center gap-2.5 rounded-xs border border-stone px-8 text-ink transition-colors hover:border-ink/40"
               >
-                Ver ficha pública
-                <ExternalLink aria-hidden className="size-3.5" strokeWidth={1.5} />
-              </a>
-              <Button
-                type="button"
-                variant="ghost"
-                size="lg"
-                disabled={saving}
-                onClick={() => void togglePublication()}
-              >
-                {vehicle.publication === "published" ? "Despublicar" : "Publicar"}
-              </Button>
-            </>
+              Ver ficha pública
+              <ExternalLink aria-hidden className="size-3.5" strokeWidth={1.5} />
+            </a>
+          ) : null}
+
+          {vehicle ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="lg"
+              disabled={saving}
+              onClick={() => void togglePublication()}
+            >
+              {vehicle.publication === "published" ? "Despublicar" : "Publicar"}
+            </Button>
           ) : null}
 
           <Button type="submit" size="lg" disabled={saving}>

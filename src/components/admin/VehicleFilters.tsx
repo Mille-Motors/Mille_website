@@ -51,7 +51,7 @@ const ADVANCED_KEYS = [
   "maxPrice",
 ] as const;
 
-function buildHref(query: Partial<AdminVehicleQuery>): string {
+export function adminVehiclesHref(query: Partial<AdminVehicleQuery>): string {
   const params = new URLSearchParams();
   const set = (key: string, value: unknown) => {
     if (value === undefined || value === null || value === "") return;
@@ -146,7 +146,7 @@ export function VehicleFilters({
   /** Cualquier cambio de filtro vuelve a la página 1: la 7 podría no existir. */
   function go(patch: Partial<AdminVehicleQuery>) {
     const next = { ...query, ...patch, page: 1 };
-    startTransition(() => router.push(buildHref(next)));
+    startTransition(() => router.push(adminVehiclesHref(next)));
   }
 
   const activeCount = [
@@ -445,7 +445,7 @@ export function VehiclePagination({
   if (pages <= 1) return null;
 
   const goTo = (page: number) =>
-    startTransition(() => router.push(buildHref({ ...query, page })));
+    startTransition(() => router.push(adminVehiclesHref({ ...query, page })));
 
   const button =
     "label-caps rounded-xs border border-stone px-4 py-2 text-[10px] text-ink transition-colors hover:border-ink/40 disabled:opacity-35 disabled:hover:border-stone";

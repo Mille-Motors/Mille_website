@@ -8,6 +8,11 @@ import { getFeaturedVehicles } from "@/lib/vehicles";
 export async function FeaturedVehicles() {
   const vehicles = await getFeaturedVehicles(4);
 
+  // Sin inventario publicado no hay nada que destacar. Un titular sobre una
+  // rejilla vacía no informa de nada y parece que la página se rompió; es
+  // más honesto que la sección no exista.
+  if (vehicles.length === 0) return null;
+
   return (
     <section className="bg-cream py-16 lg:py-20">
       <Container width="wide">

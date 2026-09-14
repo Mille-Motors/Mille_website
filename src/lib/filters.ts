@@ -74,22 +74,28 @@ function bound(value: string | string[] | undefined): number | undefined {
 }
 
 /**
- * @param knownMakes Todas las marcas del inventario, no solo las del
- * universo elegido. Una marca que existe pero no tiene nada en este universo
- * es un cero honesto: descartarla ampliaría los resultados en silencio.
- * @param knownCategorySlugs Igual, para las categorías del universo elegido.
+ * Un filtro presente en la URL nunca desaparece.
+ *
+ * Antes se validaban categoría y marca contra lo que existía y, si no
+ * figuraban, se descartaban: `?categoria=touring` acababa mostrando *todas*
+ * las motos y `?marca=Ferrari` el inventario entero, con la URL diciendo que
+ * había un filtro puesto. Ampliar resultados en silencio es peor que no
+ * devolver ninguno, porque quien mira no tiene forma de notarlo.
+ *
+ * Ahora el valor viaja tal cual a la consulta. Si no existe, la base
+ * devuelve cero y se ve el estado vacío, que es la verdad.
+ *
+ * Lo que sí se canonicaliza son los parámetros operativos —orden y rangos
+ * ilegibles— porque un orden inválido no ensancha nada: se cae al orden por
+ * defecto y los resultados siguen siendo los mismos.
  */
-export function parseFilters(
-  params: RawSearchParams,
-  knownMakes: string[],
-  knownCategorySlugs: string[] = [],
-): InventoryFilters {
+export function parseFilters(params: RawSearchParams): InventoryFilters {
   const rawType = first(params.tipo);
   const tipo: TypeFilter = VEHICLE_TYPES.includes(rawType as VehicleType)
     ? (rawType as VehicleType)
     : "all";
 
-  const rawCategory = first(params.categoria)?.toLowerCase();
+  const categoria = first(params.categoria)?.toLowerCase();
   const marca = first(params.marca);
   const orden = first(params.orden);
 
@@ -106,17 +112,30 @@ export function parseFilters(
 
   return {
     tipo,
-    categoria:
-      rawCategory && knownCategorySlugs.includes(rawCategory)
-        ? rawCategory
-        : undefined,
-    marca: marca && knownMakes.includes(marca) ? marca : undefined,
+    // Se conservan tal cual: un valor que no existe produce cero resultados,
+    // que es exactamente lo que el usuario pidió.
+    categoria: categoria || undefined,
+    marca: marca || undefined,
     minYear,
     maxYear,
     minPrice,
     maxPrice,
     orden: SORT_KEYS.includes(orden as SortKey) ? (orden as SortKey) : "recientes",
   };
+}
+
+/**
+ * ¿El parámetro `tipo` trae algo que no es un universo?
+ *
+ * `parseFilters` lo lee como "todo", que es lo razonable para renderizar,
+ * pero dejar la URL diciendo `tipo=camion` mientras se muestra el inventario
+ * completo hace creer que hay un filtro aplicado. Quien llama lo usa para
+ * redirigir a la URL canónica.
+ */
+export function hasInvalidType(params: RawSearchParams): boolean {
+  const raw = first(params.tipo);
+  if (raw === undefined || raw === "") return false;
+  return !VEHICLE_TYPES.includes(raw as VehicleType);
 }
 
 /** Solo filtros — el selector de tipo y el orden no lo son. */

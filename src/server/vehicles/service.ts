@@ -223,7 +223,7 @@ export async function getInventoryFacets(
       ? { ...PUBLISHED }
       : { ...PUBLISHED, vehicleType: toDbVehicleType[type] };
 
-  const [scoped, counts] = await Promise.all([
+  const [pool, counts] = await Promise.all([
     prisma.vehicle.findMany({
       where: scopeWhere,
       select: {
@@ -231,7 +231,14 @@ export async function getInventoryFacets(
         year: true,
         price: true,
         category: {
-          select: { id: true, name: true, pluralName: true, slug: true, position: true },
+          select: {
+            id: true,
+            name: true,
+            pluralName: true,
+            slug: true,
+            position: true,
+            active: true,
+          },
         },
       },
     }),
@@ -242,31 +249,24 @@ export async function getInventoryFacets(
     }),
   ]);
 
-  // Un universo vacío no debe producir Infinity ni una lista imposible de
-  // usar: se cae al inventario completo para los límites.
-  const pool =
-    scoped.length > 0
-      ? scoped
-      : await prisma.vehicle.findMany({
-          where: PUBLISHED,
-          select: {
-            make: true,
-            year: true,
-            price: true,
-            category: {
-              select: { id: true, name: true, pluralName: true, slug: true, position: true },
-            },
-          },
-        });
+  // Sin fallback al otro universo. Si no hay motos publicadas, las facetas de
+  // motos son vacías: ofrecer marcas, categorías, años y precios de los
+  // carros sería prometer filtros que darían cero y contradecir al propio
+  // contador, que ya dice 0. Un universo vacío se representa vacío.
 
   const years = [...new Set(pool.map((v) => v.year))].sort((a, b) => b - a);
   const prices = pool.map((v) => Number(v.price));
 
+  // Una categoría desactivada deja de ofrecerse como navegación, pero los
+  // vehículos publicados que la usan siguen contando para marcas, años y
+  // precios: desactivar taxonomía no despublica inventario.
   const categoryMap = new Map<
     string,
     { id: string; name: string; pluralName: string; slug: string; position: number }
   >();
-  for (const row of pool) categoryMap.set(row.category.id, row.category);
+  for (const row of pool) {
+    if (row.category.active) categoryMap.set(row.category.id, row.category);
+  }
 
   const auto = counts.find((c) => c.vehicleType === "AUTO")?._count._all ?? 0;
   const moto = counts.find((c) => c.vehicleType === "MOTO")?._count._all ?? 0;
@@ -458,6 +458,44 @@ async function assertCategory(
 }
 
 /**
+ * Un vehículo publicado tiene que seguir cumpliendo lo que se le exigió para
+ * publicarlo.
+ *
+ * Antes `publicationBlockers()` solo corría al publicar, así que después
+ * quedaban caminos para dejar una ficha pública rota: borrar su última
+ * fotografía, ponerle precio 0, o cambiarle el tipo dejándole una categoría
+ * del otro universo. La comprobación vive ahora aquí y la llaman todas las
+ * mutaciones que pueden romperla.
+ *
+ * Se ejecuta DENTRO de la transacción, leyendo el estado ya modificado: al
+ * lanzar, Prisma revierte y la base nunca llega a quedar en un estado
+ * inválido. No se despublica automáticamente —sería una sorpresa para quien
+ * administra— sino que se rechaza el cambio explicando qué rompería.
+ */
+export async function assertPublishedInvariant(
+  tx: Prisma.TransactionClient,
+  id: string,
+): Promise<Vehicle> {
+  const record = await tx.vehicle.findUnique({
+    where: { id },
+    include: vehicleInclude,
+  });
+  if (!record) throw notFound("Ese vehículo no existe.");
+
+  const vehicle = toVehicleDto(record as VehicleRecord);
+  if (vehicle.publication !== "published") return vehicle;
+
+  const blockers = publicationBlockers(vehicle);
+  if (blockers.length > 0) {
+    throw conflict(
+      `Este vehículo está publicado y el cambio lo dejaría incompleto. ${blockers.join(" ")} ` +
+        "Despublícalo primero si quieres dejarlo así.",
+    );
+  }
+  return vehicle;
+}
+
+/**
  * Crear siempre deja el vehículo en DRAFT. Publicar es una decisión aparte,
  * explícita, con sus propios requisitos.
  */
@@ -504,12 +542,16 @@ export async function updateVehicle(
   const current = await prisma.vehicle.findUnique({ where: { id } });
   if (!current) throw notFound("Ese vehículo no existe.");
 
+  const currentType = fromDbVehicleType[current.vehicleType];
   const vehicleType = patch.vehicleType ?? undefined;
+  const nextType = vehicleType ?? currentType;
+
   if (patch.categoryId) {
-    await assertCategory(
-      patch.categoryId,
-      vehicleType ?? (current.vehicleType === "MOTO" ? "moto" : "auto"),
-    );
+    await assertCategory(patch.categoryId, nextType);
+  } else if (vehicleType && vehicleType !== currentType) {
+    // Cambiar de universo sin elegir categoría dejaría, por ejemplo, una moto
+    // con categoría "SUV". Se comprueba la que ya tiene contra el tipo nuevo.
+    await assertCategory(current.categoryId, nextType);
   }
 
   const data: Prisma.VehicleUpdateInput = {};
@@ -549,13 +591,12 @@ export async function updateVehicle(
     );
   }
 
-  const record = await prisma.vehicle.update({
-    where: { id },
-    data,
-    include: vehicleInclude,
+  return prisma.$transaction(async (tx) => {
+    await tx.vehicle.update({ where: { id }, data });
+    // Si el cambio deja publicado algo que no podría publicarse, esto lanza y
+    // la transacción revierte: la base no llega a guardarlo.
+    return assertPublishedInvariant(tx, id);
   });
-
-  return toVehicleDto(record as VehicleRecord);
 }
 
 export async function setPublication(

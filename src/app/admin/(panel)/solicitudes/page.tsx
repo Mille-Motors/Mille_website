@@ -1,4 +1,9 @@
-import { InquiriesAdmin } from "@/components/admin/InquiriesAdmin";
+import { redirect } from "next/navigation";
+import {
+  InquiriesAdmin,
+  adminInquiriesHref,
+} from "@/components/admin/InquiriesAdmin";
+import { parseTolerant } from "@/lib/query-params";
 import { adminInquiryQuerySchema } from "@/server/inquiries/schemas";
 import {
   countInquiriesByStatus,
@@ -17,14 +22,21 @@ export default async function AdminInquiriesPage(
   props: PageProps<"/admin/solicitudes">,
 ) {
   const searchParams = await props.searchParams;
-  const parsed = adminInquiryQuerySchema.safeParse(searchParams);
-  const query = parsed.success ? parsed.data : adminInquiryQuerySchema.parse({});
+  // Tolerante por campo: un parámetro inválido no debe llevarse por delante
+  // los filtros válidos que sí venían en la URL.
+  const query = parseTolerant(adminInquiryQuerySchema, searchParams);
 
   const [{ inquiries, total }, counts, vehicleOptions] = await Promise.all([
     listInquiries(query),
     countInquiriesByStatus(),
     listInquiryVehicleOptions(),
   ]);
+
+  // Igual que en vehículos: una página inexistente se corrige en la URL.
+  const pages = Math.max(1, Math.ceil(total / query.limit));
+  if (query.page > pages) {
+    redirect(adminInquiriesHref({ ...query, page: pages }));
+  }
 
   return (
     <InquiriesAdmin

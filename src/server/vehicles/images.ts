@@ -10,6 +10,7 @@ import {
 } from "@/server/storage/images";
 import { VEHICLE_IMAGE_BUCKET } from "@/server/auth/config";
 import { toVehicleDto, vehicleInclude, type VehicleRecord } from "@/server/vehicles/mapper";
+import { assertPublishedInvariant } from "@/server/vehicles/service";
 import type { Vehicle } from "@/types/vehicle";
 
 /**
@@ -101,6 +102,18 @@ export async function addVehicleImages(
   return reloadVehicle(vehicleId);
 }
 
+/**
+ * Quitar una fotografía de un vehículo.
+ *
+ * Todo el trabajo de base va en una transacción que termina comprobando la
+ * invariante de publicado: si esta era la última foto de un vehículo que
+ * está publicado, la comprobación lanza, la transacción revierte y la imagen
+ * no se pierde. Antes se borraba igual y la ficha pública quedaba enseñando
+ * la imagen de marca como si fuera el coche.
+ *
+ * El objeto del bucket se borra DESPUÉS de que la transacción confirme.
+ * Hacerlo antes significaría perder el archivo aunque la base revierta.
+ */
 export async function deleteVehicleImage(
   vehicleId: string,
   imageId: string,
@@ -110,35 +123,39 @@ export async function deleteVehicleImage(
   });
   if (!image) throw notFound("Esa imagen no existe.");
 
-  // La fila se va siempre; el objeto del bucket solo si es nuestro. Las
-  // imágenes LEGACY viven en /public y no se tocan desde aquí.
-  await prisma.vehicleImage.delete({ where: { id: imageId } });
+  const vehicle = await prisma.$transaction(async (tx) => {
+    await tx.vehicleImage.delete({ where: { id: imageId } });
+
+    // Cerrar el hueco para que las posiciones sigan siendo 0..n-1. El paso
+    // por negativos evita chocar con el índice único (vehicleId, position).
+    const rest = await tx.vehicleImage.findMany({
+      where: { vehicleId },
+      orderBy: { position: "asc" },
+      select: { id: true },
+    });
+    for (const [index, row] of rest.entries()) {
+      await tx.vehicleImage.update({
+        where: { id: row.id },
+        data: { position: -(index + 1) },
+      });
+    }
+    for (const [index, row] of rest.entries()) {
+      await tx.vehicleImage.update({
+        where: { id: row.id },
+        data: { position: index },
+      });
+    }
+
+    return assertPublishedInvariant(tx, vehicleId);
+  });
+
+  // Solo aquí, con la base ya confirmada. Las imágenes LEGACY viven en
+  // /public y no se tocan desde ningún bucket.
   if (image.source === "STORAGE" && image.storagePath) {
     await deleteStoredImage(VEHICLE_IMAGE_BUCKET, image.storagePath);
   }
 
-  // Cerrar el hueco para que las posiciones sigan siendo 0..n-1.
-  const rest = await prisma.vehicleImage.findMany({
-    where: { vehicleId },
-    orderBy: { position: "asc" },
-    select: { id: true },
-  });
-  await prisma.$transaction([
-    ...rest.map((row, index) =>
-      prisma.vehicleImage.update({
-        where: { id: row.id },
-        data: { position: -(index + 1) },
-      }),
-    ),
-    ...rest.map((row, index) =>
-      prisma.vehicleImage.update({
-        where: { id: row.id },
-        data: { position: index },
-      }),
-    ),
-  ]);
-
-  return reloadVehicle(vehicleId);
+  return vehicle;
 }
 
 export async function reorderVehicleImages(

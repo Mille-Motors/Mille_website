@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { ButtonLink, WhatsappButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { Eyebrow } from "@/components/ui/Eyebrow";
@@ -10,7 +11,12 @@ import { InventoryAnchorScroll } from "@/components/vehicle/InventoryAnchorScrol
 import { TypeSelector } from "@/components/vehicle/TypeSelector";
 import { VehicleGrid } from "@/components/vehicle/VehicleGrid";
 import { typeNoun } from "@/lib/categories";
-import { inventoryHref, parseFilters, sortToQuery } from "@/lib/filters";
+import {
+  hasInvalidType,
+  inventoryHref,
+  parseFilters,
+  sortToQuery,
+} from "@/lib/filters";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
 import { getFilterFacets, getVehicles } from "@/lib/vehicles";
 
@@ -29,24 +35,28 @@ const context = {
 export default async function InventoryPage(props: PageProps<"/vehiculos">) {
   const searchParams = await props.searchParams;
 
-  // Las facetas se acotan al universo elegido, para que los filtros nunca
-  // ofrezcan una marca o un año que ese universo no tiene. Se parsea en dos
-  // pasadas porque el ámbito sale de la propia URL.
-  const preliminary = parseFilters(searchParams, []);
-  const [facets, globalFacets] = await Promise.all([
-    getFilterFacets(preliminary.tipo),
-    getFilterFacets("all"),
-  ]);
+  // Un `tipo` que no es un universo se canonicaliza redirigiendo: mostrar el
+  // inventario completo dejando `?tipo=camion` en la barra haría creer que
+  // hay un filtro aplicado.
+  //
+  // Nota sobre el estado HTTP: el esqueleto de carga de este segmento abre un
+  // Suspense, así que la cabecera ya salió cuando se decide el redirect y
+  // Next lo entrega como instrucción al cliente en vez de como 307. El
+  // navegador corrige la URL igual y no se renderiza ni una card; se
+  // conserva el esqueleto porque perder la UX de carga de todo el inventario
+  // para ganar el código de estado de una URL malformada es mal cambio. La
+  // ficha de vehículo sí renuncia a su esqueleto, porque ahí el 404 real sí
+  // importa.
+  if (hasInvalidType(searchParams)) {
+    redirect(inventoryHref(parseFilters({ ...searchParams, tipo: undefined })));
+  }
 
-  // La marca se valida contra todo el inventario aunque el desplegable esté
-  // acotado: "Carros + KTM" es un cero honesto, no una lista completa en
-  // silencio. La categoría sí se valida contra el universo, porque una
-  // categoría pertenece a uno solo.
-  const filters = parseFilters(
-    searchParams,
-    globalFacets.makes,
-    facets.categories.map((category) => category.slug),
-  );
+  const filters = parseFilters(searchParams);
+
+  // Las facetas se acotan al universo elegido, para que los filtros nunca
+  // ofrezcan una marca o un año que ese universo no tiene. Un universo sin
+  // publicados devuelve facetas vacías, no las del otro.
+  const facets = await getFilterFacets(filters.tipo);
 
   // El filtrado y el orden ocurren en la base: el navegador no necesita
   // recibir el inventario entero para descartar la mayor parte.

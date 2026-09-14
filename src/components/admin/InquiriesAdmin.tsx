@@ -43,7 +43,7 @@ const typeLabels: Record<InquiryType, string> = {
   appointment: "Cita",
 };
 
-function buildHref(query: Partial<AdminInquiryQuery>): string {
+export function adminInquiriesHref(query: Partial<AdminInquiryQuery>): string {
   const params = new URLSearchParams();
   const set = (key: string, value: unknown) => {
     if (value === undefined || value === null || value === "") return;
@@ -257,7 +257,7 @@ export function InquiriesAdmin({
   /** Cambiar bandeja o filtro vuelve a la página 1. */
   function go(patch: Partial<AdminInquiryQuery>) {
     startTransition(() =>
-      router.push(buildHref({ ...query, ...patch, page: 1 })),
+      router.push(adminInquiriesHref({ ...query, ...patch, page: 1 })),
     );
   }
 
@@ -448,7 +448,7 @@ export function InquiriesAdmin({
               onClick={() => {
                 setSearch("");
                 startTransition(() =>
-                  router.push(buildHref({ view: query.view })),
+                  router.push(adminInquiriesHref({ view: query.view })),
                 );
               }}
               className="label-caps inline-flex items-center gap-1.5 text-[10px] text-ink-muted underline underline-offset-4 transition-colors hover:text-burgundy"
@@ -578,7 +578,7 @@ export function InquiriesAdmin({
             disabled={query.page <= 1}
             onClick={() =>
               startTransition(() =>
-                router.push(buildHref({ ...query, page: query.page - 1 })),
+                router.push(adminInquiriesHref({ ...query, page: query.page - 1 })),
               )
             }
             className="label-caps rounded-xs border border-stone px-4 py-2 text-[10px] text-ink transition-colors hover:border-ink/40 disabled:opacity-35"
@@ -593,7 +593,7 @@ export function InquiriesAdmin({
             disabled={query.page >= pages}
             onClick={() =>
               startTransition(() =>
-                router.push(buildHref({ ...query, page: query.page + 1 })),
+                router.push(adminInquiriesHref({ ...query, page: query.page + 1 })),
               )
             }
             className="label-caps rounded-xs border border-stone px-4 py-2 text-[10px] text-ink transition-colors hover:border-ink/40 disabled:opacity-35"
