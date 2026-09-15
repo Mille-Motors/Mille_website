@@ -62,7 +62,14 @@ export function FocalPointEditor({
     displayed: { width: number; height: number };
   } | null>(null);
 
-  const ratio = frames[view].ratio;
+  // Un slot puede no mostrarse en pantallas pequeñas —la 404 esconde su
+  // fotografía por debajo de `lg`—. En ese caso no hay nada que previsualizar
+  // en teléfono y la pestaña ni se ofrece.
+  const views = (["desktop", "mobile"] as const).filter(
+    (option) => frames[option] !== null,
+  );
+  const frame = frames[view] ?? frames.desktop;
+  const ratio = frame.ratio;
   // Hasta que la fotografía carga no se sabe su proporción; se asume la del
   // marco para que el recuadro nazca ocupándolo todo en vez de dar un salto.
   const image = natural ?? { width: ratio, height: 1 };
@@ -124,9 +131,12 @@ export function FocalPointEditor({
         <div
           role="group"
           aria-label="Vista previa"
-          className="inline-flex rounded-xs border border-stone"
+          className={cn(
+            "inline-flex rounded-xs border border-stone",
+            views.length < 2 && "hidden",
+          )}
         >
-          {(["desktop", "mobile"] as const).map((option) => (
+          {views.map((option) => (
             <button
               key={option}
               type="button"
@@ -139,7 +149,7 @@ export function FocalPointEditor({
                   : "text-ink-muted hover:text-ink",
               )}
             >
-              {frames[option].label}
+              {frames[option]?.label}
             </button>
           ))}
         </div>
@@ -159,7 +169,9 @@ export function FocalPointEditor({
         onPointerMove={moveDrag}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-        style={{ aspectRatio: natural ? `${natural.width} / ${natural.height}` : "16 / 10" }}
+        style={{
+          aspectRatio: natural ? `${natural.width} / ${natural.height}` : "16 / 10",
+        }}
         className={cn(
           "relative mt-3 w-full overflow-hidden bg-sand select-none",
           disabled ? "opacity-60" : movable ? "touch-none" : undefined,
@@ -189,7 +201,7 @@ export function FocalPointEditor({
         <div
           role="group"
           tabIndex={disabled || !movable ? -1 : 0}
-          aria-label={`Zona visible en la vista de ${frames[view].label.toLowerCase()}. Arrastra el recuadro, o muévelo con las flechas del teclado; mantén Shift para avanzar más rápido.`}
+          aria-label={`Zona visible en la vista de ${frame.label.toLowerCase()}. Arrastra el recuadro, o muévelo con las flechas del teclado; mantén Shift para avanzar más rápido.`}
           onKeyDown={onKeyDown}
           style={{
             left: `${rect.x * 100}%`,

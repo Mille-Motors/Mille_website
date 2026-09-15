@@ -20,6 +20,8 @@ export interface SiteMediaEntry {
   frames: SiteMediaFrames;
   /** Ancho mínimo del archivo para que no haya que estirarlo. */
   recommendedWidth: number;
+  /** Acompaña a un texto que ya lo dice todo: se sirve con `alt=""`. */
+  decorative: boolean;
   src: string;
   alt: string;
   source: SiteMediaSource;

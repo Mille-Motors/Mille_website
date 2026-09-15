@@ -1,14 +1,30 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
+import { siteMediaRevalidationTarget } from "@/lib/site-media";
 
 /**
- * Los cuatro slots viven en la home, así que basta con invalidarla. Se hace
- * en su propio módulo para que el día que una de estas imágenes aparezca en
- * otra página, el sitio donde añadirla sea evidente.
+ * Invalida las páginas que muestran estas fotografías.
  *
- * Esto es lo que permite cambiar una fotografía sin volver a desplegar.
+ * Todas son estáticas: `/`, `/contacto` y la página de error se prerenderizan
+ * en el build. Sin esto, una fotografía nueva no aparece hasta el siguiente
+ * despliegue — que es exactamente lo que pasaba con `/contacto`, porque esta
+ * función se escribió cuando los cuatro slots vivían solo en la home y nadie
+ * la amplió al añadir el quinto.
+ *
+ * Para que no vuelva a pasar, el destino ya no está escrito aquí: sale del
+ * registro de slots (`siteMediaRevalidationTarget`). Añadir un slot en una
+ * página nueva ajusta la invalidación solo.
+ *
+ * Hoy ese destino es el layout raíz, porque la página de error no tiene una
+ * ruta que se pueda invalidar por separado e invalidar el layout cubre todo
+ * lo que cuelga de él.
  */
 export function revalidateSiteMedia(): void {
-  revalidatePath("/");
+  const target = siteMediaRevalidationTarget();
+  if (target.type) {
+    revalidatePath(target.path, target.type);
+    return;
+  }
+  revalidatePath(target.path);
 }

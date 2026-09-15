@@ -203,30 +203,44 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
           </p>
         ) : null}
 
-        <label className="mt-6 grid gap-2">
-          <span className="label-caps text-ink-soft">Texto alternativo</span>
-          <textarea
-            value={alt}
-            rows={2}
-            onChange={(event) => setAlt(event.target.value)}
-            className="w-full rounded-xs border border-stone bg-paper px-4 py-3 text-sm leading-relaxed text-ink transition-colors hover:border-stone-strong focus:border-burgundy focus:outline-none"
-          />
-          <span className="text-xs text-ink-muted">
-            Describe la fotografía para quien no puede verla. No uses el nombre
-            del archivo.
-          </span>
-        </label>
+        {/* Una fotografía decorativa se sirve con alt vacío a propósito, así
+            que ofrecer el campo sería ofrecer un control que no cambia nada. */}
+        {slot.decorative ? (
+          <p className="mt-6 text-xs text-ink-muted">
+            Esta fotografía es decorativa: acompaña a un texto que ya lo explica
+            todo, así que se publica sin texto alternativo para no alargar el
+            camino de quien usa un lector de pantalla.
+          </p>
+        ) : (
+          <label className="mt-6 grid gap-2">
+            <span className="label-caps text-ink-soft">Texto alternativo</span>
+            <textarea
+              value={alt}
+              rows={2}
+              onChange={(event) => setAlt(event.target.value)}
+              className="w-full rounded-xs border border-stone bg-paper px-4 py-3 text-sm leading-relaxed text-ink transition-colors hover:border-stone-strong focus:border-burgundy focus:outline-none"
+            />
+            <span className="text-xs text-ink-muted">
+              Describe la fotografía para quien no puede verla. No uses el
+              nombre del archivo.
+            </span>
+          </label>
+        )}
 
         <div className="mt-4 flex flex-wrap gap-3">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={busy !== null || alt.trim() === slot.alt || alt.trim().length < 3}
-            onClick={() => void saveAlt()}
-          >
-            {busy === "alt" ? "Guardando…" : "Guardar texto"}
-          </Button>
+          {slot.decorative ? null : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={
+                busy !== null || alt.trim() === slot.alt || alt.trim().length < 3
+              }
+              onClick={() => void saveAlt()}
+            >
+              {busy === "alt" ? "Guardando…" : "Guardar texto"}
+            </Button>
+          )}
           {changed ? (
             <ConfirmButton
               question="Se volverá a la fotografía original del sitio y la que subiste se eliminará definitivamente."

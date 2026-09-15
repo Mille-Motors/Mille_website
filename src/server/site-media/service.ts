@@ -102,6 +102,7 @@ export async function listSiteMedia(): Promise<SiteMediaEntry[]> {
       aspect: slot.aspect,
       frames: slot.frames,
       recommendedWidth: slot.recommendedWidth,
+      decorative: slot.decorative ?? false,
       src: image.src,
       alt: image.alt,
       source: image.source,

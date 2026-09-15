@@ -9,6 +9,8 @@ import { Navbar } from "@/components/layout/Navbar";
 import { InventoryCTALink } from "@/components/vehicle/InventoryCTALink";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
 import { site } from "@/data/site";
+import { objectPosition } from "@/lib/focal-point";
+import { getSiteMediaImage } from "@/server/site-media/service";
 
 export const metadata: Metadata = { title: "Página no encontrada" };
 
@@ -33,7 +35,10 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
-export default function NotFound() {
+export default async function NotFound() {
+  // La fotografía se administra desde /admin/contenido. Sin fila —o sin base—
+  // cae a la original del repositorio.
+  const image = await getSiteMediaImage("error.404");
   return (
     <div
       className={`${instrumentSerif.variable} ${ebGaramond.variable} ${dmSans.variable} flex min-h-dvh flex-col`}
@@ -92,11 +97,20 @@ export default function NotFound() {
 
             <div className="relative hidden aspect-[4/3] overflow-hidden bg-charcoal lg:block">
               <Image
-                src="/images/brand/night.jpg"
+                src={image.src}
+                // Decorativa: acompaña a un 404 que ya dice todo lo que hay
+                // que decir. Describirla solo alargaría el camino de quien usa
+                // un lector de pantalla.
                 alt=""
                 fill
-                sizes="40vw"
+                // Con object-cover el ancho necesario no es el del hueco sino
+                // el que resulta de ampliar la foto hasta cubrirlo. Por debajo
+                // de lg la imagen no se pinta, así que ahí se pide lo mínimo
+                // en vez de un archivo que nadie va a ver.
+                sizes="(min-width: 1024px) 60vw, 1px"
+                quality={90}
                 className="object-cover"
+                style={{ objectPosition: objectPosition(image.focal) }}
               />
             </div>
           </div>

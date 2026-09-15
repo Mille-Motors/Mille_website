@@ -29,6 +29,19 @@ export interface SiteMediaSlot {
   /** Los marcos reales en los que se recorta. Ver `SiteMediaFrames`. */
   frames: SiteMediaFrames;
   /**
+   * La superficie pública donde aparece, para saber qué invalidar al
+   * cambiarla. `NOT_FOUND_SURFACE` para la página de error, que no tiene una
+   * ruta que se pueda pasar a `revalidatePath`.
+   */
+  surface: string;
+  /**
+   * Una fotografía decorativa no se describe: acompaña a un texto que ya dice
+   * todo lo que hay que decir, y anunciarla solo alarga el camino de quien usa
+   * un lector de pantalla. Estos slots se sirven con `alt=""` y el admin no
+   * ofrece editarlo.
+   */
+  decorative?: boolean;
+  /**
    * Ancho mínimo en píxeles que debería tener el archivo para verse nítido.
    *
    * No es una cifra de gusto: es el ancho al que `object-cover` amplía la
@@ -64,8 +77,20 @@ export interface SiteMediaFrame {
 
 export interface SiteMediaFrames {
   desktop: SiteMediaFrame;
-  mobile: SiteMediaFrame;
+  /**
+   * Null cuando la fotografía no se muestra en pantallas pequeñas. Es el caso
+   * de la 404, que oculta la imagen por debajo de `lg`: ofrecer una pestaña
+   * "Teléfono" ahí sería enseñar un recorte que nadie va a ver nunca.
+   */
+  mobile: SiteMediaFrame | null;
 }
+
+/**
+ * La página de error no es una ruta direccionable: no existe un `/_not-found`
+ * que pasarle a `revalidatePath`. Se marca con esta constante para que quien
+ * invalida sepa que ahí hace falta otra estrategia.
+ */
+export const NOT_FOUND_SURFACE = "__not-found__";
 
 export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
   {
@@ -82,6 +107,7 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
       mobile: { label: "Teléfono", ratio: 4 / 3 },
     },
     // 1024 px de ancho efectivo en el marco de 1440 × 2 (Retina).
+    surface: "/",
     recommendedWidth: 2050,
     legacySrc: "/images/brand/hero.jpg",
     legacyAlt:
@@ -100,6 +126,7 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
       mobile: { label: "Teléfono", ratio: 4 / 3 },
     },
     // 910 px efectivos × 2.
+    surface: "/",
     recommendedWidth: 1850,
     legacySrc: "/images/vehicles/audi-rs-5-sportback/01.jpg",
     legacyAlt: "Audi RS 5 Sportback en carretera entre árboles de otoño",
@@ -119,6 +146,7 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
       mobile: { label: "Teléfono", ratio: 0.99 },
     },
     // 1081 px efectivos × 2; es el marco más exigente.
+    surface: "/",
     recommendedWidth: 2200,
     legacySrc: "/images/vehicles/bmw-m4-competition/01.jpg",
     legacyAlt:
@@ -136,6 +164,7 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
       mobile: { label: "Teléfono", ratio: 4 / 3 },
     },
     // 910 px efectivos × 2.
+    surface: "/",
     recommendedWidth: 1850,
     legacySrc: "/images/vehicles/bmw-r-1250-gs-adventure/01.jpg",
     legacyAlt:
@@ -154,11 +183,56 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
       mobile: { label: "Teléfono", ratio: 4 / 3 },
     },
     // 967 px de ancho efectivo en el marco de escritorio × 2 (Retina).
+    surface: "/contacto",
     recommendedWidth: 1950,
     legacySrc: "/images/brand/night.jpg",
     legacyAlt: "Vehículo de MILLE fotografiado de noche",
   },
+  {
+    key: "error.404",
+    label: "Error 404",
+    description: "La fotografía que acompaña la página de error 404.",
+    aspect: "Horizontal 4:3. Solo se muestra en escritorio.",
+    frames: {
+      // Container wide con lg:px-12 (1344) menos el gap-10 (40) = 1304,
+      // repartido 1fr / 0.85fr → 599 px de ancho, y aspect-[4/3] de alto.
+      desktop: { label: "Escritorio", ratio: 4 / 3 },
+      // `hidden lg:block`: por debajo de 1024 px la fotografía no se pinta.
+      mobile: null,
+    },
+    surface: NOT_FOUND_SURFACE,
+    // 798 px de ancho efectivo × 2 (Retina).
+    recommendedWidth: 1600,
+    legacySrc: "/images/brand/night.jpg",
+    // Acompaña al 404 y no aporta información: se sirve con alt vacío.
+    decorative: true,
+    legacyAlt: "Vehículo de MILLE fotografiado de noche",
+  },
 ] as const;
+
+/** Las superficies públicas que muestran alguna de estas fotografías. */
+export function siteMediaSurfaces(): string[] {
+  return [...new Set(SITE_MEDIA_SLOTS.map((slot) => slot.surface))];
+}
+
+/**
+ * Qué hay que invalidar para que un cambio se vea en todas partes.
+ *
+ * Con una sola superficie bastaría su ruta. En cuanto hay varias —o una que
+ * no tiene ruta, como la 404— sale más barato y más seguro invalidar el
+ * layout raíz: cubre todo lo que cuelga de él, que es exactamente el conjunto
+ * de páginas que pueden mostrar estas imágenes.
+ */
+export function siteMediaRevalidationTarget(): {
+  path: string;
+  type?: "page" | "layout";
+} {
+  const surfaces = siteMediaSurfaces();
+  if (surfaces.length === 1 && surfaces[0] !== NOT_FOUND_SURFACE) {
+    return { path: surfaces[0] };
+  }
+  return { path: "/", type: "layout" };
+}
 
 export type SiteMediaKey = (typeof SITE_MEDIA_SLOTS)[number]["key"];
 

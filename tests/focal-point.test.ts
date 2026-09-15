@@ -208,10 +208,13 @@ describe("persistencia", () => {
  * layout público y olvida estos números, al menos que no queden absurdos.
  */
 describe("marcos de los slots", () => {
-  it("cada slot declara su marco de escritorio y de teléfono", () => {
+  it("cada slot declara marcos plausibles", () => {
     for (const slot of SITE_MEDIA_SLOTS) {
       for (const view of ["desktop", "mobile"] as const) {
         const frame = slot.frames[view];
+        // `mobile` puede ser null: hay fotografías que no se muestran en
+        // pantallas pequeñas y no tienen recorte que enseñar.
+        if (!frame) continue;
         assert.ok(frame.label.length > 0, `${slot.key} ${view}`);
         assert.ok(
           Number.isFinite(frame.ratio) && frame.ratio > 0.4 && frame.ratio < 3,
@@ -221,11 +224,18 @@ describe("marcos de los slots", () => {
     }
   });
 
+  it("el escritorio nunca falta: es la vista que siempre existe", () => {
+    for (const slot of SITE_MEDIA_SLOTS) {
+      assert.ok(slot.frames.desktop, slot.key);
+    }
+  });
+
   it("el manifiesto es el que más cambia entre escritorio y teléfono", () => {
     // Es el único sin aspect-ratio en móvil: pasa de apaisado a casi
     // cuadrado, y por eso el editor necesita enseñar las dos vistas.
     const house = SITE_MEDIA_SLOTS.find((slot) => slot.key === "home.about.house");
     assert.ok(house);
+    assert.ok(house.frames.mobile);
     assert.ok(house.frames.desktop.ratio > 1.1);
     assert.ok(house.frames.mobile.ratio < 1.05);
   });
@@ -360,6 +370,7 @@ describe("arrastre del recuadro", () => {
 
   it("el mismo encuadre da recuadros distintos en escritorio y en teléfono", () => {
     const house = SITE_MEDIA_SLOTS.find((slot) => slot.key === "home.about.house")!;
+    assert.ok(house.frames.mobile);
     const image = { width: 1254, height: 1254 };
     const desktop = coverCropRect(image, house.frames.desktop.ratio, CENTER_FOCAL);
     const mobile = coverCropRect(image, house.frames.mobile.ratio, CENTER_FOCAL);
