@@ -10,6 +10,12 @@ import {
   type SiteMediaImage,
   type SiteMediaSlot,
 } from "@/lib/site-media";
+import {
+  CENTER_FOCAL,
+  normalizeFocal,
+  roundFocal,
+  type FocalPoint,
+} from "@/lib/focal-point";
 import type { SiteMediaEntry } from "@/types/site-media";
 
 /**
@@ -26,6 +32,8 @@ type Row = {
   storagePath: string | null;
   source: "LEGACY" | "STORAGE";
   alt: string;
+  focalX: number;
+  focalY: number;
   updatedAt: Date;
 };
 
@@ -44,6 +52,8 @@ const loadRows = cache(async (): Promise<Map<string, Row>> => {
         storagePath: true,
         source: true,
         alt: true,
+        focalX: true,
+        focalY: true,
         updatedAt: true,
       },
     });
@@ -62,6 +72,10 @@ function toImage(slot: SiteMediaSlot, row: Row | undefined): SiteMediaImage {
     src: row.url,
     alt: row.alt,
     source: row.source === "LEGACY" ? "legacy" : "storage",
+    // Se normaliza aunque la columna tenga CHECK: la fila podría venir de una
+    // base sin la migración, y un encuadre ilegible no debe dejar la home en
+    // blanco. Al centro, que es como se veía antes.
+    focal: normalizeFocal({ x: row.focalX, y: row.focalY }),
   };
 }
 
@@ -86,9 +100,11 @@ export async function listSiteMedia(): Promise<SiteMediaEntry[]> {
       label: slot.label,
       description: slot.description,
       aspect: slot.aspect,
+      frames: slot.frames,
       src: image.src,
       alt: image.alt,
       source: image.source,
+      focal: image.focal,
       storagePath: row?.storagePath ?? null,
       updatedAt: row?.updatedAt.toISOString() ?? null,
     };
@@ -116,12 +132,25 @@ export async function getSiteMediaRow(key: string) {
  */
 export async function setSiteMediaImage(
   key: string,
-  image: { url: string; storagePath: string; alt: string },
+  image: {
+    url: string;
+    storagePath: string;
+    alt: string;
+    /**
+     * El encuadre elegido para *esta* fotografía. Se escribe siempre, y por
+     * defecto va centrado: el encuadre de la imagen anterior describía otra
+     * fotografía y heredarlo dejaría a la nueva recortada por un motivo que
+     * ya no existe.
+     */
+    focal: FocalPoint;
+  },
 ): Promise<{ previousStoragePath: string | null }> {
   const previous = await prisma.siteMedia.findUnique({
     where: { key },
     select: { storagePath: true, source: true },
   });
+
+  const focal = roundFocal(normalizeFocal(image.focal));
 
   await prisma.siteMedia.upsert({
     where: { key },
@@ -131,12 +160,16 @@ export async function setSiteMediaImage(
       storagePath: image.storagePath,
       source: "STORAGE",
       alt: image.alt,
+      focalX: focal.x,
+      focalY: focal.y,
     },
     update: {
       url: image.url,
       storagePath: image.storagePath,
       source: "STORAGE",
       alt: image.alt,
+      focalX: focal.x,
+      focalY: focal.y,
     },
   });
 
@@ -172,6 +205,44 @@ export async function setSiteMediaAlt(key: string, alt: string): Promise<void> {
 }
 
 /**
+ * Cambia solo el encuadre, sin tocar el archivo.
+ *
+ * Es la operación barata de esta pantalla: no sube nada, no borra nada y no
+ * cambia la URL de Storage. Si el slot sigue con su fotografía original se
+ * materializa la fila conservándola —igual que al corregir el texto
+ * alternativo—, porque encuadrar la imagen heredada es tan legítimo como
+ * encuadrar una subida.
+ */
+export async function setSiteMediaFocal(
+  key: string,
+  focal: FocalPoint,
+): Promise<void> {
+  const slot = await requireSlot(key);
+  const value = roundFocal(normalizeFocal(focal));
+  const existing = await prisma.siteMedia.findUnique({ where: { key } });
+
+  if (existing) {
+    await prisma.siteMedia.update({
+      where: { key },
+      data: { focalX: value.x, focalY: value.y },
+    });
+    return;
+  }
+
+  await prisma.siteMedia.create({
+    data: {
+      key,
+      url: slot.legacySrc,
+      storagePath: null,
+      source: "LEGACY",
+      alt: slot.legacyAlt,
+      focalX: value.x,
+      focalY: value.y,
+    },
+  });
+}
+
+/**
  * Devuelve un slot a la fotografía con la que se construyó el sitio.
  * Es lo que permite deshacer una prueba sin dejar rastro.
  */
@@ -189,6 +260,12 @@ export async function resetSiteMedia(
       storagePath: null,
       source: "LEGACY",
       alt: slot.legacyAlt,
+      // Restaurar es volver al punto de partida entero: la fotografía
+      // original centrada, que es como el sitio se construyó. Conservar el
+      // encuadre de la imagen que se acaba de descartar no describiría a
+      // esta.
+      focalX: CENTER_FOCAL.x,
+      focalY: CENTER_FOCAL.y,
     },
   });
 

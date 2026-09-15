@@ -5,6 +5,7 @@ import { ApiError, badRequest } from "@/server/http/errors";
 import { fail, ok, readJson } from "@/server/http/respond";
 import { deleteStoredImage, uploadImage } from "@/server/storage/images";
 import {
+  focalSchema,
   siteMediaAltSchema,
   siteMediaKeySchema,
   siteMediaPatchSchema,
@@ -14,8 +15,10 @@ import {
   requireSlot,
   resetSiteMedia,
   setSiteMediaAlt,
+  setSiteMediaFocal,
   setSiteMediaImage,
 } from "@/server/site-media/service";
+import { CENTER_FOCAL } from "@/lib/focal-point";
 import { revalidateSiteMedia } from "@/server/site-media/revalidate";
 
 type Params = { params: Promise<{ key: string }> };
@@ -55,6 +58,15 @@ export async function POST(request: Request, { params }: Params) {
         : slot.legacyAlt,
     );
 
+    // El encuadre viaja con el archivo para que subir y encuadrar sean un
+    // solo gesto. Si no llega, la fotografía nueva nace centrada en vez de
+    // heredar el encuadre de la que reemplaza.
+    const rawFocal = form.get("focal");
+    const focal =
+      typeof rawFocal === "string" && rawFocal !== ""
+        ? focalSchema.parse(JSON.parse(rawFocal))
+        : CENTER_FOCAL;
+
     // El prefijo lo decide el servidor a partir de la clave del slot, que ya
     // está validada contra la lista del código.
     const uploaded = await uploadImage(SITE_MEDIA_BUCKET, key, file);
@@ -63,6 +75,7 @@ export async function POST(request: Request, { params }: Params) {
       url: uploaded.url,
       storagePath: uploaded.storagePath,
       alt,
+      focal,
     });
 
     if (previousStoragePath) {
@@ -81,17 +94,34 @@ export async function POST(request: Request, { params }: Params) {
   }
 }
 
-/** Solo el texto alternativo. */
+/**
+ * Lo que se cambia sin tocar el archivo: texto alternativo y encuadre.
+ *
+ * Cada uno deja su propia entrada de auditoría, porque son decisiones
+ * distintas: una describe la fotografía para quien no la ve y la otra decide
+ * qué parte se ve. Un único "se editó el slot" no diría cuál de las dos.
+ */
 export async function PATCH(request: Request, { params }: Params) {
   try {
     const session = await requireSuperadmin();
     const { key: rawKey } = await params;
     const key = siteMediaKeySchema.parse(rawKey);
 
-    const { alt } = siteMediaPatchSchema.parse(await readJson(request));
-    await setSiteMediaAlt(key, alt);
+    const { alt, focal } = siteMediaPatchSchema.parse(await readJson(request));
 
-    await recordAudit(session, "UPDATE_SITE_MEDIA_ALT", "SiteMedia", key);
+    if (alt !== undefined) {
+      await setSiteMediaAlt(key, alt);
+      await recordAudit(session, "UPDATE_SITE_MEDIA_ALT", "SiteMedia", key);
+    }
+
+    if (focal !== undefined) {
+      await setSiteMediaFocal(key, focal);
+      await recordAudit(session, "UPDATE_SITE_MEDIA_FOCAL", "SiteMedia", key, {
+        focalX: focal.x,
+        focalY: focal.y,
+      });
+    }
+
     revalidateSiteMedia();
 
     return ok({ media: await listSiteMedia() });

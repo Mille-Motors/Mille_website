@@ -23,6 +23,7 @@ export type AuditAction =
   | "DELETE_SPAM_INQUIRY"
   | "UPDATE_SITE_MEDIA"
   | "UPDATE_SITE_MEDIA_ALT"
+  | "UPDATE_SITE_MEDIA_FOCAL"
   | "RESET_SITE_MEDIA";
 
 /**

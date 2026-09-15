@@ -1,3 +1,6 @@
+import type { FocalPoint } from "@/lib/focal-point";
+import type { SiteMediaFrames } from "@/lib/site-media";
+
 /**
  * De dónde sale el archivo de una imagen del sitio.
  *
@@ -13,9 +16,13 @@ export interface SiteMediaEntry {
   label: string;
   description: string;
   aspect: string;
+  /** Los marcos reales en los que la página recorta esta fotografía. */
+  frames: SiteMediaFrames;
   src: string;
   alt: string;
   source: SiteMediaSource;
+  /** Qué parte de la fotografía se muestra. El centro es 50/50. */
+  focal: FocalPoint;
   storagePath: string | null;
   /** Null mientras el slot siga con su imagen original. */
   updatedAt: string | null;

@@ -1,14 +1,20 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Check, RotateCcw, Upload } from "lucide-react";
+import { Check, Crosshair, RotateCcw, Upload } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { FocalPointEditor } from "@/components/admin/FocalPointEditor";
 import { Button } from "@/components/ui/Button";
 import { adminJson, adminRequest } from "@/lib/admin-client";
 import { cn } from "@/lib/cn";
+import {
+  CENTER_FOCAL,
+  roundFocal,
+  sameFocal,
+  type FocalPoint,
+} from "@/lib/focal-point";
 import { formatDate } from "@/lib/format";
 import type { SiteMediaEntry } from "@/types/site-media";
 
@@ -30,7 +36,10 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [alt, setAlt] = useState(slot.alt);
-  const [busy, setBusy] = useState<null | "upload" | "alt" | "reset">(null);
+  const [focal, setFocal] = useState<FocalPoint>(slot.focal);
+  const [busy, setBusy] = useState<null | "upload" | "alt" | "focal" | "reset">(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
@@ -55,6 +64,9 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
     if (preview) URL.revokeObjectURL(preview);
     setFile(null);
     setPreview(null);
+    // El encuadre que se estuviera ajustando describía el archivo que se
+    // acaba de descartar. Se vuelve al de la imagen que sigue publicada.
+    setFocal(slot.focal);
   }
 
   async function upload() {
@@ -63,9 +75,13 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
     setError(null);
     setDone(null);
 
+    const chosen = roundFocal(focal);
     const form = new FormData();
     form.append("file", file);
     form.append("alt", alt.trim() || slot.alt);
+    // Subir y encuadrar son un solo gesto: la imagen nueva llega ya con la
+    // parte que se quiere ver, sin un segundo guardado.
+    form.append("focal", JSON.stringify(chosen));
 
     const result = await adminRequest(
       `/api/admin/site-media/${encodeURIComponent(slot.key)}`,
@@ -77,8 +93,32 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
       setError(result.message);
       return;
     }
-    discard();
-    setDone("Imagen actualizada. Ya se ve en el sitio.");
+    if (preview) URL.revokeObjectURL(preview);
+    setFile(null);
+    setPreview(null);
+    setFocal(chosen);
+    setDone("Imagen y encuadre actualizados. Ya se ven en el sitio.");
+    router.refresh();
+  }
+
+  async function saveFocal() {
+    if (busy || focalSaved) return;
+    setBusy("focal");
+    setError(null);
+    setDone(null);
+    const chosen = roundFocal(focal);
+    const result = await adminJson(
+      `/api/admin/site-media/${encodeURIComponent(slot.key)}`,
+      "PATCH",
+      { focal: chosen },
+    );
+    setBusy(null);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    setFocal(chosen);
+    setDone("Encuadre guardado. Ya se ve así en la página.");
     router.refresh();
   }
 
@@ -115,13 +155,17 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
       setError(result.message);
       return;
     }
-    discard();
+    if (preview) URL.revokeObjectURL(preview);
+    setFile(null);
+    setPreview(null);
     setAlt(slot.alt);
-    setDone("Slot devuelto a su fotografía original.");
+    setFocal({ ...CENTER_FOCAL });
+    setDone("Slot devuelto a su fotografía original, centrada.");
     router.refresh();
   }
 
   const changed = slot.source === "storage";
+  const focalSaved = sameFocal(focal, slot.focal);
 
   return (
     <section
@@ -196,20 +240,57 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
       </div>
 
       <div>
-        <p className="label-caps mb-2 text-ink-soft">
+        <p className="label-caps mb-3 text-ink-soft">
           {preview ? "Vista previa del archivo elegido" : "Imagen actual"}
         </p>
-        <span className="relative block aspect-[16/10] w-full overflow-hidden bg-sand">
-          <Image
-            key={preview ?? slot.src}
-            src={preview ?? slot.src}
-            alt={preview ? "Vista previa" : slot.alt}
-            fill
-            sizes="(min-width: 1024px) 40vw, 90vw"
-            unoptimized={Boolean(preview)}
-            className="object-cover"
-          />
-        </span>
+
+        <FocalPointEditor
+          src={preview ?? slot.src}
+          alt={preview ? "Vista previa" : slot.alt}
+          frames={slot.frames}
+          focal={focal}
+          onChange={setFocal}
+          unoptimized={Boolean(preview)}
+          disabled={busy !== null}
+        />
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={busy !== null || sameFocal(focal, CENTER_FOCAL)}
+            onClick={() => setFocal({ ...CENTER_FOCAL })}
+          >
+            <Crosshair aria-hidden className="size-3.5" strokeWidth={1.5} />
+            Centrar imagen
+          </Button>
+
+          {/* Con un archivo elegido no hay dos guardados: el encuadre viaja
+              con la imagen y ofrecer un botón aparte invitaría a guardar un
+              encuadre de una fotografía que todavía no está subida. */}
+          {preview ? (
+            <span className="text-xs text-ink-muted">
+              El encuadre se guarda junto con la imagen.
+            </span>
+          ) : (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy !== null || focalSaved}
+                onClick={() => void saveFocal()}
+              >
+                {busy === "focal" ? "Guardando…" : "Guardar encuadre"}
+              </Button>
+              {focalSaved ? null : (
+                <span className="label-caps rounded-xs border border-burgundy/30 bg-burgundy/5 px-2.5 py-1.5 text-[10px] text-burgundy">
+                  Ajuste sin guardar
+                </span>
+              )}
+            </>
+          )}
+        </div>
 
         <input
           ref={inputRef}

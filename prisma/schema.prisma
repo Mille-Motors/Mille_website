@@ -249,6 +249,12 @@ model SiteMedia {
   storagePath String?
   source      ImageSource @default(STORAGE)
   alt         String
+  /// Qué parte de la fotografía debe permanecer visible cuando el marco la
+  /// recorta, en porcentaje: 0 izquierda/arriba, 50 centro, 100 derecha/abajo.
+  /// El centro es el valor con el que se construyó el sitio, así que una fila
+  /// que nunca se haya encuadrado se sigue viendo exactamente igual.
+  focalX      Float       @default(50)
+  focalY      Float       @default(50)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }

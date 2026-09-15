@@ -1,3 +1,4 @@
+import { CENTER_FOCAL, type FocalPoint } from "@/lib/focal-point";
 import type { SiteMediaSource } from "@/types/site-media";
 
 /**
@@ -25,8 +26,36 @@ export interface SiteMediaSlot {
   description: string;
   /** Proporción que ocupa en la página, para orientar el recorte. */
   aspect: string;
+  /** Los marcos reales en los que se recorta. Ver `SiteMediaFrames`. */
+  frames: SiteMediaFrames;
   legacySrc: string;
   legacyAlt: string;
+}
+
+/**
+ * El marco en el que la página recorta una fotografía, para poder enseñar en
+ * el admin el mismo encuadre que verá el visitante.
+ *
+ * `ratio` es ancho/alto. No sale de una preferencia: se calcula del layout
+ * público con dos viewports de referencia, 1440 px en escritorio y 390 px en
+ * teléfono, que es donde el diseño se decidió. La derivación de cada número
+ * está anotada junto al slot.
+ *
+ * Una salvedad honesta sobre escritorio: tres de los cuatro marcos son
+ * `min-h` con `aspect-auto`, así que su altura real la manda la columna de
+ * texto de al lado y crece si ese texto crece. Aquí se usa la altura mínima
+ * garantizada por el código, que es el recorte más exigente: un encuadre que
+ * funciona con ella funciona también cuando el marco se estira.
+ */
+export interface SiteMediaFrame {
+  label: string;
+  /** Ancho / alto. */
+  ratio: number;
+}
+
+export interface SiteMediaFrames {
+  desktop: SiteMediaFrame;
+  mobile: SiteMediaFrame;
 }
 
 export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
@@ -36,6 +65,13 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
     description:
       "La fotografía grande de la portada, al lado de «Más que carros, es un estilo de vida».",
     aspect: "Horizontal. 4:3 en teléfono, 16:10 en tablet y vertical completa en escritorio.",
+    frames: {
+      // Container wide sin padding en lg (1440) × columna 1.08fr de 2fr =
+      // 777,6 px de ancho, contra el lg:min-h-[36rem] = 576 px de alto.
+      desktop: { label: "Escritorio", ratio: 1.35 },
+      // aspect-[4/3] por debajo de sm.
+      mobile: { label: "Teléfono", ratio: 4 / 3 },
+    },
     legacySrc: "/images/brand/hero.jpg",
     legacyAlt:
       "BMW M3 con la identidad de MILLE frente a los cerros de Bogotá",
@@ -46,6 +82,12 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
     description:
       "Acompaña el capítulo donde David y Nicolás cuentan cómo empezó MILLE.",
     aspect: "Horizontal 4:3. En escritorio ocupa toda la altura del capítulo.",
+    frames: {
+      // (1440 − 96 de padding − 64 de gap) × 1.05fr de 2.05fr = 655,6 px,
+      // contra lg:min-h-[32rem] = 512 px.
+      desktop: { label: "Escritorio", ratio: 1.28 },
+      mobile: { label: "Teléfono", ratio: 4 / 3 },
+    },
     legacySrc: "/images/vehicles/audi-rs-5-sportback/01.jpg",
     legacyAlt: "Audi RS 5 Sportback en carretera entre árboles de otoño",
   },
@@ -55,6 +97,14 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
     description:
       "La fotografía que va junto a la placa vinotinto del manifiesto.",
     aspect: "Vertical u horizontal amplia. En escritorio es una columna alta.",
+    frames: {
+      // 1440 × 1.05fr de 2fr = 756 px, contra lg:min-h-[38rem] = 608 px.
+      desktop: { label: "Escritorio", ratio: 1.24 },
+      // El único sin aspect-ratio: 390 − 40 de padding = 350 px de ancho
+      // contra min-h-[22rem] = 352 px. Prácticamente un cuadrado, y por eso
+      // es el marco que más castiga un encuadre pensado solo para ancho.
+      mobile: { label: "Teléfono", ratio: 0.99 },
+    },
     legacySrc: "/images/vehicles/bmw-m4-competition/01.jpg",
     legacyAlt:
       "BMW M4 Competition en verde Isle of Man en una calle de la ciudad",
@@ -64,6 +114,12 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
     label: "Capítulo 06 — Hacia dónde queremos ir",
     description: "Cierra la historia, junto a la lista de Drive, Track, Meet…",
     aspect: "Horizontal 4:3. En escritorio ocupa toda la altura del capítulo.",
+    frames: {
+      // (1440 − 96 − 64) × 1fr de 2.05fr = 624,4 px, contra
+      // lg:min-h-[32rem] = 512 px.
+      desktop: { label: "Escritorio", ratio: 1.22 },
+      mobile: { label: "Teléfono", ratio: 4 / 3 },
+    },
     legacySrc: "/images/vehicles/bmw-r-1250-gs-adventure/01.jpg",
     legacyAlt:
       "Motociclista en una BMW R 1250 GS Adventure en una carretera de montaña",
@@ -87,9 +143,17 @@ export interface SiteMediaImage {
   src: string;
   alt: string;
   source: SiteMediaSource;
+  focal: FocalPoint;
 }
 
 /** El valor de respaldo de un slot, tal como el sitio se construyó. */
 export function legacyImage(slot: SiteMediaSlot): SiteMediaImage {
-  return { src: slot.legacySrc, alt: slot.legacyAlt, source: "legacy" };
+  return {
+    src: slot.legacySrc,
+    alt: slot.legacyAlt,
+    source: "legacy",
+    // El sitio se construyó con las cuatro centradas; el respaldo tiene que
+    // verse igual que antes de que existiera el encuadre.
+    focal: { ...CENTER_FOCAL },
+  };
 }

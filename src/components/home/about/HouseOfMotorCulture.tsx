@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { getSiteMediaImage } from "@/server/site-media/service";
+import { objectPosition } from "@/lib/focal-point";
 import { Container } from "@/components/ui/Container";
 import { site } from "@/data/site";
 
@@ -83,6 +84,7 @@ export async function HouseOfMotorCulture() {
             fill
             sizes="(min-width: 1024px) 52vw, 100vw"
             className="object-cover"
+            style={{ objectPosition: objectPosition(image.focal) }}
           />
         </div>
       </div>
