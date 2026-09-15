@@ -37,6 +37,9 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [alt, setAlt] = useState(slot.alt);
   const [focal, setFocal] = useState<FocalPoint>(slot.focal);
+  const [natural, setNatural] = useState<{ width: number; height: number } | null>(
+    null,
+  );
   const [busy, setBusy] = useState<null | "upload" | "alt" | "focal" | "reset">(
     null,
   );
@@ -250,9 +253,30 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
           frames={slot.frames}
           focal={focal}
           onChange={setFocal}
+          onNatural={setNatural}
           unoptimized={Boolean(preview)}
           disabled={busy !== null}
         />
+
+        {/* El aviso que faltaba. Una fotografía por debajo de este ancho se
+            estira para cubrir el hueco, y eso se ve blando en pantallas
+            Retina por mucho que se suba la calidad de compresión: los
+            píxeles no están. Es lo único que no se puede arreglar desde el
+            código. */}
+        {natural ? (
+          natural.width < slot.recommendedWidth ? (
+            <p className="mt-3 text-xs text-burgundy">
+              Esta fotografía mide {natural.width} px de ancho y este espacio
+              necesita al menos {slot.recommendedWidth} px para verse nítida en
+              pantallas Retina. Se verá algo blanda.
+            </p>
+          ) : (
+            <p className="mt-3 text-xs text-ink-muted">
+              {natural.width} × {natural.height} px. Resolución suficiente para
+              este espacio.
+            </p>
+          )
+        ) : null}
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button
@@ -340,7 +364,8 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
         </div>
 
         <p className="mt-3 text-xs text-ink-muted">
-          JPG, PNG, WebP o AVIF. Máx. 10 MB.
+          JPG, PNG, WebP o AVIF. Máx. 10 MB. Para este espacio, al menos{" "}
+          {slot.recommendedWidth} px de ancho.
         </p>
 
         {error ? (

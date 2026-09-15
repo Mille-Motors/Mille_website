@@ -4,8 +4,8 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/cn";
 import {
-  coverOverflow,
-  focalAfterDrag,
+  coverCropRect,
+  focalAfterCropDrag,
   focalAfterKey,
   objectPosition,
   type FocalPoint,
@@ -17,16 +17,15 @@ type View = "desktop" | "mobile";
 /**
  * Elegir qué parte de una fotografía se ve cuando la página la recorta.
  *
- * No recorta nada: el archivo original se queda como está y aquí solo se
- * decide el `object-position`. Por eso se puede cambiar de opinión mil veces
- * sin volver a subir la imagen.
+ * Se enseña la fotografía **entera** y encima un recuadro con lo que
+ * sobrevive al marco; el resto se oscurece. La versión anterior hacía lo
+ * contrario —mover la foto por detrás de una ventana— y tenía un problema
+ * de fondo: no se veía lo que se estaba dejando fuera, así que era
+ * imposible saber si se cortaba una rueda o el techo hasta abrir la home.
  *
- * El marco no es un cuadrado de adorno. Cada slot se dibuja con la proporción
- * real que tiene en la página, y se puede alternar entre escritorio y
- * teléfono porque los dos recortes son distintos —el de House of Motor
- * Culture pasa de apaisado a casi cuadrado— y el encuadre guardado es uno
- * solo para ambos. Ver los dos es la única forma de encontrar una posición
- * que aguante en los dos sitios.
+ * Sigue sin recortar nada. El recuadro es una representación exacta de lo
+ * que hará `object-fit: cover` con el `object-position` que se guarda, y el
+ * archivo original se queda intacto en Storage.
  */
 export function FocalPointEditor({
   src,
@@ -34,6 +33,7 @@ export function FocalPointEditor({
   frames,
   focal,
   onChange,
+  onNatural,
   unoptimized = false,
   disabled = false,
 }: {
@@ -42,58 +42,60 @@ export function FocalPointEditor({
   frames: SiteMediaFrames;
   focal: FocalPoint;
   onChange: (focal: FocalPoint) => void;
+  /** El tamaño real del archivo, en cuanto se conoce. */
+  onNatural?: (size: { width: number; height: number }) => void;
   unoptimized?: boolean;
   disabled?: boolean;
 }) {
   const [view, setView] = useState<View>("desktop");
   const [dragging, setDragging] = useState(false);
+  const [natural, setNatural] = useState<{ width: number; height: number } | null>(
+    null,
+  );
 
-  const frameRef = useRef<HTMLDivElement>(null);
-  /** El tamaño real del archivo. Sin él no se sabe cuánto sobra del marco. */
-  const natural = useRef<{ width: number; height: number } | null>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{
     pointerId: number;
     startX: number;
     startY: number;
     startFocal: FocalPoint;
-    overflow: { x: number; y: number };
+    displayed: { width: number; height: number };
   } | null>(null);
 
-  const frame = frames[view];
+  const ratio = frames[view].ratio;
+  // Hasta que la fotografía carga no se sabe su proporción; se asume la del
+  // marco para que el recuadro nazca ocupándolo todo en vez de dar un salto.
+  const image = natural ?? { width: ratio, height: 1 };
+  const rect = coverCropRect(image, ratio, focal);
+  const movable = rect.width < 1 || rect.height < 1;
 
   function beginDrag(event: React.PointerEvent<HTMLDivElement>) {
-    if (disabled || !natural.current) return;
-    const element = frameRef.current;
-    if (!element) return;
+    if (disabled || !natural || !movable) return;
+    const stage = stageRef.current;
+    if (!stage) return;
 
-    const rect = element.getBoundingClientRect();
-    const overflow = coverOverflow(
-      { width: rect.width, height: rect.height },
-      natural.current,
-    );
-    // Si la fotografía encaja exacta en el marco no hay nada que recorrer, y
-    // fingir que se puede arrastrar sería mentirle a quien la mueve.
-    if (overflow.x <= 0 && overflow.y <= 0) return;
-
-    element.setPointerCapture(event.pointerId);
+    const box = stage.getBoundingClientRect();
+    stage.setPointerCapture(event.pointerId);
     drag.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
       startFocal: focal,
-      overflow,
+      displayed: { width: box.width, height: box.height },
     };
     setDragging(true);
   }
 
   function moveDrag(event: React.PointerEvent<HTMLDivElement>) {
     const current = drag.current;
-    if (!current || current.pointerId !== event.pointerId) return;
+    if (!current || current.pointerId !== event.pointerId || !natural) return;
     onChange(
-      focalAfterDrag(
+      focalAfterCropDrag(
+        natural,
+        ratio,
         current.startFocal,
         { dx: event.clientX - current.startX, dy: event.clientY - current.startY },
-        current.overflow,
+        current.displayed,
       ),
     );
   }
@@ -101,7 +103,7 @@ export function FocalPointEditor({
   function endDrag(event: React.PointerEvent<HTMLDivElement>) {
     const current = drag.current;
     if (!current || current.pointerId !== event.pointerId) return;
-    frameRef.current?.releasePointerCapture(event.pointerId);
+    stageRef.current?.releasePointerCapture(event.pointerId);
     drag.current = null;
     setDragging(false);
   }
@@ -110,7 +112,6 @@ export function FocalPointEditor({
     if (disabled) return;
     const next = focalAfterKey(focal, event.key, event.shiftKey);
     if (!next) return;
-    // Las flechas mueven la fotografía, no la página.
     event.preventDefault();
     onChange(next);
   }
@@ -145,67 +146,102 @@ export function FocalPointEditor({
       </div>
 
       <p className="mt-2 text-xs text-ink-muted">
-        Arrastra la imagen para elegir qué parte se muestra en la página.
+        {movable
+          ? "Arrastra el recuadro para elegir qué parte se muestra en la página. Lo oscurecido no se verá."
+          : "Esta fotografía encaja exacta en el marco: se ve entera y no hay nada que encuadrar."}
       </p>
 
-      {/* El ancho se limita en la vista de teléfono para que el marco se
-          parezca a un teléfono y no a un cartel estrecho y gigante. */}
-      <div className={cn("mt-3", view === "mobile" && "max-w-[19rem]")}>
+      {/* El escenario se ajusta a la proporción de la fotografía para que se
+          vea completa, sin bandas ni recortes. */}
+      <div
+        ref={stageRef}
+        onPointerDown={beginDrag}
+        onPointerMove={moveDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        style={{ aspectRatio: natural ? `${natural.width} / ${natural.height}` : "16 / 10" }}
+        className={cn(
+          "relative mt-3 w-full overflow-hidden bg-sand select-none",
+          disabled ? "opacity-60" : movable ? "touch-none" : undefined,
+        )}
+      >
+        <Image
+          key={src}
+          src={src}
+          alt={alt}
+          fill
+          draggable={false}
+          unoptimized={unoptimized}
+          quality={90}
+          sizes="(min-width: 1024px) 45vw, 90vw"
+          onLoad={(event) => {
+            const img = event.currentTarget;
+            const size = { width: img.naturalWidth, height: img.naturalHeight };
+            setNatural(size);
+            onNatural?.(size);
+          }}
+          className="object-contain"
+        />
+
+        {/* El recuadro. El `box-shadow` gigante oscurece todo lo que queda
+            fuera con un solo elemento: cuatro overlays haría falta mantener
+            sincronizados y se les ven las costuras en los bordes. */}
         <div
-          ref={frameRef}
-          tabIndex={disabled ? -1 : 0}
           role="group"
-          aria-label={`Encuadre de la imagen en la vista de ${frame.label.toLowerCase()}. Arrastra la fotografía, o muévela con las flechas del teclado; mantén Shift para avanzar más rápido.`}
-          onPointerDown={beginDrag}
-          onPointerMove={moveDrag}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
+          tabIndex={disabled || !movable ? -1 : 0}
+          aria-label={`Zona visible en la vista de ${frames[view].label.toLowerCase()}. Arrastra el recuadro, o muévelo con las flechas del teclado; mantén Shift para avanzar más rápido.`}
           onKeyDown={onKeyDown}
-          style={{ aspectRatio: String(frame.ratio) }}
+          style={{
+            left: `${rect.x * 100}%`,
+            top: `${rect.y * 100}%`,
+            width: `${rect.width * 100}%`,
+            height: `${rect.height * 100}%`,
+          }}
           className={cn(
-            "relative w-full overflow-hidden bg-sand outline-none select-none",
-            "touch-none", // el arrastre no debe desplazar la página
-            "focus-visible:ring-2 focus-visible:ring-burgundy/60",
-            disabled
-              ? "cursor-default opacity-60"
-              : dragging
-                ? "cursor-grabbing"
-                : "cursor-grab",
+            "absolute outline-none",
+            "shadow-[0_0_0_9999px_rgba(20,17,15,0.55)]",
+            "ring-1 ring-cream/90",
+            "focus-visible:ring-2 focus-visible:ring-burgundy",
+            movable && !disabled && (dragging ? "cursor-grabbing" : "cursor-grab"),
           )}
         >
+          {/* Cuatro marcas de esquina, discretas. */}
+          {(
+            [
+              "left-0 top-0 border-l border-t",
+              "right-0 top-0 border-r border-t",
+              "left-0 bottom-0 border-l border-b",
+              "right-0 bottom-0 border-r border-b",
+            ] as const
+          ).map((corner) => (
+            <span
+              key={corner}
+              aria-hidden
+              className={cn("absolute size-3.5 border-cream", corner)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* El resultado, para no tener que imaginárselo: el mismo recorte que
+          hará la página, al tamaño de una miniatura. */}
+      <div className="mt-4">
+        <p className="label-caps text-ink-muted">Resultado en la página</p>
+        <div
+          style={{ aspectRatio: String(ratio) }}
+          className="relative mt-2 w-40 max-w-full overflow-hidden bg-sand"
+        >
           <Image
-            key={src}
+            key={`result-${src}`}
             src={src}
-            alt={alt}
+            alt=""
             fill
-            draggable={false}
             unoptimized={unoptimized}
-            sizes="(min-width: 1024px) 40vw, 90vw"
-            onLoad={(event) => {
-              const img = event.currentTarget;
-              natural.current = {
-                width: img.naturalWidth,
-                height: img.naturalHeight,
-              };
-            }}
+            quality={90}
+            sizes="180px"
             className="object-cover"
             style={{ objectPosition: objectPosition(focal) }}
           />
-
-          {/* El punto de foco, discreto: un aro de crema con corazón
-              vinotinto que se lee sobre cualquier fotografía sin convertir
-              esto en una herramienta técnica. */}
-          <span
-            aria-hidden
-            style={{ left: `${focal.x}%`, top: `${focal.y}%` }}
-            className={cn(
-              "pointer-events-none absolute size-5 -translate-x-1/2 -translate-y-1/2 rounded-full",
-              "border border-cream/80 shadow-[0_0_0_1px_rgba(20,17,15,0.25)] transition-opacity",
-              dragging ? "opacity-100" : "opacity-70",
-            )}
-          >
-            <span className="absolute inset-[6px] rounded-full bg-burgundy" />
-          </span>
         </div>
       </div>
     </div>

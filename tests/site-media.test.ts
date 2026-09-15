@@ -18,11 +18,25 @@ import {
  * escribir filas que ninguna página lee.
  */
 describe("registro de slots", () => {
-  it("son exactamente los cuatro documentados", () => {
+  it("son exactamente los cinco documentados", () => {
     assert.deepEqual(
       SITE_MEDIA_SLOTS.map((slot) => slot.key),
-      ["home.hero", "home.about.origin", "home.about.house", "home.about.future"],
+      [
+        "home.hero",
+        "home.about.origin",
+        "home.about.house",
+        "home.about.future",
+        "contact.hero",
+      ],
     );
+  });
+
+  it("la fotografía de contacto cae a la original del repositorio", () => {
+    const contact = getSlot("contact.hero");
+    assert.ok(contact);
+    assert.equal(contact.legacySrc, "/images/brand/night.jpg");
+    assert.equal(contact.legacyAlt, "Vehículo de MILLE fotografiado de noche");
+    assert.deepEqual(legacyImage(contact).focal, { x: 50, y: 50 });
   });
 
   it("cada slot trae su imagen de respaldo y su texto", () => {

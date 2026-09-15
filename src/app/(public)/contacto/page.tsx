@@ -10,6 +10,8 @@ import { ContactPanel } from "@/components/brand/ContactPanel";
 import { ContactForm } from "@/components/forms/ContactForm";
 import { site } from "@/data/site";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
+import { objectPosition } from "@/lib/focal-point";
+import { getSiteMediaImage } from "@/server/site-media/service";
 import { getVehicles } from "@/lib/vehicles";
 
 export const metadata: Metadata = {
@@ -50,6 +52,9 @@ const channels = [
 
 export default async function ContactPage() {
   const vehicles = await getVehicles();
+  // La fotografía se administra desde /admin/contenido, igual que las de la
+  // home. Sin fila —o sin base— cae a la original del repositorio.
+  const heroImage = await getSiteMediaImage("contact.hero");
 
   return (
     <>
@@ -109,12 +114,17 @@ export default async function ContactPage() {
 
             <div className="relative order-first aspect-[4/3] w-full overflow-hidden bg-charcoal sm:aspect-[16/9] lg:order-none lg:aspect-auto lg:min-h-[34rem]">
               <Image
-                src="/images/brand/night.jpg"
-                alt="Vehículo de MILLE fotografiado de noche"
+                src={heroImage.src}
+                alt={heroImage.alt}
                 fill
                 priority
-                sizes="(min-width: 1024px) 50vw, 100vw"
+                // Como en la home: con object-cover el ancho que hace falta no
+                // es el del hueco, sino el que resulta de ampliar la foto hasta
+                // cubrirlo.
+                sizes="(min-width: 1024px) 70vw, 135vw"
+                quality={90}
                 className="object-cover"
+                style={{ objectPosition: objectPosition(heroImage.focal) }}
               />
             </div>
           </div>

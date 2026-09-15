@@ -28,6 +28,15 @@ export interface SiteMediaSlot {
   aspect: string;
   /** Los marcos reales en los que se recorta. Ver `SiteMediaFrames`. */
   frames: SiteMediaFrames;
+  /**
+   * Ancho mínimo en píxeles que debería tener el archivo para verse nítido.
+   *
+   * No es una cifra de gusto: es el ancho al que `object-cover` amplía la
+   * fotografía en el marco de escritorio, multiplicado por 2 por las
+   * pantallas Retina. Por debajo de esto el navegador está estirando píxeles
+   * que no existen, y no hay ajuste de calidad que lo arregle.
+   */
+  recommendedWidth: number;
   legacySrc: string;
   legacyAlt: string;
 }
@@ -72,6 +81,8 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
       // aspect-[4/3] por debajo de sm.
       mobile: { label: "Teléfono", ratio: 4 / 3 },
     },
+    // 1024 px de ancho efectivo en el marco de 1440 × 2 (Retina).
+    recommendedWidth: 2050,
     legacySrc: "/images/brand/hero.jpg",
     legacyAlt:
       "BMW M3 con la identidad de MILLE frente a los cerros de Bogotá",
@@ -88,6 +99,8 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
       desktop: { label: "Escritorio", ratio: 1.28 },
       mobile: { label: "Teléfono", ratio: 4 / 3 },
     },
+    // 910 px efectivos × 2.
+    recommendedWidth: 1850,
     legacySrc: "/images/vehicles/audi-rs-5-sportback/01.jpg",
     legacyAlt: "Audi RS 5 Sportback en carretera entre árboles de otoño",
   },
@@ -105,6 +118,8 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
       // es el marco que más castiga un encuadre pensado solo para ancho.
       mobile: { label: "Teléfono", ratio: 0.99 },
     },
+    // 1081 px efectivos × 2; es el marco más exigente.
+    recommendedWidth: 2200,
     legacySrc: "/images/vehicles/bmw-m4-competition/01.jpg",
     legacyAlt:
       "BMW M4 Competition en verde Isle of Man en una calle de la ciudad",
@@ -120,9 +135,28 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
       desktop: { label: "Escritorio", ratio: 1.22 },
       mobile: { label: "Teléfono", ratio: 4 / 3 },
     },
+    // 910 px efectivos × 2.
+    recommendedWidth: 1850,
     legacySrc: "/images/vehicles/bmw-r-1250-gs-adventure/01.jpg",
     legacyAlt:
       "Motociclista en una BMW R 1250 GS Adventure en una carretera de montaña",
+  },
+  {
+    key: "contact.hero",
+    label: "Contacto",
+    description: "La fotografía principal de la página de contacto.",
+    aspect: "Horizontal. 4:3 en teléfono, 16:9 en tablet y columna alta en escritorio.",
+    frames: {
+      // Container wide sin padding en lg (1440) × columna 1fr de 2fr = 720 px
+      // de ancho, contra el lg:min-h-[34rem] = 544 px de alto.
+      desktop: { label: "Escritorio", ratio: 1.32 },
+      // aspect-[4/3] por debajo de sm.
+      mobile: { label: "Teléfono", ratio: 4 / 3 },
+    },
+    // 967 px de ancho efectivo en el marco de escritorio × 2 (Retina).
+    recommendedWidth: 1950,
+    legacySrc: "/images/brand/night.jpg",
+    legacyAlt: "Vehículo de MILLE fotografiado de noche",
   },
 ] as const;
 

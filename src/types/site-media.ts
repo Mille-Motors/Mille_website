@@ -18,6 +18,8 @@ export interface SiteMediaEntry {
   aspect: string;
   /** Los marcos reales en los que la página recorta esta fotografía. */
   frames: SiteMediaFrames;
+  /** Ancho mínimo del archivo para que no haya que estirarlo. */
+  recommendedWidth: number;
   src: string;
   alt: string;
   source: SiteMediaSource;

@@ -73,6 +73,22 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: localNetworkOrigins(),
   images: {
     remotePatterns: supabaseImagePatterns(),
+    /**
+     * Next 16 ya no acepta cualquier `quality`: solo los valores listados
+     * aquí, y por defecto la lista es `[75]` —pedir 90 devuelve un 400, no
+     * una imagen mejor—. Las fotografías estructurales de la home son la
+     * mitad de la percepción del sitio, así que se habilita 90 para ellas.
+     * El 75 se conserva porque es lo que usa todo lo demás: las fichas de
+     * vehículo no necesitan gastar ese peso.
+     */
+    qualities: [75, 90],
+    /**
+     * Los anchos por defecto saltan de 2048 a 3840 sin nada en medio, así que
+     * un hueco que necesita ~2160 px en una pantalla Retina se lleva el de
+     * 3840: casi el doble de píxeles de los que caben. El escalón de 2560
+     * cierra ese hueco y es lo que separa "nítido" de "nítido y pesado".
+     */
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 2560, 3840],
   },
   async headers() {
     return [

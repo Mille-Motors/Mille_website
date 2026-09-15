@@ -107,8 +107,14 @@ export const FOCAL_STEP = 2;
 export const FOCAL_STEP_LARGE = 10;
 
 /**
- * El equivalente de teclado del arrastre, con el mismo sentido: la flecha
- * derecha empuja la fotografía a la derecha, igual que el dedo.
+ * El equivalente de teclado del arrastre, con el mismo sentido: lo que se
+ * mueve es el recuadro, así que la flecha derecha lo lleva a la derecha y
+ * eso significa mirar más a la derecha de la fotografía.
+ *
+ * Antes el signo estaba invertido porque lo que se arrastraba era la
+ * fotografía por detrás de una ventana fija. Al cambiar el editor cambió el
+ * sujeto del gesto, y mantener el signo viejo habría dejado el teclado
+ * moviéndose al revés que el dedo.
  */
 export function focalAfterKey(
   start: FocalPoint,
@@ -118,13 +124,13 @@ export function focalAfterKey(
   const step = large ? FOCAL_STEP_LARGE : FOCAL_STEP;
   switch (key) {
     case "ArrowLeft":
-      return { ...start, x: clampFocalAxis(start.x + step) };
-    case "ArrowRight":
       return { ...start, x: clampFocalAxis(start.x - step) };
+    case "ArrowRight":
+      return { ...start, x: clampFocalAxis(start.x + step) };
     case "ArrowUp":
-      return { ...start, y: clampFocalAxis(start.y + step) };
-    case "ArrowDown":
       return { ...start, y: clampFocalAxis(start.y - step) };
+    case "ArrowDown":
+      return { ...start, y: clampFocalAxis(start.y + step) };
     default:
       return null;
   }
@@ -144,4 +150,124 @@ export function roundFocalAxis(value: number): number {
 
 export function roundFocal(focal: FocalPoint): FocalPoint {
   return { x: roundFocalAxis(focal.x), y: roundFocalAxis(focal.y) };
+}
+
+// ---------------------------------------------------------------------------
+// El rectángulo de recorte
+// ---------------------------------------------------------------------------
+
+/**
+ * La parte de la fotografía que sobrevive al marco, en fracciones de la
+ * imagen: `x: 0.25, width: 0.5` significa "la mitad central".
+ *
+ * Se trabaja en fracciones y no en píxeles porque el editor pinta la
+ * fotografía a un tamaño cualquiera —el que quepa en la tarjeta— y la misma
+ * cuenta tiene que servir para la vista de escritorio y la de teléfono.
+ */
+export interface CropRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * El recorte que hará `object-fit: cover` con este encuadre.
+ *
+ * `cover` escala hasta cubrir, así que sobra en un eje y en el otro no: el
+ * eje que sobra es el único que se puede recorrer, y el otro queda completo.
+ * Cuando las proporciones coinciden no sobra nada y el recorte es la
+ * fotografía entera.
+ *
+ * Es la misma cuenta que hace el navegador con `object-position`, no una
+ * aproximación visual: con X %, el borde izquierdo de la ventana cae en
+ * `(X/100) · (ancho − anchoVisible)`.
+ */
+export function coverCropRect(
+  image: Size,
+  frameRatio: number,
+  focal: FocalPoint,
+): CropRect {
+  if (
+    image.width <= 0 ||
+    image.height <= 0 ||
+    !Number.isFinite(frameRatio) ||
+    frameRatio <= 0
+  ) {
+    return { x: 0, y: 0, width: 1, height: 1 };
+  }
+
+  const imageRatio = image.width / image.height;
+  const safe = normalizeFocal(focal);
+
+  if (imageRatio > frameRatio) {
+    // La fotografía es más apaisada que el marco: sobra ancho.
+    const width = frameRatio / imageRatio;
+    return { x: (safe.x / 100) * (1 - width), y: 0, width, height: 1 };
+  }
+
+  if (imageRatio < frameRatio) {
+    // La fotografía es más alta que el marco: sobra alto.
+    const height = imageRatio / frameRatio;
+    return { x: 0, y: (safe.y / 100) * (1 - height), width: 1, height };
+  }
+
+  return { x: 0, y: 0, width: 1, height: 1 };
+}
+
+/**
+ * El camino de vuelta: dónde quedó el recuadro, qué encuadre significa.
+ *
+ * El eje sin recorrido conserva el valor que traía. No es un detalle: si se
+ * devolviera 50 se perdería en silencio el encuadre vertical al cambiar a la
+ * vista de escritorio, donde a lo mejor solo se puede mover en horizontal.
+ * Es lo que hace que `focal → recuadro → focal` vuelva al mismo sitio.
+ */
+export function focalFromCropRect(
+  image: Size,
+  frameRatio: number,
+  position: { x: number; y: number },
+  base: FocalPoint = CENTER_FOCAL,
+): FocalPoint {
+  const rect = coverCropRect(image, frameRatio, base);
+  const freeX = 1 - rect.width;
+  const freeY = 1 - rect.height;
+
+  return {
+    x: freeX > 0 ? clampFocalAxis((position.x / freeX) * 100) : clampFocalAxis(base.x),
+    y: freeY > 0 ? clampFocalAxis((position.y / freeY) * 100) : clampFocalAxis(base.y),
+  };
+}
+
+/**
+ * Arrastrar el recuadro sobre la fotografía.
+ *
+ * El gesto se mide contra el tamaño al que se está pintando la fotografía, no
+ * contra el marco: así el recuadro sigue al dedo exactamente, y el recorrido
+ * se detiene en el borde en vez de dejar que el recuadro se salga de la foto.
+ */
+export function focalAfterCropDrag(
+  image: Size,
+  frameRatio: number,
+  start: FocalPoint,
+  delta: { dx: number; dy: number },
+  displayed: Size,
+): FocalPoint {
+  if (displayed.width <= 0 || displayed.height <= 0) return start;
+
+  const rect = coverCropRect(image, frameRatio, start);
+  const freeX = 1 - rect.width;
+  const freeY = 1 - rect.height;
+
+  const x = clamp01(rect.x + delta.dx / displayed.width, freeX);
+  const y = clamp01(rect.y + delta.dy / displayed.height, freeY);
+
+  return focalFromCropRect(image, frameRatio, { x, y }, start);
+}
+
+function clamp01(value: number, max: number): number {
+  if (!Number.isFinite(value)) return 0;
+  if (value < 0) return 0;
+  if (value > max) return max;
+  return value;
 }

@@ -55,7 +55,14 @@ export async function Hero() {
               alt={image.alt}
               fill
               priority
-              sizes="(min-width: 1024px) 55vw, 100vw"
+              // `sizes` no puede ser el ancho del hueco: con object-cover la
+              // fotografía se amplía hasta cubrirlo, y en un marco más alto
+              // que ella eso significa pedir bastante más ancho del que ocupa.
+              // Los valores salen de esa cuenta con una foto 16:9; quedarse en
+              // el ancho del hueco es lo que hacía que el navegador eligiera
+              // una variante pequeña y se viera blanda.
+              sizes="(min-width: 1024px) 75vw, (min-width: 640px) 115vw, 135vw"
+              quality={90}
               className="object-cover"
               // El encuadre se elige en /admin/contenido. Sin fila o con un
               // valor ilegible cae al centro, que es como se veía el sitio
