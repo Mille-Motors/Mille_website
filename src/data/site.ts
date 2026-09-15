@@ -5,9 +5,10 @@
  * `url` y `officialUrl` son hoy el mismo dominio oficial,
  * millemotorculture.com. Se conservan separados porque responden a preguntas
  * distintas: `url` es la base que necesita `metadataBase` para resolver URLs
- * absolutas, y `officialUrl` es el dominio de marca. Que el dominio sea
- * oficial no levanta el pre-launch: el sitio sigue sirviendo
- * `noindex, nofollow`.
+ * absolutas, y `officialUrl` es el dominio de marca. `url` es además la única
+ * autoridad canónica del sitio: todo lo que lee un buscador —canonical, Open
+ * Graph, robots, sitemap, JSON-LD— se construye a partir de aquí en
+ * `src/lib/seo.ts`. La URL de Vercel sigue funcionando, pero no es canónica.
  *
  * `phone` y `email` siguen en `null` hasta que MILLE tenga línea de WhatsApp
  * y buzón reales: no se muestra ningún número ni dirección de mentira como

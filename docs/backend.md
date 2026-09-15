@@ -386,13 +386,14 @@ encima de la frontera y no bastó: la frontera está más arriba todavía.
 
 Arreglarlo exige quitar esos esqueletos de carga, que son parte del frontend
 aprobado. Cambiar la experiencia de navegación de todo el inventario por el
-código de estado de una URL rota es un mal canje, y más estando el sitio
-entero en `noindex`. La API sí responde 404 de verdad
-(`GET /api/vehicles/<slug>`), que es donde importa para un cliente
+código de estado de una URL rota es un mal canje. La API sí responde 404 de
+verdad (`GET /api/vehicles/<slug>`), que es donde importa para un cliente
 programático.
 
-Cuando se levante el `noindex` para el lanzamiento conviene volver a mirarlo:
-ahí un 200 en una URL inexistente sí tiene coste real.
+Con la indexación activa esa página sirve además `noindex` explícito
+(`generateMetadata` de la ficha), para que un 200 en una URL inexistente no
+acabe en el índice como si fuera contenido. El código de estado sigue
+pendiente.
 
 ## Administración
 
@@ -478,7 +479,9 @@ publique una versión con `@prisma/config` sobre `deepmerge-ts >= 8` y un
 - **Canales de contacto.** MILLE no tiene todavía dominio propio, correo
   corporativo, WhatsApp ni Instagram. El sitio no muestra ninguno inventado
   y `/admin/configuracion` no permite escribir uno. Tendrá su propia fase.
-- **`noindex` sigue activo.** El sitio no está lanzado.
+- **Google Search Console.** El sitio ya es indexable y publica
+  `/robots.txt` y `/sitemap.xml`; falta verificar la propiedad de dominio
+  (TXT en el DNS) y enviar el sitemap. Es trabajo manual, no de código.
 - **Rate limit distribuido**, como se explica arriba.
 - **Sin correo transaccional.** Las solicitudes se guardan y se leen en
   `/admin/solicitudes`. No se notifica a nadie todavía.

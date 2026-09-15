@@ -84,6 +84,7 @@ texto editorial, DM Sans para interfaz, etiquetas y formularios.
 - Fotografía propia — ver `public/images/README.md`.
 - Dominio, correo corporativo, WhatsApp e Instagram: todavía no existen, y
   el sitio no muestra ninguno inventado. Tendrán su propia fase.
-- `noindex` sigue activo a propósito: MILLE no está lanzado.
+- Google Search Console: verificar la propiedad de dominio y enviar el
+  sitemap. El sitio ya se indexa (`/robots.txt` y `/sitemap.xml` publicados).
 - Notificación por correo de las solicitudes. Hoy se leen en
   `/admin/solicitudes`.

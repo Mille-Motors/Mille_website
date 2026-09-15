@@ -6,11 +6,12 @@ import {
   getInventoryFacets,
   getPublicVehicleBySlug,
   listFeaturedVehicles,
-  listPublicVehicleSlugs,
+  listPublicVehicleSitemapEntries,
   listPublicVehicles,
   listRelatedVehicles,
   type PublicVehicleQuery,
 } from "@/server/vehicles/service";
+import type { VehicleSitemapEntry } from "@/lib/seo";
 import type { Vehicle } from "@/types/vehicle";
 
 /**
@@ -53,8 +54,10 @@ export async function getRelatedVehicles(
   return listRelatedVehicles(vehicle, limit);
 }
 
-export async function getAllVehicleSlugs(): Promise<string[]> {
-  return listPublicVehicleSlugs();
+export async function getVehicleSitemapEntries(): Promise<
+  VehicleSitemapEntry[]
+> {
+  return listPublicVehicleSitemapEntries();
 }
 
 export async function getFilterFacets(

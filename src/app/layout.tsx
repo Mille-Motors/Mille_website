@@ -1,6 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, EB_Garamond, Instrument_Serif } from "next/font/google";
 import { site } from "@/data/site";
+import {
+  PUBLIC_ROBOTS,
+  SITE_DESCRIPTION,
+  SITE_TITLE,
+  socialMetadata,
+} from "@/lib/seo";
 import "./globals.css";
 
 const instrumentSerif = Instrument_Serif({
@@ -26,23 +32,33 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
+/**
+ * La metadata que hereda todo el sitio.
+ *
+ * `metadataBase` fija la única autoridad canónica —millemotorculture.com, sin
+ * www— y es lo que resuelve cualquier ruta relativa a URL absoluta.
+ *
+ * No hay `alternates.canonical` aquí a propósito: un canonical en la raíz lo
+ * heredarían todas las páginas, y el inventario entero acabaría diciendo que
+ * la versión buena de sí mismo es la home. Cada página pública declara el
+ * suyo.
+ */
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
   title: {
-    default: "MILLE | Vehículos seleccionados en Bogotá",
-    template: "%s | MILLE",
+    default: SITE_TITLE,
+    template: `%s | ${site.name}`,
   },
-  description: "MILLE: carros y motos en Bogotá. House of Motor Culture.",
-  openGraph: {
-    type: "website",
-    locale: "es_CO",
-    siteName: "MILLE",
-    title: "MILLE | Vehículos seleccionados en Bogotá",
-    description: "MILLE: carros y motos en Bogotá. House of Motor Culture.",
-  },
-  // Pre-launch: this build is only for QA on its *.vercel.app URL, not the
-  // public site yet. Keeps it out of search results until launch removes it.
-  robots: { index: false, follow: false },
+  description: SITE_DESCRIPTION,
+  applicationName: site.name,
+  ...socialMetadata({
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    path: "/",
+  }),
+  // El sitio público se indexa. El admin se excluye en su propio layout, la
+  // API por cabecera, y ambos además en /robots.txt.
+  robots: PUBLIC_ROBOTS,
 };
 
 export const viewport: Viewport = {

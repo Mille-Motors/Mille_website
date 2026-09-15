@@ -9,14 +9,25 @@ import { Rule } from "@/components/ui/Rule";
 import { ContactPanel } from "@/components/brand/ContactPanel";
 import { ContactForm } from "@/components/forms/ContactForm";
 import { site } from "@/data/site";
+import { canonical, socialMetadata } from "@/lib/seo";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
 import { objectPosition } from "@/lib/focal-point";
 import { getSiteMediaImage } from "@/server/site-media/service";
 import { getVehicles } from "@/lib/vehicles";
 
+const CONTACT_TITLE = "Contacto";
+const CONTACT_DESCRIPTION =
+  "Escríbenos. MILLE es una House of Motor Culture en Bogotá: cuéntanos qué estás buscando y coordinamos el siguiente paso.";
+
 export const metadata: Metadata = {
-  title: "Contacto",
-  description: "Contáctanos. MILLE está en Bogotá, Colombia.",
+  title: CONTACT_TITLE,
+  description: CONTACT_DESCRIPTION,
+  alternates: canonical("/contacto"),
+  ...socialMetadata({
+    title: `${CONTACT_TITLE} | ${site.name}`,
+    description: CONTACT_DESCRIPTION,
+    path: "/contacto",
+  }),
 };
 
 const channels = [

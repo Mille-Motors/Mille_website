@@ -10,9 +10,18 @@ import { InventoryCTALink } from "@/components/vehicle/InventoryCTALink";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
 import { site } from "@/data/site";
 import { objectPosition } from "@/lib/focal-point";
+import { NOINDEX_ROBOTS } from "@/lib/seo";
 import { getSiteMediaImage } from "@/server/site-media/service";
 
-export const metadata: Metadata = { title: "Página no encontrada" };
+/**
+ * Una 404 no es contenido: se sirve en cualquier URL inexistente y no debe
+ * competir en el índice con las páginas reales. Sus enlaces sí se siguen —son
+ * la salida hacia el inventario—.
+ */
+export const metadata: Metadata = {
+  title: "Página no encontrada",
+  robots: NOINDEX_ROBOTS,
+};
 
 const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],

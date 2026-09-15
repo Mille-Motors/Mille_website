@@ -13,7 +13,20 @@ import { VehicleContactActions } from "@/components/vehicle/VehicleContactAction
 import { VehicleEquipment } from "@/components/vehicle/VehicleEquipment";
 import { VehicleGallery } from "@/components/vehicle/VehicleGallery";
 import { VehicleSpecs, specRows } from "@/components/vehicle/VehicleSpecs";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { site } from "@/data/site";
 import { formatCOP, formatMileage, vehicleTitle } from "@/lib/format";
+import {
+  NOINDEX_ROBOTS,
+  absoluteImageUrl,
+  breadcrumbJsonLd,
+  canonical,
+  socialMetadata,
+  vehicleJsonLd,
+  vehicleMetaDescription,
+  vehicleMetaTitle,
+  vehiclePath,
+} from "@/lib/seo";
 import { getRelatedVehicles, getVehicleBySlug } from "@/lib/vehicles";
 
 /**
@@ -29,17 +42,38 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { slug } = await props.params;
   const vehicle = await getVehicleBySlug(slug);
-  if (!vehicle) return { title: "Vehículo no encontrado" };
 
-  const title = `${vehicleTitle(vehicle)} ${vehicle.year}`;
+  // Solo llega aquí lo PUBLICADO: `getVehicleBySlug` no devuelve borradores
+  // ni archivados. Un slug que no existe —o que dejó de estar publicado—
+  // renderiza la página de "no encontrado", y esa no se indexa. Importa
+  // desde hoy: el segmento responde 200 por los esqueletos de carga que
+  // tiene encima (ver docs/backend.md), así que sin este `noindex` Google
+  // guardaría una URL rota como si fuera contenido.
+  if (!vehicle) {
+    return { title: "Vehículo no encontrado", robots: NOINDEX_ROBOTS };
+  }
+
+  const title = vehicleMetaTitle(vehicle);
+  const description = vehicleMetaDescription(vehicle);
+  const path = vehiclePath(vehicle.slug);
+
   return {
     title,
-    description: vehicle.description.slice(0, 155),
-    openGraph: {
-      title,
-      description: vehicle.description.slice(0, 155),
-      images: [{ url: vehicle.images[0].src }],
-    },
+    description,
+    alternates: canonical(path),
+    ...socialMetadata({
+      title: `${title} | ${site.name}`,
+      description,
+      path,
+      // La portada real del vehículo, absoluta: puede venir de /public o de
+      // Supabase Storage, y una previsualización no resuelve rutas relativas.
+      images: [
+        {
+          url: absoluteImageUrl(vehicle.images[0].src),
+          alt: vehicle.images[0].alt || title,
+        },
+      ],
+    }),
   };
 }
 
@@ -56,6 +90,22 @@ export default async function VehicleDetailPage(
 
   return (
     <>
+      {/* Los datos del vehículo tal como schema.org los describe, y la misma
+          ruta que se ve justo debajo. Ambos salen de la ficha real: no hay
+          ningún dato aquí que la página no muestre. */}
+      <JsonLd data={vehicleJsonLd(vehicle)} />
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Inicio", path: "/" },
+          { name: "Vehículos", path: "/vehiculos" },
+          {
+            name: vehicle.make,
+            path: `/vehiculos?marca=${encodeURIComponent(vehicle.make)}`,
+          },
+          { name: vehicleMetaTitle(vehicle), path: vehiclePath(vehicle.slug) },
+        ])}
+      />
+
       {/* Breadcrumb + headline over the MILLE burgundy, not a generic dark
           band — carries the same treatment for cars and motos alike. */}
       <section className="bg-burgundy text-cream">

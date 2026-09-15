@@ -69,6 +69,15 @@ const securityHeaders = [
   },
 ];
 
+/**
+ * Lo que no es contenido no se indexa, y eso incluye lo que no pasa por la
+ * Metadata API: una respuesta de la API no tiene `<head>` donde poner un
+ * `<meta name="robots">`, así que se dice por cabecera. `/robots.txt` pide
+ * además que ni siquiera se rastreen; esto cubre el caso de que alguien
+ * llegue a una de esas URLs por un enlace, donde el `Disallow` no basta.
+ */
+const noIndexHeader = { key: "X-Robots-Tag", value: "noindex, nofollow" };
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: localNetworkOrigins(),
   images: {
@@ -93,12 +102,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      { source: "/admin/:path*", headers: [...securityHeaders, noIndexHeader] },
+      { source: "/api/:path*", headers: [...securityHeaders, noIndexHeader] },
       {
         // Una respuesta de la API privada no debe poder quedarse en ninguna
         // caché compartida. Por defecto salían como `public, max-age=0`.
         source: "/api/admin/:path*",
         headers: [
           ...securityHeaders,
+          noIndexHeader,
           { key: "Cache-Control", value: "no-store, private" },
         ],
       },

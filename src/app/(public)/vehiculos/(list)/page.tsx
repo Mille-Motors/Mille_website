@@ -9,7 +9,9 @@ import { FilterBar } from "@/components/vehicle/FilterBar";
 import { InventoryAnchorScroll } from "@/components/vehicle/InventoryAnchorScroll";
 import { TypeSelector } from "@/components/vehicle/TypeSelector";
 import { VehicleGrid } from "@/components/vehicle/VehicleGrid";
+import { site } from "@/data/site";
 import { typeNoun } from "@/lib/categories";
+import { canonical, socialMetadata } from "@/lib/seo";
 import {
   activeFilterCount,
   hasInvalidType,
@@ -23,9 +25,28 @@ import {
 } from "@/lib/inventory-empty-state";
 import { getFilterFacets, getVehicles } from "@/lib/vehicles";
 
+const LIST_TITLE = "Vehículos";
+const LIST_DESCRIPTION =
+  "Carros y motos seleccionados por MILLE. Explora el inventario disponible de nuestra House of Motor Culture en Bogotá.";
+
+/**
+ * El canonical es siempre `/vehiculos`, sin parámetros.
+ *
+ * Filtrar no crea páginas: `?tipo=moto`, `?marca=BMW` o `?orden=precio-asc`
+ * son recortes de esta misma vista, y dejar que cada combinación se indexara
+ * por su cuenta llenaría el índice de copias del mismo inventario compitiendo
+ * entre ellas. Que esta metadata sea estática mientras la página sí lee los
+ * parámetros es justo lo que lo garantiza: se filtra igual, se indexa una vez.
+ */
 export const metadata: Metadata = {
-  title: "Inventario",
-  description: "Carros y motos seleccionados por MILLE en Bogotá.",
+  title: LIST_TITLE,
+  description: LIST_DESCRIPTION,
+  alternates: canonical("/vehiculos"),
+  ...socialMetadata({
+    title: `${LIST_TITLE} | ${site.name}`,
+    description: LIST_DESCRIPTION,
+    path: "/vehiculos",
+  }),
 };
 
 /** Context copy per universe. Short: the vehicles do the talking. */

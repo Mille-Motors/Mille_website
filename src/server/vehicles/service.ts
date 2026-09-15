@@ -4,6 +4,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db/prisma";
 import { conflict, notFound } from "@/server/http/errors";
 import { publicationBlockers } from "@/lib/publication";
+import type { VehicleSitemapEntry } from "@/lib/seo";
 import { planVehicleDeletion } from "@/lib/vehicle-deletion";
 import { VEHICLE_IMAGE_BUCKET } from "@/server/auth/config";
 import { deleteStoredImage } from "@/server/storage/images";
@@ -134,12 +135,24 @@ export async function getPublicVehicleBySlug(
   return record ? toVehicleDto(record as VehicleRecord) : null;
 }
 
-export async function listPublicVehicleSlugs(): Promise<string[]> {
+/**
+ * Lo que el sitemap necesita de cada vehículo visible: su slug y cuándo
+ * cambió por última vez. Solo publicados —un borrador o un archivado no
+ * tienen URL pública que ofrecer— y sin traerse la ficha entera, que para
+ * escribir una línea de XML no hace falta.
+ */
+export async function listPublicVehicleSitemapEntries(): Promise<
+  VehicleSitemapEntry[]
+> {
   const rows = await prisma.vehicle.findMany({
     where: PUBLISHED,
-    select: { slug: true },
+    select: { slug: true, updatedAt: true },
+    orderBy: { updatedAt: "desc" },
   });
-  return rows.map((row) => row.slug);
+  return rows.map((row) => ({
+    slug: row.slug,
+    updatedAt: row.updatedAt.toISOString(),
+  }));
 }
 
 /**
