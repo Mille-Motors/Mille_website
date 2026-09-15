@@ -369,31 +369,21 @@ la home. Eso es lo que permite cambiar una fotografía sin desplegar.
 admin tiene que verse de inmediato, y prerenderizar ataría cada despliegue a
 que la base esté disponible en tiempo de compilación.
 
-### Un slug inválido responde 200, no 404
+### Un slug inválido responde 404
 
-Se comprobó y se decidió dejarlo así.
+Lo hacía con 200 y quedó anotado aquí como deuda: había tres `loading.tsx` en
+la cadena —`(public)`, `(public)/vehiculos` y `(public)/vehiculos/[slug]`— y
+el de más arriba abría un Suspense que enviaba la cabecera antes de que la
+consulta descubriera que el vehículo no existe.
 
-`/vehiculos/<slug-que-no-existe>` devuelve **200** con la página de "vehículo
-no encontrado" dentro: el contenido es el correcto, el `<title>` es el
-correcto y lleva `noindex`; lo que no es correcto es el código de estado.
+Ya no ocurre: de esos esqueletos solo queda el del listado, así que
+`notFound()` llega a tiempo. Comprobado en producción sobre tres slugs
+inexistentes, los tres **404**. La API responde 404 igual
+(`GET /api/vehicles/<slug>`).
 
-La causa es el orden de renderizado. Hay tres `loading.tsx` en la cadena
-—`(public)`, `(public)/vehiculos` y `(public)/vehiculos/[slug]`— y el de más
-arriba abre un Suspense que envía el esqueleto en cuanto empieza la
-respuesta. Para cuando la consulta descubre que el vehículo no existe, la
-cabecera 200 ya salió. Se intentó resolverlo con un layout de paso por
-encima de la frontera y no bastó: la frontera está más arriba todavía.
-
-Arreglarlo exige quitar esos esqueletos de carga, que son parte del frontend
-aprobado. Cambiar la experiencia de navegación de todo el inventario por el
-código de estado de una URL rota es un mal canje. La API sí responde 404 de
-verdad (`GET /api/vehicles/<slug>`), que es donde importa para un cliente
-programático.
-
-Con la indexación activa esa página sirve además `noindex` explícito
-(`generateMetadata` de la ficha), para que un 200 en una URL inexistente no
-acabe en el índice como si fuera contenido. El código de estado sigue
-pendiente.
+La página lleva además `noindex` explícito —`generateMetadata` de la ficha y
+la metadata de `not-found.tsx`—, que es lo que impide que una URL rota entre
+al índice si el estado volviera a torcerse.
 
 ## Administración
 
