@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ButtonLink, WhatsappButtonLink } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Rule } from "@/components/ui/Rule";
-import { WhatsappIcon } from "@/components/ui/BrandIcons";
 import { CategoryNav } from "@/components/vehicle/CategoryNav";
 import { FilterBar } from "@/components/vehicle/FilterBar";
 import { InventoryAnchorScroll } from "@/components/vehicle/InventoryAnchorScroll";
@@ -12,13 +11,16 @@ import { TypeSelector } from "@/components/vehicle/TypeSelector";
 import { VehicleGrid } from "@/components/vehicle/VehicleGrid";
 import { typeNoun } from "@/lib/categories";
 import {
+  activeFilterCount,
   hasInvalidType,
   inventoryHref,
   parseFilters,
   sortToQuery,
 } from "@/lib/filters";
-import { site } from "@/data/site";
-import { generalWhatsappUrl } from "@/lib/whatsapp";
+import {
+  inventoryEmptyState,
+  type InventoryEmptyState,
+} from "@/lib/inventory-empty-state";
 import { getFilterFacets, getVehicles } from "@/lib/vehicles";
 
 export const metadata: Metadata = {
@@ -131,7 +133,16 @@ export default async function InventoryPage(props: PageProps<"/vehiculos">) {
               <VehicleGrid vehicles={results} priorityCount={3} />
             </>
           ) : (
-            <NoResults filters={filters} />
+            <NoResults
+              // `counts.all` es el total publicado de todo el inventario, no
+              // el de esta consulta: es lo que distingue "MILLE todavía no
+              // publica nada" de "estos filtros no devuelven nada".
+              state={inventoryEmptyState({
+                publishedTotal: facets.counts.all,
+                activeFilters: activeFilterCount(filters),
+              })}
+              filters={filters}
+            />
           )}
         </Container>
       </section>
@@ -140,45 +151,45 @@ export default async function InventoryPage(props: PageProps<"/vehiculos">) {
 }
 
 /**
- * An empty result is still a conversation. MILLE can look for a vehicle it
- * does not have in stock — without promising to find it.
+ * Una rejilla vacía sigue siendo una conversación. El texto lo decide
+ * `inventoryEmptyState()`, que distingue el inventario que todavía no
+ * empieza del filtro que no encuentra nada; aquí solo se pinta, con el mismo
+ * aire editorial que el resto de la página.
  */
 function NoResults({
+  state,
   filters,
 }: {
+  state: InventoryEmptyState;
   filters: ReturnType<typeof parseFilters>;
 }) {
   return (
     <div className="border-y border-stone py-20 lg:py-28">
       <div className="mx-auto max-w-2xl text-center">
-        <h2 className="font-display text-[clamp(1.5rem,3.4vw,2.25rem)] leading-[1.15] text-ink uppercase">
-          No tenemos algo que encaje
-          <br className="hidden sm:block" /> con esos filtros en este momento.
+        <Eyebrow>{state.eyebrow}</Eyebrow>
+        <h2 className="mt-5 font-display text-[clamp(1.5rem,3.4vw,2.25rem)] leading-[1.15] text-ink uppercase">
+          {state.headline}
         </h2>
-        <p className="mt-6 font-serif text-[1.0625rem] leading-[1.75] text-ink-soft">
-          Eso no significa que no podamos ayudarte a buscarlo. Cuéntanos qué
-          tienes en mente y lo rastreamos.
+        <Rule className="mx-auto mt-7" />
+        <p className="mt-7 font-serif text-[1.0625rem] leading-[1.75] text-ink-soft">
+          {state.body}
+        </p>
+        <p className="mt-4 font-serif text-[0.9375rem] leading-[1.7] text-ink-muted">
+          {state.secondary}
         </p>
         <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-          {/* Sin línea de WhatsApp, "Escríbenos" tiene que llevar a algún
-              sitio donde de verdad se pueda escribir. */}
-          {site.phone ? (
-            <WhatsappButtonLink href={generalWhatsappUrl()} size="lg">
-              <WhatsappIcon className="size-4" />
-              Escríbenos
-            </WhatsappButtonLink>
-          ) : (
-            <ButtonLink href="/contacto" size="lg">
-              Escríbenos
-            </ButtonLink>
-          )}
-          <ButtonLink
-            href={inventoryHref({ tipo: filters.tipo })}
-            variant="ghost"
-            size="lg"
-          >
-            Limpiar filtros
+          <ButtonLink href={state.cta.href} size="lg">
+            {state.cta.label}
           </ButtonLink>
+          {state.showClearFilters ? (
+            <ButtonLink
+              href={inventoryHref({ tipo: filters.tipo })}
+              variant="ghost"
+              size="lg"
+            >
+              Limpiar filtros
+            </ButtonLink>
+          ) : null}
         </div>
       </div>
     </div>
