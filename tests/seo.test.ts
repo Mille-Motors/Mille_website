@@ -24,6 +24,7 @@ import {
   websiteJsonLd,
 } from "@/lib/seo";
 import type { Vehicle } from "@/types/vehicle";
+import { makeVehicle } from "./support/vehicle";
 
 /**
  * Lo que un buscador ve de MILLE.
@@ -36,33 +37,16 @@ import type { Vehicle } from "@/types/vehicle";
 
 const CANONICAL = "https://millemotorculture.com";
 
-const vehicle: Vehicle = {
-  id: "1",
+const vehicle: Vehicle = makeVehicle({
   slug: "bmw-x5-xdrive40i",
-  make: "BMW",
-  model: "X5",
-  version: "xDrive40i",
   year: 2020,
   price: 289_900_000,
   mileage: 45_000,
-  vehicleType: "auto",
-  category: {
-    id: "c1", name: "SUV", pluralName: "SUV", slug: "suv",
-    vehicleType: "auto", active: true, position: 0,
-  },
-  fuelType: "Gasolina",
-  transmission: "Automática",
-  drivetrain: "4x4 (AWD)",
   engine: "3.0 L turbo",
-  power: "340 hp",
-  exteriorColor: "Gris",
-  interiorColor: "Negro",
-  city: "Bogotá, CO",
-  availability: "available",
   publication: "published",
-  featured: false,
   description: "Un X5 de un solo dueño, con mantenimientos al día.",
   equipment: ["Techo panorámico"],
+  specs: { powerHp: 340, displacementCc: 2998, topSpeedKph: 243, curbWeightKg: 2135 },
   images: [
     { id: "i1", src: "/images/vehicles/bmw-x5-xdrive40i/01.jpg", alt: "BMW X5", source: "legacy", storagePath: null },
     { id: "i2", src: "https://cdn.supabase.co/storage/v1/object/public/vehicles/1/02.jpg", alt: "", source: "storage", storagePath: "vehicles/1/02.jpg" },
@@ -70,7 +54,7 @@ const vehicle: Vehicle = {
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-02-01T00:00:00.000Z",
   publishedAt: "2026-01-15T00:00:00.000Z",
-};
+});
 
 describe("dominio canónico", () => {
   it("la autoridad es millemotorculture.com, sin www y sin barra final", () => {
@@ -280,14 +264,38 @@ describe("datos estructurados", () => {
 
   it("no se declara lo que el inventario no guarda", () => {
     const data = vehicleJsonLd(vehicle);
+    // El inventario no sabe si el vehículo es nuevo o usado, y deducirlo del
+    // kilometraje sería inventarlo.
     assert.ok(!("itemCondition" in data));
-    assert.ok(!("enginePower" in data));
+  });
+
+  it("declara la potencia como magnitud ahora que es un número", () => {
+    const engine = vehicleJsonLd(vehicle).vehicleEngine as Record<string, unknown>;
+    assert.deepEqual(engine.enginePower, {
+      "@type": "QuantitativeValue",
+      value: 340,
+      unitCode: "BHP",
+    });
+    assert.equal(engine.name, "3.0 L turbo");
   });
 
   it("un campo vacío no se declara vacío: se omite", () => {
     const data = vehicleJsonLd({ ...vehicle, engine: "", exteriorColor: "" });
-    assert.ok(!("vehicleEngine" in data));
     assert.ok(!("color" in data));
+    // Queda `vehicleEngine` porque la potencia sí se conoce, pero sin `name`:
+    // lo que falta se omite, no se declara en blanco.
+    const engine = data.vehicleEngine as Record<string, unknown>;
+    assert.ok(!("name" in engine));
+    assert.ok("enginePower" in engine);
+  });
+
+  it("un vehículo sin ningún dato de motor no declara el bloque", () => {
+    const data = vehicleJsonLd(
+      makeVehicle({ engine: "", publication: "published" }),
+    );
+    assert.ok(!("vehicleEngine" in data));
+    assert.ok(!("speed" in data));
+    assert.ok(!("weight" in data));
   });
 
   it("la ruta estructurada es la misma que se ve en la ficha", () => {

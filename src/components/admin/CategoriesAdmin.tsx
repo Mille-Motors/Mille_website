@@ -23,6 +23,13 @@ type Row = VehicleCategory & { vehicleCount: number };
  * responde que la desactives, que es lo que de verdad se quiere hacer: una
  * categoría inactiva deja de ofrecerse al crear vehículos pero no rompe los
  * que ya existen ni sus URLs.
+ *
+ * Para los carros, estas filas son CARROCERÍAS —SUV, Sedán, Pickup, Coupé—
+ * y el conjunto con el que arranca una base limpia vive en
+ * src/lib/body-types.ts. "Híbrido", "Eléctrico" y "4x4" ya no caben aquí:
+ * son propulsión y tracción, y tienen sus propias columnas en el vehículo.
+ * Si aparecen en la lista como inactivas, son filas antiguas que la
+ * migración conservó porque todavía tienen vehículos colgando.
  */
 export function CategoriesAdmin({ categories }: { categories: Row[] }) {
   const router = useRouter();
@@ -107,7 +114,7 @@ export function CategoriesAdmin({ categories }: { categories: Row[] }) {
     <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
       <AdminPageHeader
         title="Categorías"
-        subtitle="Cómo se agrupa el inventario en el sitio público"
+        subtitle="La carrocería de los carros y la categoría de las motos. No es combustible ni tracción: eso son campos del vehículo."
         action={
           <Button size="sm" onClick={() => setCreating((open) => !open)}>
             <Plus aria-hidden className="size-3.5" strokeWidth={1.6} />

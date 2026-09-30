@@ -28,7 +28,7 @@ import type { AdminVehicleFilterOptions } from "@/server/vehicles/service";
  * la consulta contra la base.
  *
  * Lo que se usa a diario —buscar, publicación, disponibilidad, tipo— está a
- * la vista. Lo que se usa de vez en cuando —marca, categoría, año, precio—
+ * la vista. Lo que se usa de vez en cuando —marca, carrocería, año, precio—
  * vive en un panel que se abre. Con inventario grande hacen falta los ocho;
  * tenerlos los ocho siempre desplegados haría la pantalla ilegible.
  */
@@ -149,8 +149,8 @@ export function VehicleFilters({
         : "border-stone text-ink-soft hover:border-stone-strong",
     );
 
-  // La categoría pertenece a un universo: con Carros elegido, ofrecer una
-  // categoría de moto sería ofrecer un cero garantizado.
+  // La carrocería pertenece a un universo: con Carros elegido, ofrecer una
+  // carrocería de moto sería ofrecer un cero garantizado.
   const categories = query.vehicleType
     ? options.categories.filter((c) => c.vehicleType === query.vehicleType)
     : options.categories;
@@ -270,7 +270,7 @@ export function VehicleFilters({
               onClick={() =>
                 go({
                   vehicleType: query.vehicleType === type ? undefined : type,
-                  // La categoría elegida puede no existir en el otro universo.
+                  // La carrocería elegida puede no existir en el otro universo.
                   categoryId: undefined,
                 })
               }
@@ -282,7 +282,7 @@ export function VehicleFilters({
         </div>
       </div>
 
-      {/* Panel: marca, categoría, año y precio */}
+      {/* Panel: marca, carrocería, año y precio */}
       {panelOpen ? (
         <div className="grid gap-4 border border-stone bg-paper px-5 py-5 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Marca">
@@ -299,7 +299,7 @@ export function VehicleFilters({
             </Select>
           </Field>
 
-          <Field label="Categoría">
+          <Field label="Carrocería">
             <Select
               value={query.categoryId ?? ""}
               onChange={(value) => go({ categoryId: value || undefined })}

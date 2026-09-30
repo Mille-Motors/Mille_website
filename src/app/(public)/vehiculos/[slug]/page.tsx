@@ -10,12 +10,24 @@ import { MobileAccordion } from "@/components/vehicle/MobileAccordion";
 import { StickyWhatsapp } from "@/components/vehicle/StickyWhatsapp";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
 import { VehicleContactActions } from "@/components/vehicle/VehicleContactActions";
-import { VehicleEquipment } from "@/components/vehicle/VehicleEquipment";
+import {
+  VehicleEquipment,
+  VehicleHighlights,
+} from "@/components/vehicle/VehicleEquipment";
+import { VehicleFunFact } from "@/components/vehicle/VehicleFunFact";
 import { VehicleGallery } from "@/components/vehicle/VehicleGallery";
-import { VehicleSpecs, specRows } from "@/components/vehicle/VehicleSpecs";
+import { VehicleQuickFacts } from "@/components/vehicle/VehicleQuickFacts";
+import { SpecTable, VehicleSpecs } from "@/components/vehicle/VehicleSpecs";
+import { VehicleTags } from "@/components/vehicle/VehicleTags";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { site } from "@/data/site";
 import { formatCOP, formatMileage, vehicleTitle } from "@/lib/format";
+import {
+  documentationRows,
+  electrificationBlocks,
+  quickFacts,
+  specBlocks,
+} from "@/lib/vehicle-display";
 import {
   NOINDEX_ROBOTS,
   absoluteImageUrl,
@@ -86,7 +98,19 @@ export default async function VehicleDetailPage(
 
   const related = await getRelatedVehicles(vehicle);
   const title = vehicleTitle(vehicle);
-  const rows = specRows(vehicle);
+
+  // Todo lo que se dibuja abajo se decide aquí, y `vehicle-display` solo
+  // devuelve lo que tiene valor: una sección que quedaría vacía no llega a
+  // existir, en vez de renderizarse con su título y una tabla de "N/A".
+  const facts = quickFacts(vehicle);
+  const blocks = specBlocks(vehicle);
+  const electric = electrificationBlocks(vehicle);
+  const papers = documentationRows(vehicle);
+  const highlights = vehicle.specialEquipment;
+  const hasEquipment =
+    vehicle.features.length > 0 || vehicle.equipment.length > 0;
+  const funFactVisible =
+    vehicle.funFact.enabled && Boolean(vehicle.funFact.body?.trim());
 
   return (
     <>
@@ -169,48 +193,161 @@ export default async function VehicleDetailPage(
         </Container>
       </section>
 
-      <section className="bg-cream pt-8 pb-12 lg:pt-10">
+      <section className="bg-cream pt-8 pb-10 lg:pt-10">
         <Container width="wide">
           <VehicleGallery images={vehicle.images} />
         </Container>
       </section>
 
-      {/* Desktop: specs beside description. Phone: accordions. */}
+      {/* La tira de datos rápidos: lo que se mira antes de decidir si se
+          sigue leyendo. Desaparece entera si no conocemos ninguno. */}
+      {facts.length > 0 ? (
+        <section className="bg-cream pb-10">
+          <Container width="wide">
+            <VehicleQuickFacts facts={facts} />
+          </Container>
+        </section>
+      ) : null}
+
+      {/* Desktop: especificaciones al lado del relato. Teléfono: acordeones. */}
       <section className="bg-cream pb-4">
         <Container width="wide">
           <div className="hidden gap-14 lg:grid lg:grid-cols-2">
             <div>
               <h2 className="font-display text-3xl text-ink">Especificaciones</h2>
               <Rule className="mt-5 mb-7" />
-              <VehicleSpecs vehicle={vehicle} rows={rows} />
+              <VehicleSpecs blocks={blocks} />
+
+              {electric.length > 0 ? (
+                <>
+                  <h2 className="mt-12 font-display text-3xl text-ink">
+                    Sistema {vehicle.fuelType === "Eléctrico" ? "eléctrico" : "híbrido"}
+                  </h2>
+                  <Rule className="mt-5 mb-7" />
+                  <VehicleSpecs blocks={electric} />
+                </>
+              ) : null}
+
+              {papers.length > 0 ? (
+                <>
+                  <h2 className="mt-12 font-display text-3xl text-ink">
+                    Documentación
+                  </h2>
+                  <Rule className="mt-5 mb-7" />
+                  <SpecTable rows={papers} />
+                  {vehicle.documentation.documentationNotes ? (
+                    <p className="mt-5 font-serif text-[0.9375rem] leading-relaxed text-ink-muted">
+                      {vehicle.documentation.documentationNotes}
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
             </div>
 
             <div>
               <h2 className="font-display text-3xl text-ink">Descripción</h2>
               <Rule className="mt-5 mb-7" />
-              <p className="font-serif text-[1.0625rem] leading-[1.8] text-ink-soft">
+              {/* `whitespace-pre-line` conserva los párrafos que se
+                  escribieron en el admin: sin él, un texto de cinco bloques
+                  se leía como un muro de una sola línea. */}
+              <p className="font-serif text-[1.0625rem] leading-[1.8] whitespace-pre-line text-ink-soft">
                 {vehicle.description}
               </p>
 
-              <h2 className="mt-12 font-display text-3xl text-ink">
-                Equipamiento destacado
-              </h2>
-              <Rule className="mt-5 mb-7" />
-              <VehicleEquipment items={vehicle.equipment} />
+              {vehicle.tags.length > 0 ? (
+                <div className="mt-7">
+                  <VehicleTags vehicle={vehicle} />
+                </div>
+              ) : null}
+
+              {funFactVisible ? (
+                <div className="mt-10">
+                  <VehicleFunFact funFact={vehicle.funFact} />
+                </div>
+              ) : null}
+
+              {highlights.length > 0 ? (
+                <>
+                  <h2 className="mt-12 font-display text-3xl text-ink">
+                    Equipamiento destacado
+                  </h2>
+                  <Rule className="mt-5 mb-7" />
+                  <VehicleHighlights items={highlights} />
+                </>
+              ) : null}
+
+              {hasEquipment ? (
+                <>
+                  <h2 className="mt-12 font-display text-3xl text-ink">
+                    Equipamiento
+                  </h2>
+                  <Rule className="mt-5 mb-7" />
+                  <VehicleEquipment
+                    features={vehicle.features}
+                    extra={vehicle.equipment}
+                  />
+                </>
+              ) : null}
             </div>
           </div>
 
           <div className="lg:hidden">
-            <p className="font-serif text-[1.0625rem] leading-[1.75] text-ink-soft">
+            <p className="font-serif text-[1.0625rem] leading-[1.75] whitespace-pre-line text-ink-soft">
               {vehicle.description}
             </p>
+
+            {vehicle.tags.length > 0 ? (
+              <div className="mt-6">
+                <VehicleTags vehicle={vehicle} />
+              </div>
+            ) : null}
+
+            {funFactVisible ? (
+              <div className="mt-8">
+                <VehicleFunFact funFact={vehicle.funFact} />
+              </div>
+            ) : null}
+
             <div className="mt-8 border-t border-stone">
-              <MobileAccordion title="Especificaciones" defaultOpen>
-                <VehicleSpecs vehicle={vehicle} rows={rows} />
-              </MobileAccordion>
-              <MobileAccordion title="Equipamiento destacado">
-                <VehicleEquipment items={vehicle.equipment} />
-              </MobileAccordion>
+              {blocks.length > 0 ? (
+                <MobileAccordion title="Especificaciones" defaultOpen>
+                  <VehicleSpecs blocks={blocks} />
+                </MobileAccordion>
+              ) : null}
+
+              {electric.length > 0 ? (
+                <MobileAccordion
+                  title={`Sistema ${vehicle.fuelType === "Eléctrico" ? "eléctrico" : "híbrido"}`}
+                >
+                  <VehicleSpecs blocks={electric} />
+                </MobileAccordion>
+              ) : null}
+
+              {highlights.length > 0 ? (
+                <MobileAccordion title="Equipamiento destacado">
+                  <VehicleHighlights items={highlights} />
+                </MobileAccordion>
+              ) : null}
+
+              {hasEquipment ? (
+                <MobileAccordion title="Equipamiento">
+                  <VehicleEquipment
+                    features={vehicle.features}
+                    extra={vehicle.equipment}
+                  />
+                </MobileAccordion>
+              ) : null}
+
+              {papers.length > 0 ? (
+                <MobileAccordion title="Documentación">
+                  <SpecTable rows={papers} />
+                  {vehicle.documentation.documentationNotes ? (
+                    <p className="mt-5 font-serif text-[0.9375rem] leading-relaxed text-ink-muted">
+                      {vehicle.documentation.documentationNotes}
+                    </p>
+                  ) : null}
+                </MobileAccordion>
+              ) : null}
             </div>
           </div>
         </Container>

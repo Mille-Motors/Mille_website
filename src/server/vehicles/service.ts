@@ -10,6 +10,7 @@ import { VEHICLE_IMAGE_BUCKET } from "@/server/auth/config";
 import { deleteStoredImage } from "@/server/storage/images";
 import { uniqueVehicleSlug } from "@/server/vehicles/slug";
 import {
+  fromDateString,
   fromDbVehicleType,
   toDbAvailability,
   toDbPublication,
@@ -24,6 +25,12 @@ import type {
   VehicleInput,
   VehiclePatch,
 } from "@/server/vehicles/schemas";
+import {
+  DRIVETRAINS,
+  FUEL_TYPES,
+  TRANSMISSIONS,
+  VEHICLE_TAGS,
+} from "@/types/vehicle";
 import type {
   AvailabilityStatus,
   PublicationStatus,
@@ -45,12 +52,21 @@ import type {
 
 export interface PublicVehicleQuery {
   vehicleType?: VehicleType;
+  /** La carrocería, por slug. */
   categorySlug?: string;
   make?: string;
+  model?: string;
+  fuelType?: string;
+  transmission?: string;
+  drivetrain?: string;
+  city?: string;
+  /** Carácter del vehículo: "Deportivo", "Off-road"… */
+  tag?: string;
   minYear?: number;
   maxYear?: number;
   minPrice?: number;
   maxPrice?: number;
+  maxMileage?: number;
   featured?: boolean;
   sort?: "recent" | "price-asc" | "price-desc" | "mileage-asc" | "year-desc";
   limit?: number;
@@ -94,7 +110,18 @@ function publicWhere(query: PublicVehicleQuery): Prisma.VehicleWhereInput {
     where.category = { slug: query.categorySlug, active: true };
   }
   if (query.make) where.make = query.make;
+  if (query.model) where.model = query.model;
   if (query.featured !== undefined) where.featured = query.featured;
+
+  // Cada filtro es una condición MÁS, nunca una alternativa: carrocería SUV
+  // con combustible enchufable devuelve las SUV enchufables, no la unión.
+  if (query.fuelType) where.fuelType = query.fuelType;
+  if (query.transmission) where.transmission = query.transmission;
+  if (query.drivetrain) where.drivetrain = query.drivetrain;
+  if (query.city) where.city = query.city;
+  // `has` se traduce a `tags @> ARRAY[...]`, que es lo que sabe usar el
+  // índice GIN de la columna.
+  if (query.tag) where.tags = { has: query.tag };
 
   if (query.minYear !== undefined || query.maxYear !== undefined) {
     where.year = {
@@ -108,6 +135,7 @@ function publicWhere(query: PublicVehicleQuery): Prisma.VehicleWhereInput {
       ...(query.maxPrice !== undefined ? { lte: BigInt(query.maxPrice) } : {}),
     };
   }
+  if (query.maxMileage !== undefined) where.mileage = { lte: query.maxMileage };
 
   return where;
 }
@@ -217,13 +245,22 @@ export async function listRelatedVehicles(
 
 export interface InventoryFacets {
   makes: string[];
+  /** Pares marca→modelo, para poder acotar el modelo a la marca elegida. */
+  models: { make: string; model: string }[];
   /** Descendente, para ofrecer primero el año más nuevo. */
   years: number[];
   minYear: number;
   maxYear: number;
+  /** Las carrocerías presentes en el inventario visible. */
   categories: { id: string; name: string; pluralName: string; slug: string }[];
+  fuelTypes: string[];
+  transmissions: string[];
+  drivetrains: string[];
+  cities: string[];
+  tags: string[];
   minPrice: number;
   maxPrice: number;
+  maxMileage: number;
   counts: { auto: number; moto: number; all: number };
 }
 
@@ -231,7 +268,29 @@ export interface InventoryFacets {
  * Las opciones de los filtros salen del inventario realmente visible, no de
  * una lista fija. Al pasar un tipo se acotan a ese universo: quien navega
  * motos no debería ver una marca que solo existe entre los carros.
+ *
+ * Ofrecer solo lo que existe es lo que evita el peor resultado de un panel
+ * de filtros: elegir tres cosas plausibles y recibir cero sin entender por
+ * qué. Por eso los vocabularios cerrados —combustible, tracción— también se
+ * recortan aquí en vez de volcarse enteros desde `src/types/vehicle.ts`.
+ *
+ * Se ordenan según esas listas y no alfabéticamente: "Gasolina, Diésel,
+ * Híbrido, Enchufable, Eléctrico" es una secuencia que significa algo.
  */
+function orderedByVocabulary(
+  present: Set<string>,
+  vocabulary: readonly string[],
+): string[] {
+  const known = vocabulary.filter((value) => present.has(value));
+  // Un valor que ya no está en la lista canónica —una fila vieja— se sigue
+  // ofreciendo al final: existe en el inventario, así que filtrar por él
+  // devuelve algo. Esconderlo haría inalcanzables esos vehículos.
+  const unknown = [...present]
+    .filter((value) => !vocabulary.includes(value))
+    .sort((a, b) => a.localeCompare(b, "es"));
+  return [...known, ...unknown];
+}
+
 export async function getInventoryFacets(
   type: VehicleType | "all" = "all",
 ): Promise<InventoryFacets> {
@@ -245,8 +304,15 @@ export async function getInventoryFacets(
       where: scopeWhere,
       select: {
         make: true,
+        model: true,
         year: true,
         price: true,
+        mileage: true,
+        fuelType: true,
+        transmission: true,
+        drivetrain: true,
+        city: true,
+        tags: true,
         category: {
           select: {
             id: true,
@@ -273,6 +339,7 @@ export async function getInventoryFacets(
 
   const years = [...new Set(pool.map((v) => v.year))].sort((a, b) => b - a);
   const prices = pool.map((v) => Number(v.price));
+  const mileages = pool.map((v) => v.mileage);
 
   // Una categoría desactivada deja de ofrecerse como navegación, pero los
   // vehículos publicados que la usan siguen contando para marcas, años y
@@ -285,6 +352,14 @@ export async function getInventoryFacets(
     if (row.category.active) categoryMap.set(row.category.id, row.category);
   }
 
+  const modelMap = new Map<string, { make: string; model: string }>();
+  for (const row of pool) {
+    modelMap.set(`${row.make}\u0000${row.model}`, {
+      make: row.make,
+      model: row.model,
+    });
+  }
+
   const auto = counts.find((c) => c.vehicleType === "AUTO")?._count._all ?? 0;
   const moto = counts.find((c) => c.vehicleType === "MOTO")?._count._all ?? 0;
 
@@ -292,14 +367,38 @@ export async function getInventoryFacets(
     makes: [...new Set(pool.map((v) => v.make))].sort((a, b) =>
       a.localeCompare(b, "es"),
     ),
+    models: [...modelMap.values()].sort(
+      (a, b) =>
+        a.make.localeCompare(b.make, "es") || a.model.localeCompare(b.model, "es"),
+    ),
     years,
     minYear: years.length > 0 ? Math.min(...years) : new Date().getFullYear(),
     maxYear: years.length > 0 ? Math.max(...years) : new Date().getFullYear(),
     categories: [...categoryMap.values()]
       .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, "es"))
       .map(({ id, name, pluralName, slug }) => ({ id, name, pluralName, slug })),
+    fuelTypes: orderedByVocabulary(
+      new Set(pool.map((v) => v.fuelType)),
+      FUEL_TYPES,
+    ),
+    transmissions: orderedByVocabulary(
+      new Set(pool.map((v) => v.transmission)),
+      TRANSMISSIONS,
+    ),
+    drivetrains: orderedByVocabulary(
+      new Set(pool.map((v) => v.drivetrain)),
+      DRIVETRAINS,
+    ),
+    cities: [...new Set(pool.map((v) => v.city))].sort((a, b) =>
+      a.localeCompare(b, "es"),
+    ),
+    tags: orderedByVocabulary(
+      new Set(pool.flatMap((v) => v.tags)),
+      VEHICLE_TAGS,
+    ),
     minPrice: prices.length > 0 ? Math.min(...prices) : 0,
     maxPrice: prices.length > 0 ? Math.max(...prices) : 0,
+    maxMileage: mileages.length > 0 ? Math.max(...mileages) : 0,
     counts: { auto, moto, all: auto + moto },
   };
 }
@@ -513,6 +612,116 @@ export async function assertPublishedInvariant(
 }
 
 /**
+ * Los campos que viajan del formulario a la fila sin traducción alguna.
+ *
+ * Están en una lista y no en sesenta asignaciones repetidas porque crear y
+ * editar tienen que guardar exactamente lo mismo: el día que se añade un
+ * campo al esquema y se olvida en `updateVehicle`, el admin lo escribe, ve
+ * "Cambios guardados" y el dato no está en ninguna parte. Una sola lista
+ * hace imposible esa asimetría.
+ *
+ * Fuera quedan los cinco que sí necesitan traducción —tipo, precio,
+ * categoría, disponibilidad y slug— y se escriben a mano justo debajo.
+ */
+const DIRECT_FIELDS = [
+  "make",
+  "model",
+  "version",
+  "year",
+  "mileage",
+  "fuelType",
+  "transmission",
+  "drivetrain",
+  "engine",
+  "exteriorColor",
+  "interiorColor",
+  "city",
+  "featured",
+  "description",
+  "engineLayout",
+  "cylinders",
+  "displacementCc",
+  "aspiration",
+  "powerHp",
+  "torqueNm",
+  "accel0100",
+  "topSpeedKph",
+  "topSpeedLimited",
+  "topSpeedLimitedKph",
+  "curbWeightKg",
+  "icePowerHp",
+  "iceTorqueNm",
+  "electricMotorCount",
+  "electricPowerHp",
+  "electricTorqueNm",
+  "electricMotorLayout",
+  "hybridSystem",
+  "batteryGrossKwh",
+  "batteryNetKwh",
+  "electricRangeKm",
+  "rangeStandard",
+  "chargeAcKw",
+  "chargeDcKw",
+  "chargeConnector",
+  "chargeTimeNote",
+  "registrationCity",
+  "plateLastDigit",
+  "soatValid",
+  "techInspectionApplies",
+  "taxStatus",
+  "taxesPaidThroughYear",
+  "documentationNotes",
+  "funFactEnabled",
+  "funFactTitle",
+  "funFactBody",
+  "features",
+  "equipment",
+  "specialEquipment",
+  "tags",
+] as const satisfies readonly (keyof VehicleInput)[];
+
+/** Las tres fechas, que sí necesitan pasar de "YYYY-MM-DD" a `Date`. */
+const DATE_FIELDS = [
+  "soatExpiresOn",
+  "techInspectionExpiresOn",
+  "documentationCheckedOn",
+] as const satisfies readonly (keyof VehicleInput)[];
+
+/** Copia solo las claves presentes: `undefined` en un parche es "no lo toques". */
+function pickDefined<T extends object, K extends keyof T>(
+  source: T,
+  keys: readonly K[],
+): Pick<T, K> {
+  const out = {} as Pick<T, K>;
+  for (const key of keys) {
+    if (source[key] !== undefined) out[key] = source[key];
+  }
+  return out;
+}
+
+function dateFields(patch: VehiclePatch): Record<string, Date | null> {
+  const out: Record<string, Date | null> = {};
+  for (const key of DATE_FIELDS) {
+    const value = patch[key];
+    if (value !== undefined) out[key] = fromDateString(value);
+  }
+  return out;
+}
+
+/**
+ * `specialEquipment` es una columna JSON: Prisma la espera como valor
+ * serializable, no como el tipo del dominio.
+ */
+function toJsonSpecialEquipment(
+  items: VehicleInput["specialEquipment"],
+): Prisma.InputJsonValue {
+  return items.map((item) => ({
+    name: item.name,
+    description: item.description,
+  }));
+}
+
+/**
  * Crear siempre deja el vehículo en DRAFT. Publicar es una decisión aparte,
  * explícita, con sus propios requisitos.
  */
@@ -523,28 +732,15 @@ export async function createVehicle(input: VehicleInput): Promise<Vehicle> {
 
   const record = await prisma.vehicle.create({
     data: {
+      ...pickDefined(input, DIRECT_FIELDS),
+      ...dateFields(input),
+      specialEquipment: toJsonSpecialEquipment(input.specialEquipment),
       slug,
       vehicleType: toDbVehicleType[input.vehicleType],
-      make: input.make,
-      model: input.model,
-      version: input.version,
-      year: input.year,
       price: BigInt(input.price),
-      mileage: input.mileage,
       categoryId: input.categoryId,
-      fuelType: input.fuelType,
-      transmission: input.transmission,
-      drivetrain: input.drivetrain,
-      engine: input.engine,
-      power: input.power,
-      exteriorColor: input.exteriorColor,
-      interiorColor: input.interiorColor,
-      city: input.city,
       availabilityStatus: toDbAvailability[input.availability],
       publicationStatus: "DRAFT",
-      featured: input.featured,
-      description: input.description,
-      equipment: input.equipment,
     },
     include: vehicleInclude,
   });
@@ -566,34 +762,29 @@ export async function updateVehicle(
   if (patch.categoryId) {
     await assertCategory(patch.categoryId, nextType);
   } else if (vehicleType && vehicleType !== currentType) {
-    // Cambiar de universo sin elegir categoría dejaría, por ejemplo, una moto
-    // con categoría "SUV". Se comprueba la que ya tiene contra el tipo nuevo.
+    // Cambiar de universo sin elegir carrocería dejaría, por ejemplo, una
+    // moto con carrocería "SUV". Se comprueba la que ya tiene contra el
+    // tipo nuevo.
     await assertCategory(current.categoryId, nextType);
   }
 
-  const data: Prisma.VehicleUpdateInput = {};
+  const data: Prisma.VehicleUpdateInput = {
+    ...pickDefined(patch, DIRECT_FIELDS),
+    ...dateFields(patch),
+  };
+
+  if (patch.specialEquipment !== undefined) {
+    data.specialEquipment = toJsonSpecialEquipment(patch.specialEquipment);
+  }
   if (vehicleType) data.vehicleType = toDbVehicleType[vehicleType];
-  if (patch.make !== undefined) data.make = patch.make;
-  if (patch.model !== undefined) data.model = patch.model;
-  if (patch.version !== undefined) data.version = patch.version;
-  if (patch.year !== undefined) data.year = patch.year;
   if (patch.price !== undefined) data.price = BigInt(patch.price);
-  if (patch.mileage !== undefined) data.mileage = patch.mileage;
   if (patch.categoryId) data.category = { connect: { id: patch.categoryId } };
-  if (patch.fuelType !== undefined) data.fuelType = patch.fuelType;
-  if (patch.transmission !== undefined) data.transmission = patch.transmission;
-  if (patch.drivetrain !== undefined) data.drivetrain = patch.drivetrain;
-  if (patch.engine !== undefined) data.engine = patch.engine;
-  if (patch.power !== undefined) data.power = patch.power;
-  if (patch.exteriorColor !== undefined) data.exteriorColor = patch.exteriorColor;
-  if (patch.interiorColor !== undefined) data.interiorColor = patch.interiorColor;
-  if (patch.city !== undefined) data.city = patch.city;
   if (patch.availability !== undefined) {
     data.availabilityStatus = toDbAvailability[patch.availability];
   }
-  if (patch.featured !== undefined) data.featured = patch.featured;
-  if (patch.description !== undefined) data.description = patch.description;
-  if (patch.equipment !== undefined) data.equipment = patch.equipment;
+  // El aviso de revisión solo se puede QUITAR desde el formulario, nunca
+  // escribir: lo pone una migración cuando no pudo decidir sola.
+  if (patch.reviewNote === null) data.reviewNote = null;
 
   // El slug es la URL pública: solo cambia si se pide explícitamente, nunca
   // como efecto secundario de corregir una versión o un color.

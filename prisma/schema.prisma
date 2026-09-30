@@ -99,10 +99,15 @@ model AdminUser {
 // Taxonomía
 // ---------------------------------------------------------------------------
 
+/// La CARROCERÍA de un vehículo, administrable desde /admin/categorias.
+///
 /// `name` es singular porque describe un vehículo ("Sedán"); `pluralName` es
-/// como se lee en las superficies de navegación ("Sedanes"). Ambos vivían en
-/// el código antes de existir la base y se conservan literalmente para no
-/// cambiar el copy público ni romper los query strings.
+/// como se lee en las superficies de navegación ("Sedanes"). El slug es
+/// identidad: viaja en `?categoria=` y no se cambia a la ligera.
+///
+/// Conjunto canónico de arranque: src/lib/body-types.ts. Ahí NO están
+/// "Híbrido", "Eléctrico", "Deportivo" ni "4x4", porque no son carrocerías:
+/// son propulsión, carácter y tracción, y cada uno tiene su propia columna.
 model Category {
   name        String
   pluralName  String
@@ -129,10 +134,22 @@ model Category {
 /// valores altos del inventario ya rozan el límite de Int4. Se convierte a
 /// number en la capa de mapeo, muy por debajo de MAX_SAFE_INTEGER.
 ///
-/// `fuelType`, `transmission` y `drivetrain` son texto y no enums de
-/// Postgres: sus etiquetas llevan tildes y paréntesis ("4x4 (AWD)"), y el
-/// conjunto válido se valida con Zod contra las mismas uniones que usa la
-/// interfaz. Ampliar la lista no exige entonces una migración.
+/// `fuelType`, `transmission`, `drivetrain` y el resto de vocabularios
+/// cerrados son texto y no enums de Postgres: sus etiquetas llevan tildes y
+/// paréntesis ("Integral (AWD)", "Híbrido ligero (MHEV)"), y el conjunto
+/// válido se valida con Zod contra las mismas uniones que usa la interfaz,
+/// en src/types/vehicle.ts. Ampliar la lista no exige entonces una migración.
+///
+/// Todo lo técnico avanzado es NULLABLE a propósito. Un vehículo del que no
+/// conocemos el torque tiene torque desconocido, no torque cero: la ficha
+/// pública oculta lo que es null en vez de escribir "N/A", y ese es el único
+/// modo de que MILLE pueda ser muy completa sin llegar a inventar un dato.
+///
+/// Las columnas viven en `Vehicle` y no en tablas 1:1 por sección. Un
+/// vehículo tiene exactamente un motor y una situación documental; separarlo
+/// costaría tres joins en cada consulta para no distinguir nada, porque
+/// "fila ausente" y "todas las columnas en null" son el mismo hecho. En
+/// Postgres las columnas nulas ocupan un bit del mapa de nulos de la fila.
 model Vehicle {
   id      String @id @default(uuid()) @db.Uuid
   slug    String @unique
@@ -145,14 +162,17 @@ model Vehicle {
   price       BigInt
   mileage     Int
 
+  /// La CARROCERÍA. El nombre de la relación se conserva porque es el de la
+  /// tabla y el del parámetro `?categoria=` que ya viaja en enlaces
+  /// compartidos; en la interfaz se titula siempre "Carrocería".
   categoryId String   @db.Uuid
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
   fuelType      String
   transmission  String
   drivetrain    String
+  /// Nombre del motor tal como se lee: "3.0 L I6 TwinPower Turbo".
   engine        String @default("")
-  power         String @default("")
   exteriorColor String @default("")
   interiorColor String @default("")
   city          String
@@ -162,8 +182,81 @@ model Vehicle {
   featured           Boolean            @default(false)
 
   description String
-  /// Lista ordenada. text[] conserva el orden sin necesidad de otra tabla.
-  equipment   String[] @default([])
+
+  // --- Motor -------------------------------------------------------------
+  engineLayout   String?
+  cylinders      Int?
+  displacementCc Int?
+  aspiration     String?
+
+  // --- Prestaciones ------------------------------------------------------
+  /// Potencia del sistema: combinada en un híbrido, total en un eléctrico.
+  powerHp            Int?
+  torqueNm           Int?
+  /// Segundos. Float porque 5,6 s no es 5 s ni 6 s.
+  accel0100          Float?
+  topSpeedKph        Int?
+  topSpeedLimited    Boolean @default(false)
+  /// El tope real cuando el limitador no coincide con la punta declarada.
+  topSpeedLimitedKph Int?
+  /// Peso en orden de marcha. La relación peso/potencia se calcula, no se pide.
+  curbWeightKg       Int?
+
+  // --- Sistema híbrido / eléctrico ---------------------------------------
+  icePowerHp          Int?
+  iceTorqueNm         Int?
+  electricMotorCount  Int?
+  electricPowerHp     Int?
+  electricTorqueNm    Int?
+  electricMotorLayout String?
+  hybridSystem        String?
+  batteryGrossKwh     Float?
+  batteryNetKwh       Float?
+  electricRangeKm     Int?
+  /// WLTP, EPA, CLTC… Una autonomía sin su ciclo no se puede comparar.
+  rangeStandard       String?
+  chargeAcKw          Float?
+  chargeDcKw          Float?
+  chargeConnector     String?
+  chargeTimeNote      String?
+
+  // --- Documentación y matrícula -----------------------------------------
+  /// `@db.Date` y no timestamp: un vencimiento de SOAT es un día del
+  /// calendario. Guardarlo como instante lo corría un día al leerlo en Bogotá.
+  registrationCity        String?
+  plateLastDigit          Int?
+  soatValid               Boolean?
+  soatExpiresOn           DateTime? @db.Date
+  /// `false` es una respuesta: hay vehículos a los que todavía no les aplica.
+  techInspectionApplies   Boolean?
+  techInspectionExpiresOn DateTime? @db.Date
+  taxStatus               String?
+  /// Año, no fecha: el impuesto vehicular colombiano es anual.
+  taxesPaidThroughYear    Int?
+  documentationCheckedOn  DateTime? @db.Date
+  documentationNotes      String?
+
+  // --- Editorial ---------------------------------------------------------
+  /// Apagado no reserva espacio ni exige texto en ninguna de las dos caras.
+  funFactEnabled Boolean @default(false)
+  funFactTitle   String?
+  funFactBody    String?
+
+  // --- Equipamiento y carácter -------------------------------------------
+  /// Claves del catálogo de src/lib/equipment-catalog.ts. Arreglo y no cien
+  /// columnas booleanas ni tabla de unión: ver el comentario de ese archivo.
+  features         String[] @default([])
+  /// Equipamiento adicional en texto libre. Lista ordenada; text[] conserva
+  /// el orden sin necesidad de otra tabla.
+  equipment        String[] @default([])
+  /// [{ name, description }]. Opciones destacadas de ESTA unidad.
+  specialEquipment Json     @default("[]")
+  /// Carácter del vehículo: Deportivo, Off-road, Lujo… Nunca carrocería.
+  tags             String[] @default([])
+
+  /// Lo que una migración no pudo decidir sola. Se muestra en el admin como
+  /// aviso; el sitio público no lo lee nunca.
+  reviewNote String?
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -175,10 +268,21 @@ model Vehicle {
   @@index([publicationStatus])
   @@index([vehicleType])
   @@index([make])
+  @@index([model])
   @@index([categoryId])
   @@index([updatedAt])
   @@index([publicationStatus, createdAt])
   @@index([featured])
+  @@index([availabilityStatus])
+  @@index([year])
+  @@index([price])
+  @@index([mileage])
+  @@index([fuelType])
+  @@index([drivetrain])
+  @@index([city])
+  /// GIN: `tags @> ARRAY['Deportivo']` es la forma del filtro por carácter.
+  /// `features` no lleva índice porque nada lo consulta: se lee con la ficha.
+  @@index([tags], type: Gin)
 }
 
 /// `url` es lo que renderiza el sitio. `storagePath` solo existe para las

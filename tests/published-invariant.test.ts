@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { publicationBlockers } from "@/lib/publication";
 import type { Vehicle } from "@/types/vehicle";
+import { makeVehicle } from "./support/vehicle";
 
 /**
  * Las condiciones que se exigen para publicar tienen que seguir cumpliéndose
@@ -9,18 +10,13 @@ import type { Vehicle } from "@/types/vehicle";
  * invariante; que se aplique en cada mutación se comprueba contra la base en
  * el QA, porque necesita transacciones reales.
  */
-const published: Vehicle = {
-  id: "1", slug: "bmw-x5", make: "BMW", model: "X5", version: "xDrive40i",
-  year: 2023, price: 350_000_000, mileage: 20_000, vehicleType: "auto",
-  category: { id: "c1", name: "SUV", pluralName: "SUV", slug: "suv", vehicleType: "auto", active: true, position: 0 },
-  fuelType: "Gasolina", transmission: "Automática", drivetrain: "4x4 (AWD)",
-  engine: "3.0", power: "340 hp", exteriorColor: "Gris", interiorColor: "Negro",
-  city: "Bogotá, CO", availability: "available", publication: "published", featured: false,
-  description: "Un vehículo.", equipment: [],
-  images: [{ id: "i1", src: "/a.jpg", alt: "a", source: "storage", storagePath: "vehicles/1/a.jpg" }],
-  createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
+const published: Vehicle = makeVehicle({
+  publication: "published",
   publishedAt: "2026-01-01T00:00:00.000Z",
-};
+  images: [
+    { id: "i1", src: "/a.jpg", alt: "a", source: "storage", storagePath: "vehicles/1/a.jpg" },
+  ],
+});
 
 describe("estados que la invariante debe rechazar", () => {
   it("un publicado íntegro no tiene impedimentos", () => {

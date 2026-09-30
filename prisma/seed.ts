@@ -89,7 +89,7 @@ async function seedVehicles(categoryIds: Map<string, string>): Promise<void> {
     const categoryId = categoryIds.get(key);
     if (!categoryId) {
       throw new Error(
-        `El vehículo ${fixture.slug} referencia una categoría desconocida: ${key}`,
+        `El vehículo ${fixture.slug} referencia una carrocería desconocida: ${key}`,
       );
     }
 
@@ -109,7 +109,8 @@ async function seedVehicles(categoryIds: Map<string, string>): Promise<void> {
       transmission: fixture.transmission,
       drivetrain: fixture.drivetrain,
       engine: fixture.engine,
-      power: fixture.power,
+      powerHp: fixture.powerHp,
+      tags: fixture.tags,
       exteriorColor: fixture.exteriorColor,
       interiorColor: fixture.interiorColor,
       city: fixture.city,
@@ -190,9 +191,9 @@ async function seedSiteMedia(): Promise<number> {
 }
 
 async function main() {
-  console.log("Sembrando categorías…");
+  console.log("Sembrando carrocerías…");
   const categoryIds = await seedCategories();
-  console.log(`  ${categoryIds.size} categorías listas.`);
+  console.log(`  ${categoryIds.size} carrocerías listas.`);
 
   console.log("Sembrando vehículos…");
   await seedVehicles(categoryIds);

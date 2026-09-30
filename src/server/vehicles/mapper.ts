@@ -12,6 +12,7 @@ import type {
 import type {
   AvailabilityStatus,
   PublicationStatus,
+  SpecialEquipmentItem,
   VehicleCategory,
   VehicleImage as UiImage,
   Vehicle as UiVehicle,
@@ -65,6 +66,47 @@ const fromDbImageSource: Record<DbImageSource, UiImage["source"]> = {
   LEGACY: "legacy",
   STORAGE: "storage",
 };
+
+/**
+ * Una columna `date` de Postgres se convierte en "YYYY-MM-DD" leyendo sus
+ * partes en UTC, que es donde Prisma deja la medianoche de un `@db.Date`.
+ * Leerlas en hora local restaría cinco horas en Bogotá y un SOAT que vence
+ * el 18 de marzo se mostraría venciendo el 17.
+ */
+export function toDateString(value: Date | null): string | null {
+  if (!value) return null;
+  return value.toISOString().slice(0, 10);
+}
+
+/** El camino de vuelta: "2027-03-18" es el día 18, no el 18 menos cinco horas. */
+export function fromDateString(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+/**
+ * `specialEquipment` es JSON y Postgres no garantiza su forma. Se valida al
+ * leer y no solo al escribir: una fila editada a mano o venida de una
+ * versión anterior no puede reventar la ficha pública.
+ */
+function toSpecialEquipment(value: unknown): SpecialEquipmentItem[] {
+  if (!Array.isArray(value)) return [];
+  const items: SpecialEquipmentItem[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const record = entry as Record<string, unknown>;
+    const name = typeof record.name === "string" ? record.name.trim() : "";
+    if (!name) continue;
+    const description =
+      typeof record.description === "string" && record.description.trim()
+        ? record.description.trim()
+        : null;
+    items.push({ name, description });
+  }
+  return items;
+}
 
 export function toCategoryDto(category: CategoryModel): VehicleCategory {
   return {
@@ -129,7 +171,6 @@ export function toVehicleDto(record: VehicleRecord): UiVehicle {
     transmission: record.transmission,
     drivetrain: record.drivetrain,
     engine: record.engine,
-    power: record.power,
     exteriorColor: record.exteriorColor,
     interiorColor: record.interiorColor,
     city: record.city,
@@ -137,7 +178,58 @@ export function toVehicleDto(record: VehicleRecord): UiVehicle {
     publication: fromDbPublication[record.publicationStatus],
     featured: record.featured,
     description: record.description,
+    features: record.features,
     equipment: record.equipment,
+    specialEquipment: toSpecialEquipment(record.specialEquipment),
+    tags: record.tags,
+    specs: {
+      engineLayout: record.engineLayout,
+      cylinders: record.cylinders,
+      displacementCc: record.displacementCc,
+      aspiration: record.aspiration,
+      powerHp: record.powerHp,
+      torqueNm: record.torqueNm,
+      accel0100: record.accel0100,
+      topSpeedKph: record.topSpeedKph,
+      topSpeedLimited: record.topSpeedLimited,
+      topSpeedLimitedKph: record.topSpeedLimitedKph,
+      curbWeightKg: record.curbWeightKg,
+    },
+    electrification: {
+      icePowerHp: record.icePowerHp,
+      iceTorqueNm: record.iceTorqueNm,
+      electricMotorCount: record.electricMotorCount,
+      electricPowerHp: record.electricPowerHp,
+      electricTorqueNm: record.electricTorqueNm,
+      electricMotorLayout: record.electricMotorLayout,
+      hybridSystem: record.hybridSystem,
+      batteryGrossKwh: record.batteryGrossKwh,
+      batteryNetKwh: record.batteryNetKwh,
+      electricRangeKm: record.electricRangeKm,
+      rangeStandard: record.rangeStandard,
+      chargeAcKw: record.chargeAcKw,
+      chargeDcKw: record.chargeDcKw,
+      chargeConnector: record.chargeConnector,
+      chargeTimeNote: record.chargeTimeNote,
+    },
+    documentation: {
+      registrationCity: record.registrationCity,
+      plateLastDigit: record.plateLastDigit,
+      soatValid: record.soatValid,
+      soatExpiresOn: toDateString(record.soatExpiresOn),
+      techInspectionApplies: record.techInspectionApplies,
+      techInspectionExpiresOn: toDateString(record.techInspectionExpiresOn),
+      taxStatus: record.taxStatus,
+      taxesPaidThroughYear: record.taxesPaidThroughYear,
+      documentationCheckedOn: toDateString(record.documentationCheckedOn),
+      documentationNotes: record.documentationNotes,
+    },
+    funFact: {
+      enabled: record.funFactEnabled,
+      title: record.funFactTitle,
+      body: record.funFactBody,
+    },
+    reviewNote: record.reviewNote,
     images: images.length > 0 ? images : [PLACEHOLDER_IMAGE],
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),

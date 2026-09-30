@@ -3,10 +3,42 @@ import { describe, it } from "node:test";
 import {
   activeFilterCount,
   buildQuery,
+  clearedFilters,
   hasInvalidType,
   inventoryHref,
+  mileageLadder,
   parseFilters,
 } from "@/lib/filters";
+import type { InventoryFilters } from "@/lib/filters";
+
+/**
+ * Un conjunto de filtros completo a partir de lo que se quiera fijar.
+ *
+ * `parseFilters` siempre devuelve todas las claves —las que no vienen, en
+ * `undefined`— y `deepEqual` distingue una clave ausente de una en
+ * `undefined`. Sin esto, cada filtro nuevo rompería las pruebas de ida y
+ * vuelta por una razón que no tiene nada que ver con lo que comprueban.
+ */
+function filters(partial: Partial<InventoryFilters> = {}): InventoryFilters {
+  return {
+    tipo: "all",
+    categoria: undefined,
+    marca: undefined,
+    modelo: undefined,
+    combustible: undefined,
+    transmision: undefined,
+    traccion: undefined,
+    ciudad: undefined,
+    etiqueta: undefined,
+    minYear: undefined,
+    maxYear: undefined,
+    minPrice: undefined,
+    maxPrice: undefined,
+    maxKm: undefined,
+    orden: "recientes",
+    ...partial,
+  };
+}
 
 /**
  * Los filtros del inventario son la URL. Lo que se parsea de ella acaba en
@@ -115,22 +147,112 @@ describe("construcción de la URL canónica", () => {
   });
 
   it("ida y vuelta: lo que se construye se vuelve a leer igual", () => {
-    const original = {
-      tipo: "auto" as const, categoria: "suv", marca: "BMW",
+    const original = filters({
+      tipo: "auto", categoria: "suv", marca: "BMW",
       minYear: 2019, maxYear: 2024, minPrice: 100_000_000, maxPrice: 400_000_000,
-      orden: "precio-desc" as const,
-    };
+      orden: "precio-desc",
+    });
+    const params = Object.fromEntries(new URLSearchParams(buildQuery(original)));
+    assert.deepEqual(parseFilters(params), original);
+  });
+
+  it("ida y vuelta con la taxonomía nueva entera", () => {
+    // Todos los filtros a la vez: es el caso que importa, porque son
+    // condiciones simultáneas y ninguna puede perderse por el camino.
+    const original = filters({
+      tipo: "auto",
+      categoria: "suv",
+      marca: "BMW",
+      modelo: "X5",
+      combustible: "Híbrido enchufable",
+      transmision: "Automática",
+      traccion: "Integral (AWD)",
+      ciudad: "Bogotá, CO",
+      etiqueta: "Deportivo",
+      minYear: 2020,
+      maxYear: 2026,
+      maxPrice: 200_000_000,
+      maxKm: 50_000,
+      orden: "precio-asc",
+    });
     const params = Object.fromEntries(new URLSearchParams(buildQuery(original)));
     assert.deepEqual(parseFilters(params), original);
   });
 
   it("ida y vuelta también con un filtro que no existe en el inventario", () => {
-    const original = {
-      tipo: "moto" as const, categoria: "touring", marca: "Ferrari",
-      minYear: undefined, maxYear: undefined, minPrice: undefined, maxPrice: undefined,
-      orden: "recientes" as const,
-    };
+    const original = filters({
+      tipo: "moto", categoria: "touring", marca: "Ferrari",
+    });
     const params = Object.fromEntries(new URLSearchParams(buildQuery(original)));
     assert.deepEqual(parseFilters(params), original);
+  });
+});
+
+/**
+ * Los filtros nuevos son condiciones, no atajos: cada uno estrecha y ninguno
+ * ensancha. Estas pruebas fijan que un valor que no existe se conserve —cero
+ * honesto— y que quitar todos los filtros no se lleve por delante el
+ * universo ni el orden.
+ */
+describe("la taxonomía nueva en la URL", () => {
+  it("conserva combustible, tracción y carácter tal como se escribieron", () => {
+    const f = parseFilters({
+      combustible: "Híbrido enchufable",
+      traccion: "4x4 (4WD)",
+      etiqueta: "Off-road",
+    });
+    // Sin tocar mayúsculas ni tildes: es el texto que guarda la columna, y
+    // normalizarlo lo haría dejar de coincidir.
+    assert.equal(f.combustible, "Híbrido enchufable");
+    assert.equal(f.traccion, "4x4 (4WD)");
+    assert.equal(f.etiqueta, "Off-road");
+  });
+
+  it("un combustible que no existe se conserva: cero honesto", () => {
+    assert.equal(parseFilters({ combustible: "Plutonio" }).combustible, "Plutonio");
+  });
+
+  it("cuenta cada filtro nuevo como activo", () => {
+    assert.equal(
+      activeFilterCount(
+        parseFilters({
+          categoria: "suv",
+          combustible: "Híbrido enchufable",
+          minYear: "2020",
+          maxPrice: "200000000",
+        }),
+      ),
+      4,
+    );
+  });
+
+  it("limpiar deja el universo y el orden, y nada más", () => {
+    const applied = parseFilters({
+      tipo: "auto",
+      categoria: "suv",
+      combustible: "Eléctrico",
+      traccion: "Integral (AWD)",
+      maxKm: "50000",
+      orden: "precio-asc",
+    });
+    const cleared = clearedFilters(applied);
+    assert.equal(cleared.tipo, "auto");
+    assert.equal(cleared.orden, "precio-asc");
+    assert.equal(activeFilterCount(cleared), 0);
+    assert.equal(inventoryHref(cleared), "/vehiculos?tipo=auto&orden=precio-asc");
+  });
+
+  it("el kilometraje máximo viaja y vuelve", () => {
+    assert.equal(parseFilters({ maxKm: "50000" }).maxKm, 50_000);
+    // Un tope ilegible es ausencia de tope, nunca cero.
+    assert.equal(parseFilters({ maxKm: "abc" }).maxKm, undefined);
+    assert.equal(parseFilters({ maxKm: "0" }).maxKm, undefined);
+  });
+
+  it("los escalones de kilometraje cubren el inventario sin pasarse", () => {
+    assert.deepEqual(mileageLadder(0), []);
+    const ladder = mileageLadder(45_000);
+    assert.ok(ladder.includes(50_000), "hace falta un tope que incluya al más rodado");
+    assert.ok(!ladder.includes(75_000), "no se ofrecen topes por encima del inventario");
   });
 });

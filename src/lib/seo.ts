@@ -254,10 +254,10 @@ const offerAvailability: Record<AvailabilityStatus, string> = {
  * exactamente lo que hay: el inventario distingue los dos universos desde el
  * modelo de dominio, así que no hay que forzar nada.
  *
- * Lo que no se declara: `itemCondition` —el inventario no guarda si el
- * vehículo es nuevo o usado, y deducirlo del kilometraje sería inventarlo— y
- * `enginePower`, porque `power` es texto libre ("340 hp") y schema.org espera
- * una magnitud con unidad.
+ * `enginePower` sí se declara desde que la potencia es un número y no texto
+ * libre: schema.org pide una magnitud con unidad, y ahora la hay. Lo que
+ * sigue sin declararse es `itemCondition` —el inventario no guarda si el
+ * vehículo es nuevo o usado, y deducirlo del kilometraje sería inventarlo—.
  */
 export function vehicleJsonLd(vehicle: Vehicle): JsonLd {
   const url = absoluteUrl(vehiclePath(vehicle.slug));
@@ -281,9 +281,45 @@ export function vehicleJsonLd(vehicle: Vehicle): JsonLd {
     fuelType: vehicle.fuelType || undefined,
     vehicleTransmission: vehicle.transmission || undefined,
     driveWheelConfiguration: vehicle.drivetrain || undefined,
-    vehicleEngine: vehicle.engine
-      ? { "@type": "EngineSpecification", name: vehicle.engine }
-      : undefined,
+    vehicleEngine:
+      vehicle.engine || vehicle.specs.powerHp !== null
+        ? compact({
+            "@type": "EngineSpecification",
+            name: vehicle.engine || undefined,
+            engineDisplacement:
+              vehicle.specs.displacementCc !== null
+                ? {
+                    "@type": "QuantitativeValue",
+                    value: vehicle.specs.displacementCc,
+                    unitCode: "CMQ",
+                  }
+                : undefined,
+            enginePower:
+              vehicle.specs.powerHp !== null
+                ? {
+                    "@type": "QuantitativeValue",
+                    value: vehicle.specs.powerHp,
+                    unitCode: "BHP",
+                  }
+                : undefined,
+          })
+        : undefined,
+    speed:
+      vehicle.specs.topSpeedKph !== null
+        ? {
+            "@type": "QuantitativeValue",
+            value: vehicle.specs.topSpeedKph,
+            unitCode: "KMH",
+          }
+        : undefined,
+    weight:
+      vehicle.specs.curbWeightKg !== null
+        ? {
+            "@type": "QuantitativeValue",
+            value: vehicle.specs.curbWeightKg,
+            unitCode: "KGM",
+          }
+        : undefined,
     color: vehicle.exteriorColor || undefined,
     vehicleInteriorColor: vehicle.interiorColor || undefined,
     bodyType: vehicle.category.name || undefined,

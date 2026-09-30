@@ -100,7 +100,7 @@ Seis tablas. `prisma/schema.prisma` es la referencia.
 | Tabla | Qué guarda |
 | --- | --- |
 | `AdminUser` | Quién del equipo puede entrar. Nunca contraseñas. |
-| `Category` | Taxonomía: SUV, Sedán, ADV… ligada a un tipo de vehículo. |
+| `Category` | Carrocería del carro (SUV, Sedán, Pickup, Coupé…) o categoría de la moto (ADV, Naked…), ligada a un tipo de vehículo. |
 | `Vehicle` | El inventario. |
 | `VehicleImage` | Galería ordenada; `position` 0 es la portada. |
 | `Inquiry` | Lo que llega de los formularios públicos. |
@@ -116,12 +116,56 @@ Tres decisiones que conviene conocer:
 - **`price` es `BigInt`.** Los precios van en pesos enteros y los valores
   altos del inventario ya rozan el límite de `int4`. Se convierte a `number`
   en el mapeo, muy por debajo de `MAX_SAFE_INTEGER`. Nunca `float`.
-- **`equipment` es `text[]`.** Conserva el orden sin otra tabla.
+- **El equipamiento son tres columnas, no cien booleanos.** `features` es
+  `text[]` con claves del catálogo de `src/lib/equipment-catalog.ts`;
+  `specialEquipment` es `jsonb` con las opciones destacadas de esa unidad
+  (`[{ name, description }]`); `equipment` es `text[]` con lo que se escribió
+  a mano. Ninguna necesita una tabla de unión: nadie consulta el catálogo al
+  revés, y `features @> ARRAY[...]` sobre un índice GIN cubriría ese caso el
+  día que aparezca.
+- **Lo técnico avanzado es nulo cuando no se conoce.** Potencia, torque,
+  0–100, batería, autonomía, fechas de SOAT: todas admiten `NULL`, y la ficha
+  pública oculta lo que es nulo en vez de escribir "N/A". Es la única forma de
+  que la ficha pueda ser muy completa sin llegar a inventar un dato.
+- **Las fechas administrativas son `date`, no `timestamp`.** Un vencimiento de
+  SOAT es un día del calendario. Guardarlo como instante lo corría un día al
+  leerlo en Bogotá (UTC−5), así que el mapeo convierte a `"YYYY-MM-DD"` en UTC
+  y la interfaz lo formatea con `formatDateOnly()`.
 
-`fuelType`, `transmission` y `drivetrain` son texto, no enums de Postgres:
-sus etiquetas llevan tildes y paréntesis, y el conjunto válido se valida con
-Zod contra las mismas uniones que usa la interfaz. Ampliar la lista no exige
-una migración.
+`fuelType`, `transmission`, `drivetrain` y el resto de vocabularios cerrados
+son texto, no enums de Postgres: sus etiquetas llevan tildes y paréntesis, y
+el conjunto válido se valida con Zod contra las mismas uniones que usa la
+interfaz. Ampliar la lista no exige una migración.
+
+### La taxonomía: carrocería, propulsión, tracción y carácter
+
+Son cuatro cosas distintas y cada una tiene su columna. Antes se mezclaban en
+`Category`, que ofrecía a la vez SUV, Sedán, Híbrido, Eléctrico, Deportivo y
+4x4 — tres conceptos en una lista. El resultado era que un X5 enchufable
+encajaba en dos categorías y un M3 y un Golf GTI, que son un sedán y un
+hatchback, caían en el mismo cajón "Deportivo" y no se podían encontrar por su
+forma real.
+
+| Concepto | Dónde vive | Valores |
+| --- | --- | --- |
+| Carrocería | `Category` (relación) | `src/lib/body-types.ts` |
+| Propulsión | `Vehicle.fuelType` | `FUEL_TYPES` |
+| Transmisión | `Vehicle.transmission` | `TRANSMISSIONS` |
+| Tracción | `Vehicle.drivetrain` | `DRIVETRAINS` |
+| Carácter | `Vehicle.tags` (`text[]`) | `VEHICLE_TAGS` |
+
+Los vocabularios están en `src/types/vehicle.ts` y son la **fuente única**: de
+ahí salen los `<option>` del admin, los del filtro público y los `z.enum` de la
+validación. No hay ninguna opción escrita dos veces. Las carrocerías son filas
+administrables desde `/admin/categorias`, y el conjunto con el que arranca una
+base limpia —el mismo que usó la migración y que usa el seed— está en
+`src/lib/body-types.ts`.
+
+`src/types/vehicle.ts` exporta además `hasCombustionEngine()`,
+`hasElectricDrive()`, `hasTractionBattery()`, `hasPlugCharging()` e
+`isFullyElectric()`. El formulario decide con ellas qué secciones pedir y la
+ficha pública qué bloques dibujar, de modo que no existen dos criterios
+distintos de "esto es un híbrido".
 
 ### Migraciones
 
@@ -131,13 +175,45 @@ npm run db:deploy       # aplicar en producción
 npm run db:status       # ver qué falta
 ```
 
-Hay tres migraciones:
+Las que importan:
 
 1. `..._init` — el esquema.
 2. `..._rls` — cierra la Data API y crea `public.is_active_superadmin()`.
 3. `..._storage` — bucket de imágenes y sus políticas.
+4. `..._site_media*` — las fotografías estructurales de la home.
+5. `20260930000000_vehicle_taxonomy_and_specs` — separa carrocería de
+   propulsión, tracción y carácter, y añade la ficha técnica ampliada.
 
 Nunca `prisma migrate reset` ni `prisma db push` contra Supabase.
+
+**`npm run db:migrate` no funciona en este proyecto.** `prisma migrate dev`
+levanta una *shadow database* y replica en ella todas las migraciones; la de
+RLS referencia el esquema `auth` de Supabase, que ahí no existe, y falla con
+`schema "auth" does not exist`. Las migraciones nuevas se escriben a mano —el
+DDL se saca con `prisma migrate diff --from-config-datasource --to-schema
+prisma/schema.prisma --script`— y se aplican con `npm run db:deploy`. Después,
+ese mismo `diff` debe salir vacío: es la comprobación de que el esquema y la
+base coinciden.
+
+#### Qué hizo la migración de taxonomía
+
+Nada destructivo, y nada adivinado:
+
+- Añadió las columnas nuevas, todas nulas o con defecto.
+- Rescató `power` (texto, "340 hp") a `powerHp` (entero) antes de soltarla.
+- Leyó `4x4 (AWD)` como `Integral (AWD)`, que es lo que era en casi todo el
+  inventario.
+- Sembró las ocho carrocerías de carro, idempotente por `(vehicleType, slug)` y
+  sin tocar el `active` de las que ya existían.
+- Trasladó a su columna lo que las categorías retiradas sí afirmaban:
+  `Eléctrico`/`Híbrido` → `fuelType`, `4x4` → `drivetrain = 4x4 (4WD)`,
+  `Deportivo` → `tags`.
+- Lo que **no** se podía deducir —la carrocería real de un vehículo que estaba
+  en "Deportivo" o en "Híbrido"— no se adivinó: el vehículo conserva su
+  categoría y se le escribió un `reviewNote` que el formulario de
+  administración muestra como aviso hasta que alguien elija.
+- Retiró las cuatro categorías falsas: desactivadas si todavía tenían
+  vehículos, borradas solo si estaban vacías.
 
 ### Seed
 
@@ -335,6 +411,15 @@ Forma única de respuesta: `{ data }` cuando sale bien,
 
 Sin sesión responden **401**; con sesión pero sin rol, **403**.
 
+`GET /api/vehicles` acepta los mismos parámetros que la URL del inventario:
+`tipo`, `categoria` (la carrocería, por slug), `marca`, `modelo`,
+`combustible`, `transmision`, `traccion`, `ciudad`, `etiqueta`, `minYear`,
+`maxYear`, `minPrice`, `maxPrice`, `maxKm`, `destacados`, `orden` y `limit`.
+Son condiciones simultáneas: `?categoria=suv&combustible=Híbrido enchufable`
+devuelve las SUV enchufables, no la unión de ambas listas. Un valor que no
+existe en el inventario devuelve cero y no se descarta en silencio: ensanchar
+resultados sin avisar es peor que no devolver ninguno.
+
 ### Publicar
 
 `POST /api/admin/vehicles/[id]/publish` con `{ "publication": "published" }`.
@@ -398,12 +483,35 @@ entra escribiendo la URL. Eso es discreción, no seguridad.
 | `/admin/vehiculos/nuevo` | Alta. Nace en **borrador**. |
 | `/admin/vehiculos/[id]/editar` | Edición, fotos y publicación. |
 | `/admin/solicitudes` | Buzón de lo que llega de los formularios. |
-| `/admin/categorias` | Taxonomía. |
+| `/admin/categorias` | Carrocerías y categorías de moto. |
 | `/admin/configuracion` | Deliberadamente vacía (ver más abajo). |
 
 Las pantallas son componentes de servidor que leen la base; las mutaciones
 llaman a la API y luego a `router.refresh()`. Lo que se ve después de pulsar
 es lo que quedó guardado, no una suposición optimista.
+
+### El formulario de vehículo
+
+Alta y edición son **el mismo componente**, `VehicleForm`. La ficha pasó de
+doce campos a casi noventa, repartidos en secciones plegables
+(`FormSection`): información básica y descripción siempre abiertas, lo
+técnico plegado, y el sistema híbrido/eléctrico solo existe si el combustible
+lo pide — pedirle la batería a un carro a gasolina es invitar a inventar un
+número.
+
+Dos piezas que sostienen la simetría entre crear y editar, y que conviene no
+romper:
+
+- `toDraft()` y `toPayload()` en `VehicleForm.tsx` son el reverso exacto la
+  una de la otra. Si una gana un campo y la otra no, el dato se escribe y se
+  pierde en la siguiente edición sin que nada avise.
+- `DIRECT_FIELDS` en `src/server/vehicles/service.ts` es la lista única que
+  usan `createVehicle` y `updateVehicle`. Solo se escriben a mano los cinco
+  que necesitan traducción: tipo, precio, carrocería, disponibilidad y slug.
+
+`vehiclePatchSchema` se deriva de la misma forma que el alta pero **sin
+valores por defecto**: un `PATCH` que solo trae el precio no puede llegar al
+servicio con `equipment: []` y borrar el equipamiento entero.
 
 ## Despliegue
 

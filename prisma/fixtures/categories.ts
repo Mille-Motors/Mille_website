@@ -1,14 +1,21 @@
+import {
+  AUTO_BODY_TYPES,
+  MOTO_BODY_TYPES,
+  type BodyTypeDefinition,
+} from "../../src/lib/body-types";
+
 /**
- * La taxonomía exactamente como estaba en el código antes de existir la base.
+ * Las carrocerías con las que arranca una base vacía.
  *
- * `name` es el singular que llevaba cada vehículo, `plural` es como se leía
- * en la navegación y `slug` es lo que ya viajaba en los query strings: los
- * tres se copian literalmente para que ninguna URL compartida deje de
- * funcionar.
+ * No están escritas aquí: se leen de src/lib/body-types.ts, que es la misma
+ * definición que usó la migración de taxonomía. Duplicarlas era justamente
+ * la causa del problema que esa migración corrige —el admin ofrecía una
+ * lista y el filtro público otra—, así que el seed no puede tener su propia
+ * copia.
  *
- * Se siembran las siete categorías de moto y las seis de carro que el código
- * declaraba, aunque Touring y Scooter no tuvieran vehículos: eran opciones
- * válidas del formulario, no una lista derivada del inventario.
+ * Lo que sí desapareció de esta lista: "Híbrido", "Eléctrico", "Deportivo" y
+ * "4x4". No eran carrocerías. Sembrarlas de nuevo en una base limpia
+ * reintroduciría el error en cada entorno nuevo.
  */
 export interface FixtureCategory {
   name: string;
@@ -17,19 +24,17 @@ export interface FixtureCategory {
   vehicleType: "auto" | "moto";
 }
 
-export const fixtureCategories: FixtureCategory[] = [
-  { name: "SUV", plural: "SUV", slug: "suv", vehicleType: "auto" },
-  { name: "Sedán", plural: "Sedanes", slug: "sedan", vehicleType: "auto" },
-  { name: "Híbrido", plural: "Híbridos", slug: "hibrido", vehicleType: "auto" },
-  { name: "Eléctrico", plural: "Eléctricos", slug: "electrico", vehicleType: "auto" },
-  { name: "Deportivo", plural: "Deportivos", slug: "deportivo", vehicleType: "auto" },
-  { name: "4x4", plural: "4x4", slug: "4x4", vehicleType: "auto" },
+const toFixture = (
+  vehicleType: "auto" | "moto",
+): ((body: BodyTypeDefinition) => FixtureCategory) =>
+  (body) => ({
+    name: body.name,
+    plural: body.plural,
+    slug: body.slug,
+    vehicleType,
+  });
 
-  { name: "ADV", plural: "ADV", slug: "adv", vehicleType: "moto" },
-  { name: "Sport", plural: "Sport", slug: "sport", vehicleType: "moto" },
-  { name: "Naked", plural: "Naked", slug: "naked", vehicleType: "moto" },
-  { name: "Touring", plural: "Touring", slug: "touring", vehicleType: "moto" },
-  { name: "Enduro", plural: "Enduro", slug: "enduro", vehicleType: "moto" },
-  { name: "Cruiser", plural: "Cruiser", slug: "cruiser", vehicleType: "moto" },
-  { name: "Scooter", plural: "Scooter", slug: "scooter", vehicleType: "moto" },
+export const fixtureCategories: FixtureCategory[] = [
+  ...AUTO_BODY_TYPES.map(toFixture("auto")),
+  ...MOTO_BODY_TYPES.map(toFixture("moto")),
 ];

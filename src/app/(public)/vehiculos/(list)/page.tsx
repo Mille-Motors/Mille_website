@@ -14,6 +14,7 @@ import { typeNoun } from "@/lib/categories";
 import { canonical, socialMetadata } from "@/lib/seo";
 import {
   activeFilterCount,
+  clearedFilters,
   hasInvalidType,
   inventoryHref,
   parseFilters,
@@ -84,14 +85,24 @@ export default async function InventoryPage(props: PageProps<"/vehiculos">) {
 
   // El filtrado y el orden ocurren en la base: el navegador no necesita
   // recibir el inventario entero para descartar la mayor parte.
+  // Todos los filtros son condiciones simultáneas: carrocería SUV con
+  // combustible enchufable y precio máximo devuelve las SUV enchufables por
+  // debajo de ese precio, no la suma de las tres listas.
   const results = await getVehicles({
     vehicleType: filters.tipo === "all" ? undefined : filters.tipo,
     categorySlug: filters.categoria,
     make: filters.marca,
+    model: filters.modelo,
+    fuelType: filters.combustible,
+    transmission: filters.transmision,
+    drivetrain: filters.traccion,
+    city: filters.ciudad,
+    tag: filters.etiqueta,
     minYear: filters.minYear,
     maxYear: filters.maxYear,
     minPrice: filters.minPrice,
     maxPrice: filters.maxPrice,
+    maxMileage: filters.maxKm,
     sort: sortToQuery[filters.orden],
   });
 
@@ -204,7 +215,7 @@ function NoResults({
           </ButtonLink>
           {state.showClearFilters ? (
             <ButtonLink
-              href={inventoryHref({ tipo: filters.tipo })}
+              href={inventoryHref(clearedFilters(filters))}
               variant="ghost"
               size="lg"
             >

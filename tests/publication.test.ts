@@ -2,22 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { publicationBlockers } from "@/lib/publication";
 import type { Vehicle } from "@/types/vehicle";
+import { makeVehicle } from "./support/vehicle";
 
 /**
  * Publicar es lo que hace visible un vehículo al público, así que no debería
  * poder ocurrir a medias.
  */
-const base: Vehicle = {
-  id: "1", slug: "bmw-x5", make: "BMW", model: "X5", version: "xDrive40i",
-  year: 2023, price: 350_000_000, mileage: 20_000, vehicleType: "auto",
-  category: { id: "c1", name: "SUV", pluralName: "SUV", slug: "suv", vehicleType: "auto", active: true, position: 0 },
-  fuelType: "Gasolina", transmission: "Automática", drivetrain: "4x4 (AWD)",
-  engine: "3.0", power: "340 hp", exteriorColor: "Gris", interiorColor: "Negro",
-  city: "Bogotá, CO", availability: "available", publication: "draft", featured: false,
-  description: "Un vehículo.", equipment: [],
-  images: [{ id: "i1", src: "/a.jpg", alt: "a", source: "legacy", storagePath: null }],
-  createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", publishedAt: null,
-};
+const base: Vehicle = makeVehicle();
 
 describe("requisitos para publicar", () => {
   it("un vehículo completo no tiene impedimentos", () => {

@@ -1,60 +1,46 @@
-import {
-  Calendar,
-  Cog,
-  Fuel,
-  Gauge,
-  MapPin,
-  Palette,
-  Settings2,
-  Sofa,
-  Zap,
-} from "lucide-react";
-import { formatMileage } from "@/lib/format";
-import type { Vehicle } from "@/types/vehicle";
+import type { SpecBlock, SpecRow } from "@/lib/vehicle-display";
 
-type Row = { icon: React.ElementType; label: string; value: string };
-
-export function specRows(vehicle: Vehicle): Row[] {
-  return [
-    { icon: Calendar, label: "Año", value: String(vehicle.year) },
-    { icon: Gauge, label: "Kilometraje", value: formatMileage(vehicle.mileage) },
-    { icon: Cog, label: "Motor", value: vehicle.engine },
-    { icon: Zap, label: "Potencia", value: vehicle.power },
-    { icon: Fuel, label: "Combustible", value: vehicle.fuelType },
-    { icon: Settings2, label: "Transmisión", value: vehicle.transmission },
-    { icon: Settings2, label: "Tracción", value: vehicle.drivetrain },
-    { icon: Palette, label: "Color exterior", value: vehicle.exteriorColor },
-    { icon: Sofa, label: "Color interior", value: vehicle.interiorColor },
-    { icon: MapPin, label: "Ciudad", value: vehicle.city },
-  ];
-}
-
-export function VehicleSpecs({
-  vehicle,
-  rows,
-}: {
-  vehicle: Vehicle;
-  /** Optional subset, used for the condensed mobile summary. */
-  rows?: Row[];
-}) {
-  const items = rows ?? specRows(vehicle);
+/**
+ * Una tabla de especificaciones.
+ *
+ * Solo dibuja lo que recibe, y `src/lib/vehicle-display.ts` solo construye
+ * filas que tienen valor: no hay ninguna rama en este archivo capaz de
+ * escribir "N/A". Un bloque sin filas no llega hasta aquí.
+ */
+export function SpecTable({ rows }: { rows: SpecRow[] }) {
+  if (rows.length === 0) return null;
 
   return (
     <dl className="divide-y divide-stone border-t border-stone">
-      {items.map(({ icon: Icon, label, value }) => (
+      {rows.map(({ label, value }) => (
         <div
           key={label}
-          className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1.1fr)] items-center gap-x-4 py-3.5"
+          className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] items-baseline gap-x-5 py-3.5"
         >
-          <Icon
-            aria-hidden
-            strokeWidth={1.2}
-            className="size-[1.125rem] text-ink-muted"
-          />
           <dt className="font-serif text-[0.9375rem] text-ink-muted">{label}</dt>
           <dd className="font-serif text-[0.9375rem] text-ink">{value}</dd>
         </div>
       ))}
     </dl>
+  );
+}
+
+/**
+ * Varios bloques encadenados. El título de cada uno va en `eyebrow`, que es
+ * como el resto del sitio nombra una subsección sin competir con los títulos
+ * de sección en display.
+ */
+export function VehicleSpecs({ blocks }: { blocks: SpecBlock[] }) {
+  if (blocks.length === 0) return null;
+
+  return (
+    <div className="grid gap-9">
+      {blocks.map((block) => (
+        <section key={block.title}>
+          <h3 className="eyebrow mb-3 text-ink-muted">{block.title}</h3>
+          <SpecTable rows={block.rows} />
+        </section>
+      ))}
+    </div>
   );
 }

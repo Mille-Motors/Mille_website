@@ -82,3 +82,61 @@ const dateFormatter = new Intl.DateTimeFormat("es-CO", {
 export function formatDate(iso: string): string {
   return dateFormatter.format(new Date(iso));
 }
+
+/**
+ * Una fecha de calendario —"2027-03-18"— leída como el día que es.
+ *
+ * `new Date("2027-03-18")` produce la medianoche UTC, y en Bogotá (UTC−5)
+ * eso es el 17 de marzo a las 19:00: un SOAT que vence el 18 se mostraría
+ * venciendo el 17. Aquí se construye la fecha con las partes explícitas y se
+ * formatea en UTC, así que el día que se guardó es el día que se lee.
+ *
+ * Devuelve `null` en vez de "Invalid Date" si el texto no es una fecha: la
+ * ficha oculta lo que no puede mostrar bien.
+ */
+const dateOnlyFormatter = new Intl.DateTimeFormat("es-CO", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+export function formatDateOnly(value: string | null): string | null {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const [, year, month, day] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  if (Number.isNaN(date.getTime())) return null;
+  return dateOnlyFormatter.format(date);
+}
+
+/** ¿Esta fecha de calendario ya pasó? Se compara por día, no por instante. */
+export function isPastDate(value: string | null, today = new Date()): boolean {
+  if (!value) return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return false;
+  const [, year, month, day] = match;
+  const target = Date.UTC(Number(year), Number(month) - 1, Number(day));
+  const now = Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    today.getUTCDate(),
+  );
+  return target < now;
+}
+
+/**
+ * Un decimal a la colombiana: 5.6 -> "5,6". Se usa para segundos y kWh,
+ * donde la coma decimal es la que lee alguien en Bogotá.
+ */
+export function formatDecimal(value: number, maxDigits = 1): string {
+  return new Intl.NumberFormat("es-CO", {
+    maximumFractionDigits: maxDigits,
+  }).format(value);
+}
+
+/** 1.500 -> "1.500". Miles agrupados, sin unidad. */
+export function formatInteger(value: number): string {
+  return cop.format(Math.round(value));
+}

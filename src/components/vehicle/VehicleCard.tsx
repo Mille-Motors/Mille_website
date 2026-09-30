@@ -21,9 +21,14 @@ function badgeFor(vehicle: Vehicle) {
   if (vehicle.fuelType === "Eléctrico") {
     return { label: "Eléctrico", className: "bg-cream/92 text-ink" };
   }
-  if (vehicle.fuelType.startsWith("Híbrido")) {
+  if (vehicle.fuelType === "Híbrido enchufable") {
+    return { label: "Enchufable", className: "bg-cream/92 text-ink" };
+  }
+  if (vehicle.fuelType === "Híbrido") {
     return { label: "Híbrido", className: "bg-cream/92 text-ink" };
   }
+  // Un MHEV no lleva distintivo: un 48 V que no mueve el carro por sí solo
+  // no es lo que alguien entiende al leer "Híbrido" en una card.
   return null;
 }
 

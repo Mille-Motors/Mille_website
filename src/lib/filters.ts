@@ -39,19 +39,34 @@ export const sortToQuery: Record<
 export type TypeFilter = VehicleType | "all";
 
 /**
- * `categoria` viaja como slug, que es lo que va en la URL y lo que la base
- * sabe buscar. Antes era la etiqueta ("Sedán") porque la taxonomía vivía en
- * un mapa fijo del código; ahora las categorías son filas administrables y
- * el slug es su identidad estable.
+ * Los filtros del inventario, tal como viajan en la URL.
+ *
+ * `categoria` es la CARROCERÍA y viaja como slug, que es lo que va en la URL
+ * y lo que la base sabe buscar. El nombre del parámetro se conserva porque
+ * ya está en enlaces compartidos; lo que cambió es su contenido, que ahora
+ * solo puede ser una carrocería de verdad y nunca un combustible.
+ *
+ * `combustible`, `transmision` y `traccion` viajan con su etiqueta literal
+ * —"Híbrido enchufable", "Integral (AWD)"— porque es lo que la columna
+ * guarda: no hay una tabla que traduzca un slug a ese texto, y añadir una
+ * capa de traducción solo para acortar la URL crearía dos verdades.
  */
 export interface InventoryFilters {
   tipo: TypeFilter;
   categoria?: string;
   marca?: string;
+  modelo?: string;
+  combustible?: string;
+  transmision?: string;
+  traccion?: string;
+  ciudad?: string;
+  /** Carácter del vehículo: "Deportivo", "Off-road"… Nunca carrocería. */
+  etiqueta?: string;
   minYear?: number;
   maxYear?: number;
   minPrice?: number;
   maxPrice?: number;
+  maxKm?: number;
   orden: SortKey;
 }
 
@@ -60,6 +75,12 @@ export type RawSearchParams = Record<string, string | string[] | undefined>;
 
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
+}
+
+/** Texto tal cual, recortado; vacío es ausencia de filtro, no filtro vacío. */
+function text(value: string | string[] | undefined): string | undefined {
+  const raw = first(value)?.trim();
+  return raw ? raw : undefined;
 }
 
 /**
@@ -83,7 +104,8 @@ function bound(value: string | string[] | undefined): number | undefined {
  * devolver ninguno, porque quien mira no tiene forma de notarlo.
  *
  * Ahora el valor viaja tal cual a la consulta. Si no existe, la base
- * devuelve cero y se ve el estado vacío, que es la verdad.
+ * devuelve cero y se ve el estado vacío, que es la verdad. Vale igual para
+ * los filtros nuevos: `?combustible=Plutonio` da cero, no el inventario.
  *
  * Lo que sí se canonicaliza son los parámetros operativos —orden y rangos
  * ilegibles— porque un orden inválido no ensancha nada: se cae al orden por
@@ -95,8 +117,10 @@ export function parseFilters(params: RawSearchParams): InventoryFilters {
     ? (rawType as VehicleType)
     : "all";
 
-  const categoria = first(params.categoria)?.toLowerCase();
-  const marca = first(params.marca);
+  // El slug de la carrocería es minúsculas por definición; el resto son
+  // etiquetas literales y tocarles las mayúsculas las haría dejar de
+  // coincidir con lo que guarda la columna.
+  const categoria = first(params.categoria)?.trim().toLowerCase();
   const orden = first(params.orden);
 
   let minYear = bound(params.minYear);
@@ -115,11 +139,18 @@ export function parseFilters(params: RawSearchParams): InventoryFilters {
     // Se conservan tal cual: un valor que no existe produce cero resultados,
     // que es exactamente lo que el usuario pidió.
     categoria: categoria || undefined,
-    marca: marca || undefined,
+    marca: text(params.marca),
+    modelo: text(params.modelo),
+    combustible: text(params.combustible),
+    transmision: text(params.transmision),
+    traccion: text(params.traccion),
+    ciudad: text(params.ciudad),
+    etiqueta: text(params.etiqueta),
     minYear,
     maxYear,
     minPrice,
     maxPrice,
+    maxKm: bound(params.maxKm),
     orden: SORT_KEYS.includes(orden as SortKey) ? (orden as SortKey) : "recientes",
   };
 }
@@ -138,16 +169,35 @@ export function hasInvalidType(params: RawSearchParams): boolean {
   return !VEHICLE_TYPES.includes(raw as VehicleType);
 }
 
-/** Solo filtros — el selector de tipo y el orden no lo son. */
+/**
+ * Las claves que son filtro de verdad. El selector de tipo y el orden no lo
+ * son: uno elige universo y el otro reordena lo mismo. Vive en una constante
+ * para que contar filtros activos, limpiarlos y dibujar las fichas de
+ * "filtro puesto" no puedan discrepar entre sí.
+ */
+export const FILTER_KEYS = [
+  "categoria",
+  "marca",
+  "modelo",
+  "combustible",
+  "transmision",
+  "traccion",
+  "ciudad",
+  "etiqueta",
+  "minYear",
+  "maxYear",
+  "minPrice",
+  "maxPrice",
+  "maxKm",
+] as const satisfies readonly (keyof InventoryFilters)[];
+
 export function activeFilterCount(filters: InventoryFilters): number {
-  return [
-    filters.categoria,
-    filters.marca,
-    filters.minYear,
-    filters.maxYear,
-    filters.minPrice,
-    filters.maxPrice,
-  ].filter((v) => v !== undefined).length;
+  return FILTER_KEYS.filter((key) => filters[key] !== undefined).length;
+}
+
+/** Todos los filtros quitados, conservando universo y orden. */
+export function clearedFilters(filters: InventoryFilters): InventoryFilters {
+  return { tipo: filters.tipo, orden: filters.orden };
 }
 
 /**
@@ -158,12 +208,10 @@ export function activeFilterCount(filters: InventoryFilters): number {
 export function buildQuery(filters: Partial<InventoryFilters>): string {
   const params = new URLSearchParams();
   if (filters.tipo && filters.tipo !== "all") params.set("tipo", filters.tipo);
-  if (filters.categoria) params.set("categoria", filters.categoria);
-  if (filters.marca) params.set("marca", filters.marca);
-  if (filters.minYear) params.set("minYear", String(filters.minYear));
-  if (filters.maxYear) params.set("maxYear", String(filters.maxYear));
-  if (filters.minPrice) params.set("minPrice", String(filters.minPrice));
-  if (filters.maxPrice) params.set("maxPrice", String(filters.maxPrice));
+  for (const key of FILTER_KEYS) {
+    const value = filters[key];
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  }
   if (filters.orden && filters.orden !== "recientes") params.set("orden", filters.orden);
   const qs = params.toString();
   return qs ? `?${qs}` : "";
@@ -184,6 +232,21 @@ export function priceLadder(min: number, max: number): number[] {
   const floor = Math.floor(min / (25 * M)) * 25 * M;
   const ceil = Math.ceil(max / (25 * M)) * 25 * M;
   return steps.filter((v) => v >= floor && v <= ceil);
+}
+
+/**
+ * Topes de kilometraje con los que alguien piensa de verdad: "hasta 20.000",
+ * "hasta 100.000". Se recortan al inventario para no ofrecer un tope por
+ * encima del carro más rodado, que devolvería siempre lo mismo.
+ */
+export function mileageLadder(max: number): number[] {
+  const steps = [10_000, 20_000, 30_000, 50_000, 75_000, 100_000, 150_000, 200_000];
+  if (max <= 0) return [];
+  const useful = steps.filter((step) => step < max);
+  // El último escalón cubre el inventario entero por arriba, para que el
+  // desplegable no se quede sin una opción que incluya al más rodado.
+  const next = steps.find((step) => step >= max);
+  return next ? [...useful, next] : useful;
 }
 
 export function inventoryHref(filters: Partial<InventoryFilters>): string {

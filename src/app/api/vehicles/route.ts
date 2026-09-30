@@ -11,12 +11,20 @@ import { VEHICLE_TYPES } from "@/types/vehicle";
  */
 const querySchema = z.object({
   tipo: z.enum(VEHICLE_TYPES).optional(),
+  /** La carrocería, por slug. El nombre del parámetro no cambia. */
   categoria: z.string().trim().max(60).optional(),
   marca: z.string().trim().max(60).optional(),
+  modelo: z.string().trim().max(60).optional(),
+  combustible: z.string().trim().max(60).optional(),
+  transmision: z.string().trim().max(60).optional(),
+  traccion: z.string().trim().max(60).optional(),
+  ciudad: z.string().trim().max(80).optional(),
+  etiqueta: z.string().trim().max(60).optional(),
   minYear: z.coerce.number().int().min(1900).max(2100).optional(),
   maxYear: z.coerce.number().int().min(1900).max(2100).optional(),
   minPrice: z.coerce.number().int().min(0).optional(),
   maxPrice: z.coerce.number().int().min(0).optional(),
+  maxKm: z.coerce.number().int().min(0).max(2_000_000).optional(),
   destacados: z.enum(["true", "false"]).optional(),
   orden: z
     .enum(["recent", "price-asc", "price-desc", "mileage-asc", "year-desc"])
@@ -34,10 +42,17 @@ export async function GET(request: NextRequest) {
       vehicleType: params.tipo,
       categorySlug: params.categoria,
       make: params.marca,
+      model: params.modelo,
+      fuelType: params.combustible,
+      transmission: params.transmision,
+      drivetrain: params.traccion,
+      city: params.ciudad,
+      tag: params.etiqueta,
       minYear: params.minYear,
       maxYear: params.maxYear,
       minPrice: params.minPrice,
       maxPrice: params.maxPrice,
+      maxMileage: params.maxKm,
       featured: params.destacados ? params.destacados === "true" : undefined,
       sort: params.orden,
       limit: params.limit,

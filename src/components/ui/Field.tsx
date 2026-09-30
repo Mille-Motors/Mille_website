@@ -142,3 +142,39 @@ export function Select({
     </div>
   );
 }
+
+/**
+ * Una casilla con su etiqueta. Existe porque el formulario de vehículos
+ * pasó de tener una a tener decenas, y repetir las mismas cinco clases en
+ * cada una era la forma segura de que acabaran no siendo las mismas.
+ */
+export function Checkbox({
+  label,
+  hint,
+  className,
+  ...rest
+}: {
+  label: React.ReactNode;
+  hint?: string;
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "type">) {
+  return (
+    <label
+      className={cn(
+        "flex cursor-pointer items-start gap-3 font-serif text-[0.9375rem] text-ink-soft",
+        className,
+      )}
+    >
+      <input
+        type="checkbox"
+        className="mt-0.5 size-4 shrink-0 accent-[color:var(--color-burgundy)]"
+        {...rest}
+      />
+      <span>
+        {label}
+        {hint ? (
+          <span className="mt-0.5 block text-xs text-ink-muted">{hint}</span>
+        ) : null}
+      </span>
+    </label>
+  );
+}

@@ -5,11 +5,17 @@ import { inventoryHref } from "@/lib/filters";
 
 /**
  * A curated shortcut into the inventory, not a mirror of the taxonomy: five
- * car categories plus motos as a whole universe. Each one lands on a real
+ * car body types plus motos as a whole universe. Each one lands on a real
  * filtered view.
  *
+ * Las cinco son CARROCERÍAS y solo carrocerías. Antes había aquí "Híbridos",
+ * "Eléctricos" y "Deportivos", que no lo son: los dos primeros son
+ * propulsión y el tercero es carácter, y mezclarlos hacía que un M3 y un
+ * Golf GTI —un sedán y un hatchback— cayeran en el mismo cajón mientras el
+ * X5 enchufable aparecía en dos a la vez.
+ *
  * Los slugs están escritos aquí a propósito: esta banda es una decisión
- * editorial sobre qué destacar, no un reflejo de la tabla de categorías. Si
+ * editorial sobre qué destacar, no un reflejo de la tabla de carrocerías. Si
  * una de ellas se renombra o se desactiva, el enlace sigue siendo válido y
  * cae en el estado vacío honesto del inventario.
  */
@@ -55,44 +61,26 @@ const entries: Entry[] = [
     ),
   },
   {
-    label: "Híbridos",
-    href: inventoryHref({ tipo: "auto", categoria: "hibrido" }),
+    label: "Pickups",
+    href: inventoryHref({ tipo: "auto", categoria: "pickup" }),
     mark: (
       <>
-        {/* El coche mira a la izquierda para dejarle el sitio a la hoja, que
-            brota donde iría el escape. La hoja acompaña al vehículo en vez de
-            ser un sello de ecología pegado al lado. */}
-        <path d="M2.4 26.8l.1-3.4c.1-1.8.9-2.7 2.9-3.2l4.6-1.2c2-2.3 3.7-3 6.5-3.1h4.8c2.8.1 4.4 1 5.7 3.5l1.3 2.4c.6 1.2.8 2.1.8 3.4v1.6h-2.9a3.4 3.4 0 0 0-6.8 0h-8a3.4 3.4 0 0 0-6.8 0Z" />
-        <path d="M11.1 19.2c1.7-1.9 3-2.4 5.4-2.4h4.7c2.3.1 3.4.7 4.6 2.9Z" />
-        <path d="M18.2 16.8v2.5" />
-        <circle cx="22.8" cy="26.8" r="3.2" />
-        <circle cx="22.8" cy="26.8" r="1.2" />
-        <circle cx="8" cy="26.8" r="3.2" />
-        <circle cx="8" cy="26.8" r="1.2" />
-        <path d="M29.6 25c-.8-5.4 1.8-9.4 7.4-11.2 1 5.8-1.4 11-7.4 11.2Z" />
-        <path d="M30.2 24.4c2-3 4-6.2 6-9" />
+        {/* Dos cuerpos separados por el panel de la cabina: el platón es una
+            caja recta y baja, y es lo único que hace falta para reconocerla. */}
+        <path d="M3.2 26.6v-5.6c0-1 .5-1.5 1.5-1.5h11.9l2.6-3.4c.9-1.2 1.9-1.7 3.5-1.7h3.6c2.4.1 3.8.9 5.3 2.9l1.5 2 2.5.6c1.8.4 2.5 1.3 2.6 3v3.7h-2.8a3.3 3.3 0 0 1-6.6 0H12.1a3.3 3.3 0 0 1-6.6 0Z" />
+        <path d="M19.7 19.5l2.2-2.7c.7-.9 1.3-1.2 2.4-1.2h3c1.8.1 2.8.6 3.9 2l1.5 1.9Z" />
+        <path d="M25 15.6v3.9" />
+        <path d="M16.6 19.5v7.1" />
+        <circle cx="8.8" cy="26.6" r="3.3" />
+        <circle cx="8.8" cy="26.6" r="1.2" />
+        <circle cx="30.3" cy="26.6" r="3.3" />
+        <circle cx="30.3" cy="26.6" r="1.2" />
       </>
     ),
   },
   {
-    label: "Eléctricos",
-    href: inventoryHref({ tipo: "auto", categoria: "electrico" }),
-    mark: (
-      <>
-        {/* Visto de frente: parabrisas, hombros, faros y el rayo ocupando el
-            centro de la parrilla. El rayo es la parrilla, no una insignia
-            suelta al lado de un coche. */}
-        <path d="M11.8 18.2l2-5c.4-1 1.1-1.4 2.4-1.4h7.6c1.3 0 2 .4 2.4 1.4l2 5" />
-        <path d="M8.4 29l-.4-6.8c-.1-2.2 1-3.8 3.2-4h17.6c2.2.2 3.3 1.8 3.2 4L31.6 29" />
-        <path d="M10.2 22H13" />
-        <path d="M27 22h2.8" />
-        <path d="M22.2 20.2 17.4 26h3l-1.2 2.8 4.8-5.8h-3Z" />
-      </>
-    ),
-  },
-  {
-    label: "Deportivos",
-    href: inventoryHref({ tipo: "auto", categoria: "deportivo" }),
+    label: "Coupés",
+    href: inventoryHref({ tipo: "auto", categoria: "coupe" }),
     mark: (
       <>
         {/* Cabina retrasada, capó largo y ruedas grandes: la misma anchura que
@@ -103,6 +91,23 @@ const entries: Entry[] = [
         <circle cx="30.4" cy="26.4" r="1.3" />
         <circle cx="9.8" cy="26.4" r="3.6" />
         <circle cx="9.8" cy="26.4" r="1.3" />
+      </>
+    ),
+  },
+  {
+    label: "Cabrios",
+    href: inventoryHref({ tipo: "auto", categoria: "cabrio" }),
+    mark: (
+      <>
+        {/* El mismo cuerpo del sedán con el techo quitado: el parabrisas se
+            queda solo y el habitáculo abre. Es la ausencia lo que se dibuja. */}
+        <path d="M3 26.8l.2-3.4c.1-1.8.9-2.7 2.8-3.1l4.6-.9c2.2-2.2 4-2.9 7-3h5.4c2.7.1 4.2.8 6 3l4.8 1c2.3.5 3.1 1.5 3.2 3.4v3h-3a3.4 3.4 0 0 1-6.8 0H13.8a3.4 3.4 0 0 1-6.8 0Z" />
+        <path d="M10.8 19.9c1.9-2.1 3.3-2.8 5.8-3h5.4" />
+        <path d="M22 16.9l4.6 3" />
+        <circle cx="30.6" cy="26.8" r="3.2" />
+        <circle cx="30.6" cy="26.8" r="1.2" />
+        <circle cx="10.4" cy="26.8" r="3.2" />
+        <circle cx="10.4" cy="26.8" r="1.2" />
       </>
     ),
   },
