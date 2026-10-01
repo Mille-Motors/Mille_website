@@ -3,7 +3,9 @@ import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db/prisma";
 import { conflict, notFound } from "@/server/http/errors";
+import { vehicleTitle } from "@/lib/format";
 import { publicationBlockers } from "@/lib/publication";
+import { DEFAULT_VEHICLE_TYPE } from "@/lib/vehicle-defaults";
 import type { VehicleSitemapEntry } from "@/lib/seo";
 import { planVehicleDeletion } from "@/lib/vehicle-deletion";
 import { VEHICLE_IMAGE_BUCKET } from "@/server/auth/config";
@@ -233,14 +235,30 @@ export async function listRelatedVehicles(
   const pool = records.map((record) => toVehicleDto(record as VehicleRecord));
   const score = (candidate: Vehicle) => {
     let value = 0;
-    if (candidate.category.id === vehicle.category.id) value += 2;
+    if (
+      candidate.category &&
+      vehicle.category &&
+      candidate.category.id === vehicle.category.id
+    ) {
+      value += 2;
+    }
     if (candidate.make === vehicle.make) value += 1;
-    const gap = Math.abs(candidate.price - vehicle.price) / (vehicle.price || 1);
-    if (gap < 0.35) value += 1;
+    // La cercanía de precio solo puntúa si los dos lo tienen.
+    if (candidate.price !== null && vehicle.price !== null) {
+      const gap = Math.abs(candidate.price - vehicle.price) / (vehicle.price || 1);
+      if (gap < 0.35) value += 1;
+    }
     return value;
   };
 
   return [...pool].sort((a, b) => score(b) - score(a)).slice(0, limit);
+}
+
+export interface CategoryFacet {
+  id: string;
+  name: string;
+  pluralName: string;
+  slug: string;
 }
 
 export interface InventoryFacets {
@@ -252,7 +270,17 @@ export interface InventoryFacets {
   minYear: number;
   maxYear: number;
   /** Las carrocerías presentes en el inventario visible. */
-  categories: { id: string; name: string; pluralName: string; slug: string }[];
+  categories: CategoryFacet[];
+  /**
+   * La taxonomía activa del universo, haya o no vehículos detrás.
+   *
+   * `categories` es lo que se ofrece normalmente —solo lo que existe, para
+   * no prometer filtros que darían cero—, pero con el inventario vacío esa
+   * lista también lo está, y un panel de filtros sin un solo control parece
+   * roto. Esta es la lista con la que el filtro se puede seguir dibujando y
+   * explicando qué se podrá filtrar cuando haya stock.
+   */
+  allCategories: CategoryFacet[];
   fuelTypes: string[];
   transmissions: string[];
   drivetrains: string[];
@@ -277,6 +305,11 @@ export interface InventoryFacets {
  * Se ordenan según esas listas y no alfabéticamente: "Gasolina, Diésel,
  * Híbrido, Enchufable, Eléctrico" es una secuencia que significa algo.
  */
+/** Lo que de verdad hay en el inventario, sin los que nadie ha elegido. */
+function presentValues(values: (string | null)[]): Set<string> {
+  return new Set(values.filter((value): value is string => Boolean(value)));
+}
+
 function orderedByVocabulary(
   present: Set<string>,
   vocabulary: readonly string[],
@@ -299,7 +332,7 @@ export async function getInventoryFacets(
       ? { ...PUBLISHED }
       : { ...PUBLISHED, vehicleType: toDbVehicleType[type] };
 
-  const [pool, counts] = await Promise.all([
+  const [pool, counts, taxonomy] = await Promise.all([
     prisma.vehicle.findMany({
       where: scopeWhere,
       select: {
@@ -330,6 +363,16 @@ export async function getInventoryFacets(
       where: PUBLISHED,
       _count: { _all: true },
     }),
+    // La taxonomía activa del universo. Son trece filas cortas: traerlas
+    // siempre cuesta menos que decidir si hacen falta.
+    prisma.category.findMany({
+      where: {
+        active: true,
+        ...(type === "all" ? {} : { vehicleType: toDbVehicleType[type] }),
+      },
+      orderBy: [{ vehicleType: "asc" }, { position: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, pluralName: true, slug: true },
+    }),
   ]);
 
   // Sin fallback al otro universo. Si no hay motos publicadas, las facetas de
@@ -337,9 +380,26 @@ export async function getInventoryFacets(
   // carros sería prometer filtros que darían cero y contradecir al propio
   // contador, que ya dice 0. Un universo vacío se representa vacío.
 
-  const years = [...new Set(pool.map((v) => v.year))].sort((a, b) => b - a);
-  const prices = pool.map((v) => Number(v.price));
-  const mileages = pool.map((v) => v.mileage);
+  // Solo lo publicado llega aquí y publicar exige año, pero el tipo admite
+  // null: se filtra antes de ordenar para que un borrador colado no meta un
+  // hueco en el desplegable.
+  const years = [
+    ...new Set(
+      pool
+        .map((v) => v.year)
+        .filter((year): year is number => year !== null),
+    ),
+  ].sort((a, b) => b - a);
+  // Solo lo publicado llega hasta aquí, y publicar exige precio y
+  // kilometraje, así que en la práctica no hay nulos. Se filtran de todos
+  // modos: un null colado convertiría la escalera de precios en NaN y
+  // dejaría los dos desplegables sin una sola opción.
+  const prices = pool
+    .map((v) => (v.price === null ? null : Number(v.price)))
+    .filter((value): value is number => value !== null);
+  const mileages = pool
+    .map((v) => v.mileage)
+    .filter((value): value is number => value !== null);
 
   // Una categoría desactivada deja de ofrecerse como navegación, pero los
   // vehículos publicados que la usan siguen contando para marcas, años y
@@ -349,7 +409,7 @@ export async function getInventoryFacets(
     { id: string; name: string; pluralName: string; slug: string; position: number }
   >();
   for (const row of pool) {
-    if (row.category.active) categoryMap.set(row.category.id, row.category);
+    if (row.category?.active) categoryMap.set(row.category.id, row.category);
   }
 
   const modelMap = new Map<string, { make: string; model: string }>();
@@ -377,19 +437,20 @@ export async function getInventoryFacets(
     categories: [...categoryMap.values()]
       .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, "es"))
       .map(({ id, name, pluralName, slug }) => ({ id, name, pluralName, slug })),
+    allCategories: taxonomy,
     fuelTypes: orderedByVocabulary(
-      new Set(pool.map((v) => v.fuelType)),
+      presentValues(pool.map((v) => v.fuelType)),
       FUEL_TYPES,
     ),
     transmissions: orderedByVocabulary(
-      new Set(pool.map((v) => v.transmission)),
+      presentValues(pool.map((v) => v.transmission)),
       TRANSMISSIONS,
     ),
     drivetrains: orderedByVocabulary(
-      new Set(pool.map((v) => v.drivetrain)),
+      presentValues(pool.map((v) => v.drivetrain)),
       DRIVETRAINS,
     ),
-    cities: [...new Set(pool.map((v) => v.city))].sort((a, b) =>
+    cities: [...presentValues(pool.map((v) => v.city))].sort((a, b) =>
       a.localeCompare(b, "es"),
     ),
     tags: orderedByVocabulary(
@@ -558,9 +619,12 @@ export async function requireVehicle(id: string): Promise<Vehicle> {
 // ---------------------------------------------------------------------------
 
 async function assertCategory(
-  categoryId: string,
+  categoryId: string | null,
   vehicleType: VehicleType,
 ): Promise<void> {
+  // Sin carrocería elegida no hay nada que comprobar: es un borrador a
+  // medias, y publicarlo ya lo impide `publicationBlockers()`.
+  if (!categoryId) return;
   const category = await prisma.category.findUnique({ where: { id: categoryId } });
   if (!category) {
     throw notFound("Esa categoría no existe.");
@@ -722,6 +786,114 @@ function toJsonSpecialEquipment(
 }
 
 /**
+ * Un borrador vacío al que ya se le pueden colgar fotografías.
+ *
+ * Existe porque las imágenes cuelgan de un vehículo: la ruta en Storage es
+ * `vehicles/<id>`, la fila `VehicleImage` lleva su clave ajena y el borrado
+ * en cascada depende de ella. Sin un id no hay dónde ponerlas, y eso
+ * obligaba a escribir marca, modelo, precio y descripción ANTES de poder
+ * subir una foto — un orden que no existe en el trabajo real.
+ *
+ * La alternativa era un almacén temporal de imágenes sin dueño, con su
+ * caducidad y su propio riesgo de huérfanos. No hace falta: DRAFT ya
+ * significa "todavía no está listo", y ahora las columnas lo permiten.
+ *
+ * Los valores iniciales son los de `VEHICLE_DEFAULTS`, los mismos que el
+ * formulario enseña seleccionados desde el primer render. El borrador guarda
+ * lo que la pantalla ya estaba diciendo; no decide nada por su cuenta.
+ *
+ * Quien llama debe hacerlo solo cuando hace falta persistir de verdad —la
+ * primera fotografía, el primer guardado— y no al abrir la pantalla: eso
+ * llenaría la base de filas vacías a golpe de visita.
+ */
+export async function createDraftVehicle(): Promise<Vehicle> {
+  // Un borrador sin nombre no puede llamarse "vehiculo" a secas: colisionaría
+  // con el siguiente y el sufijo numérico crecería sin decir nada. `borrador`
+  // se reconoce de un vistazo en la lista, y el slug se rehace solo en cuanto
+  // haya marca y modelo (ver `updateVehicle`).
+  const slug = await uniqueVehicleSlug(
+    { make: "", model: "", version: "" },
+    { preferred: "borrador" },
+  );
+
+  const record = await prisma.vehicle.create({
+    data: {
+      slug,
+      // Lo único que se afirma. Ni carrocería, ni combustible, ni
+      // transmisión, ni tracción, ni ciudad, ni año: nadie los ha elegido
+      // todavía, y escribir el primer valor de cada lista sería inventarlos.
+      vehicleType: toDbVehicleType[DEFAULT_VEHICLE_TYPE],
+      publicationStatus: "DRAFT",
+    },
+    include: vehicleInclude,
+  });
+
+  return toVehicleDto(record as VehicleRecord);
+}
+
+/**
+ * ¿Este borrador está literalmente vacío?
+ *
+ * Se usa para no dejar basura cuando la creación del borrador se hizo solo
+ * para poder subir una foto y la subida falló. Un borrador con una foto, o
+ * con una sola palabra escrita, ya es trabajo de alguien y no se toca.
+ */
+export async function isEmptyDraft(id: string): Promise<boolean> {
+  const record = await prisma.vehicle.findUnique({
+    where: { id },
+    select: {
+      publicationStatus: true,
+      make: true,
+      model: true,
+      version: true,
+      description: true,
+      price: true,
+      mileage: true,
+      _count: { select: { images: true, inquiries: true } },
+    },
+  });
+  if (!record) return false;
+
+  return (
+    record.publicationStatus === "DRAFT" &&
+    record.make.trim() === "" &&
+    record.model.trim() === "" &&
+    record.version.trim() === "" &&
+    record.description.trim() === "" &&
+    record.price === null &&
+    record.mileage === null &&
+    record._count.images === 0 &&
+    record._count.inquiries === 0
+  );
+}
+
+/**
+ * Deshacer un borrador que se creó solo para poder subir una foto y cuya
+ * subida falló.
+ *
+ * Es deliberadamente más estrecho que `deleteVehicle`: solo toca borradores
+ * y solo si nadie ha preguntado por ellos. Así, un identificador equivocado
+ * no puede llevarse por delante un vehículo publicado. Si la subida alcanzó
+ * a crear alguna imagen antes de fallar, `deleteVehicle` se encarga también
+ * de sus objetos en el bucket: el administrador nunca las vio y quedarían
+ * como basura.
+ */
+export async function discardDraftVehicle(id: string): Promise<void> {
+  const record = await prisma.vehicle.findUnique({
+    where: { id },
+    select: {
+      publicationStatus: true,
+      _count: { select: { inquiries: true } },
+    },
+  });
+  if (!record) throw notFound("Ese vehículo no existe.");
+  if (record.publicationStatus !== "DRAFT" || record._count.inquiries > 0) {
+    throw conflict("Ese vehículo no es un borrador descartable.");
+  }
+  await deleteVehicle(id);
+}
+
+/**
  * Crear siempre deja el vehículo en DRAFT. Publicar es una decisión aparte,
  * explícita, con sus propios requisitos.
  */
@@ -737,7 +909,7 @@ export async function createVehicle(input: VehicleInput): Promise<Vehicle> {
       specialEquipment: toJsonSpecialEquipment(input.specialEquipment),
       slug,
       vehicleType: toDbVehicleType[input.vehicleType],
-      price: BigInt(input.price),
+      price: input.price === null ? null : BigInt(input.price),
       categoryId: input.categoryId,
       availabilityStatus: toDbAvailability[input.availability],
       publicationStatus: "DRAFT",
@@ -759,13 +931,26 @@ export async function updateVehicle(
   const vehicleType = patch.vehicleType ?? undefined;
   const nextType = vehicleType ?? currentType;
 
+  /**
+   * Cambiar de universo no puede arrastrar una carrocería del otro: una moto
+   * con carrocería "SUV" no significa nada.
+   *
+   * Antes esto lanzaba un conflicto y obligaba a mandar la carrocería nueva
+   * en la misma petición. Ahora que puede no haberla, la respuesta honesta
+   * es dejarla en blanco: pasar de carro a moto hace que la carrocería deje
+   * de conocerse, y publicar volverá a exigirla. Si el vehículo estaba
+   * publicado, `assertPublishedInvariant()` lo revierte al final de la
+   * transacción, así que esto solo puede ocurrirle a un borrador.
+   */
+  let clearCategory = patch.categoryId === null;
   if (patch.categoryId) {
     await assertCategory(patch.categoryId, nextType);
-  } else if (vehicleType && vehicleType !== currentType) {
-    // Cambiar de universo sin elegir carrocería dejaría, por ejemplo, una
-    // moto con carrocería "SUV". Se comprueba la que ya tiene contra el
-    // tipo nuevo.
-    await assertCategory(current.categoryId, nextType);
+  } else if (vehicleType && vehicleType !== currentType && current.categoryId) {
+    const keeps = await prisma.category.findFirst({
+      where: { id: current.categoryId, vehicleType: toDbVehicleType[nextType] },
+      select: { id: true },
+    });
+    clearCategory = keeps === null;
   }
 
   const data: Prisma.VehicleUpdateInput = {
@@ -777,8 +962,14 @@ export async function updateVehicle(
     data.specialEquipment = toJsonSpecialEquipment(patch.specialEquipment);
   }
   if (vehicleType) data.vehicleType = toDbVehicleType[vehicleType];
-  if (patch.price !== undefined) data.price = BigInt(patch.price);
-  if (patch.categoryId) data.category = { connect: { id: patch.categoryId } };
+  if (patch.price !== undefined) {
+    data.price = patch.price === null ? null : BigInt(patch.price);
+  }
+  if (patch.categoryId) {
+    data.category = { connect: { id: patch.categoryId } };
+  } else if (clearCategory) {
+    data.category = { disconnect: true };
+  }
   if (patch.availability !== undefined) {
     data.availabilityStatus = toDbAvailability[patch.availability];
   }
@@ -786,17 +977,29 @@ export async function updateVehicle(
   // escribir: lo pone una migración cuando no pudo decidir sola.
   if (patch.reviewNote === null) data.reviewNote = null;
 
-  // El slug es la URL pública: solo cambia si se pide explícitamente, nunca
-  // como efecto secundario de corregir una versión o un color.
+  // El slug es la URL pública: una vez publicado NO cambia, ni siquiera al
+  // corregir la versión o el color. Romper enlaces compartidos para arreglar
+  // una errata es mal negocio.
+  //
+  // Antes de la primera publicación es al revés. Un borrador nace sin nombre
+  // —se puede empezar por las fotos— y su slug provisional es "borrador"; si
+  // se quedara congelado, el carro acabaría publicado en /vehiculos/borrador.
+  // Así que mientras nunca haya sido público, el slug se rehace a partir de
+  // marca, modelo y versión.
+  const name = {
+    make: patch.make ?? current.make,
+    model: patch.model ?? current.model,
+    version: patch.version ?? current.version,
+  };
+
   if (patch.slug && patch.slug !== current.slug) {
-    data.slug = await uniqueVehicleSlug(
-      {
-        make: patch.make ?? current.make,
-        model: patch.model ?? current.model,
-        version: patch.version ?? current.version,
-      },
-      { excludeId: id, preferred: patch.slug },
-    );
+    data.slug = await uniqueVehicleSlug(name, {
+      excludeId: id,
+      preferred: patch.slug,
+    });
+  } else if (current.publishedAt === null && vehicleTitle(name).trim() !== "") {
+    const derived = await uniqueVehicleSlug(name, { excludeId: id });
+    if (derived !== current.slug) data.slug = derived;
   }
 
   return prisma.$transaction(async (tx) => {

@@ -20,7 +20,11 @@ export function generalWhatsappUrl(): string | null {
 
 export function vehicleWhatsappUrl(vehicle: Vehicle): string | null {
   return whatsappUrl(
-    `Hola MILLE, me interesa el ${vehicleTitle(vehicle)} ${vehicle.year} (${formatCOP(vehicle.price)}). ¿Sigue disponible?`,
+    // Un vehículo sin precio no llega al público —la invariante lo impide—,
+    // pero el mensaje se arma sin él en vez de escribir "$ 0".
+    `Hola MILLE, me interesa el ${vehicleTitle(vehicle)} ${vehicle.year}${
+      vehicle.price === null ? "" : ` (${formatCOP(vehicle.price)})`
+    }. ¿Sigue disponible?`,
   );
 }
 

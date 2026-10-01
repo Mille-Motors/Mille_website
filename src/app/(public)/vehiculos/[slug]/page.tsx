@@ -175,18 +175,27 @@ export default async function VehicleDetailPage(
               </h1>
               <p className="mt-4 flex items-center gap-3 font-serif text-[0.9375rem] text-cream/65 tabular">
                 <span>{vehicle.year}</span>
-                <span aria-hidden className="h-3.5 w-px bg-cream/25" />
-                <span>{formatMileage(vehicle.mileage)}</span>
+                {vehicle.mileage !== null ? (
+                  <>
+                    <span aria-hidden className="h-3.5 w-px bg-cream/25" />
+                    <span>{formatMileage(vehicle.mileage)}</span>
+                  </>
+                ) : null}
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-              <p className="font-display text-[clamp(1.75rem,3.4vw,2.5rem)] leading-none text-cream tabular">
-                {formatCOP(vehicle.price)}
-                <span className="ml-2 font-sans text-sm tracking-wide text-cream/55">
-                  COP
-                </span>
-              </p>
+              {/* Publicar exige precio, así que aquí siempre lo hay; si
+                  faltara, la cabecera se queda sin la cifra antes que
+                  anunciar "$ 0". */}
+              {vehicle.price !== null ? (
+                <p className="font-display text-[clamp(1.75rem,3.4vw,2.5rem)] leading-none text-cream tabular">
+                  {formatCOP(vehicle.price)}
+                  <span className="ml-2 font-sans text-sm tracking-wide text-cream/55">
+                    COP
+                  </span>
+                </p>
+              ) : null}
               <StatusPill status={vehicle.availability} tone="onBurgundy" />
             </div>
           </div>

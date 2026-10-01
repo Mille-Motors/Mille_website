@@ -11,7 +11,7 @@ import { PublicationPill } from "@/components/ui/PublicationPill";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { adminJson } from "@/lib/admin-client";
 import { cn } from "@/lib/cn";
-import { formatCOP, formatDate, vehicleTitle } from "@/lib/format";
+import { formatCOP, formatDate, vehicleLabel } from "@/lib/format";
 import type { AvailabilityStatus, PublicationStatus, Vehicle } from "@/types/vehicle";
 
 /**
@@ -182,7 +182,7 @@ function RowActions({ vehicle }: { vehicle: Vehicle }) {
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        aria-label={`Eliminar ${vehicleTitle(vehicle)}`}
+        aria-label={`Eliminar ${vehicleLabel(vehicle)}`}
         className="inline-flex size-8 items-center justify-center rounded-xs border border-stone text-ink-muted transition-colors hover:border-burgundy/40 hover:text-burgundy"
       >
         <Trash2 aria-hidden className="size-3.5" strokeWidth={1.4} />
@@ -277,17 +277,27 @@ export function VehicleTable({ vehicles }: { vehicles: Vehicle[] }) {
                   href={`/admin/vehiculos/${vehicle.id}/editar`}
                   className="font-serif text-[0.9375rem] text-ink transition-colors hover:text-burgundy"
                 >
-                  {vehicleTitle(vehicle)}
+                  {vehicleLabel(vehicle)}
                 </Link>
                 <p className="mt-0.5 text-xs text-ink-muted">
-                  {vehicle.category.name} · {vehicle.vehicleType === "moto" ? "Moto" : "Carro"}
+                  {/* Un borrador puede no tener carrocería elegida todavía. */}
+                  {vehicle.category
+                    ? `${vehicle.category.name} · `
+                    : "Sin carrocería · "}
+                  {vehicle.vehicleType === "moto" ? "Moto" : "Carro"}
                 </p>
               </td>
               <td className="px-5 py-3.5 font-serif text-[0.9375rem] text-ink-soft tabular">
-                {vehicle.year}
+                {vehicle.year ?? <span className="text-ink-muted">—</span>}
               </td>
               <td className="px-5 py-3.5 font-serif text-[0.9375rem] text-ink tabular">
-                {formatCOP(vehicle.price)}
+                {/* Un borrador puede no tener precio todavía, y decirlo es
+                    más útil que enseñar "$ 0". */}
+                {vehicle.price === null ? (
+                  <span className="text-ink-muted">Sin precio</span>
+                ) : (
+                  formatCOP(vehicle.price)
+                )}
               </td>
               <td className="px-5 py-3.5">
                 <Pills vehicle={vehicle} />
@@ -314,10 +324,15 @@ export function VehicleTable({ vehicles }: { vehicles: Vehicle[] }) {
                   href={`/admin/vehiculos/${vehicle.id}/editar`}
                   className="font-serif text-[0.9375rem] text-ink"
                 >
-                  {vehicleTitle(vehicle)}
+                  {vehicleLabel(vehicle)}
                 </Link>
                 <p className="mt-1 font-serif text-sm text-ink-muted tabular">
-                  {vehicle.year} · {formatCOP(vehicle.price)}
+                  {[
+                    vehicle.year === null ? null : String(vehicle.year),
+                    vehicle.price === null ? null : formatCOP(vehicle.price),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "Borrador sin datos"}
                 </p>
                 <div className="mt-2.5">
                   <Pills vehicle={vehicle} />

@@ -102,13 +102,23 @@ export function VehicleCard({
           </Link>
         </h3>
 
+        {/* Cada dato se une al anterior solo si existe: una card nunca
+            escribe "· ·" ni un precio en cero. */}
         <p className="mt-2 font-serif text-[0.9375rem] leading-snug text-ink-muted tabular">
-          {vehicle.year} · {formatMileage(vehicle.mileage)} · {vehicle.fuelType}
+          {[
+            String(vehicle.year),
+            vehicle.mileage === null ? null : formatMileage(vehicle.mileage),
+            vehicle.fuelType,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
 
-        <p className="mt-auto pt-4 font-display text-[1.5rem] leading-none text-burgundy tabular">
-          {formatCOP(vehicle.price)}
-        </p>
+        {vehicle.price !== null ? (
+          <p className="mt-auto pt-4 font-display text-[1.5rem] leading-none text-burgundy tabular">
+            {formatCOP(vehicle.price)}
+          </p>
+        ) : null}
       </div>
     </article>
   );

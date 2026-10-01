@@ -68,6 +68,19 @@ const fromDbImageSource: Record<DbImageSource, UiImage["source"]> = {
 };
 
 /**
+ * El precio de la base al dominio.
+ *
+ * Existe como función con nombre por un motivo concreto: `Number(null)` es
+ * 0, así que convertir a lo bruto volvía un borrador sin precio en uno que
+ * vale cero pesos, y ahí se perdía justamente la distinción por la que la
+ * columna admite NULL. Es un fallo de una sola línea y sin síntoma visible
+ * hasta que alguien mira la lista del admin.
+ */
+export function toPriceNumber(value: bigint | null): number | null {
+  return value === null ? null : Number(value);
+}
+
+/**
  * Una columna `date` de Postgres se convierte en "YYYY-MM-DD" leyendo sus
  * partes en UTC, que es donde Prisma deja la medianoche de un `@db.Date`.
  * Leerlas en hora local restaría cinco horas en Bogotá y un SOAT que vence
@@ -132,7 +145,8 @@ function toImageDto(image: VehicleImageModel): UiImage {
 
 /** Lo que hay que traer de la base para poder construir un Vehicle de la UI. */
 export type VehicleRecord = VehicleModel & {
-  category: CategoryModel;
+  /** `null` en un borrador al que todavía no se le ha elegido carrocería. */
+  category: CategoryModel | null;
   images: VehicleImageModel[];
 };
 
@@ -163,10 +177,10 @@ export function toVehicleDto(record: VehicleRecord): UiVehicle {
     year: record.year,
     // Los precios en COP caben de sobra en un number seguro; BigInt solo
     // protege la columna de un desbordamiento de Int4.
-    price: Number(record.price),
+    price: toPriceNumber(record.price),
     mileage: record.mileage,
     vehicleType: fromDbVehicleType[record.vehicleType],
-    category: toCategoryDto(record.category),
+    category: record.category ? toCategoryDto(record.category) : null,
     fuelType: record.fuelType,
     transmission: record.transmission,
     drivetrain: record.drivetrain,

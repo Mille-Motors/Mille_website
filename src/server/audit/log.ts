@@ -5,6 +5,10 @@ import type { AdminSession } from "@/types/admin";
 
 export type AuditAction =
   | "CREATE_VEHICLE"
+  /** Borrador vacío creado para poder empezar por las fotografías. */
+  | "CREATE_VEHICLE_DRAFT"
+  /** Ese mismo borrador, descartado porque la subida falló. */
+  | "DISCARD_EMPTY_DRAFT"
   | "UPDATE_VEHICLE"
   | "PUBLISH_VEHICLE"
   | "UNPUBLISH_VEHICLE"

@@ -151,7 +151,7 @@ const availabilityWord: Record<AvailabilityStatus, string> = {
  */
 export function vehicleMetaDescription(vehicle: Vehicle): string {
   const specs = [
-    formatMileage(vehicle.mileage),
+    vehicle.mileage === null ? "" : formatMileage(vehicle.mileage),
     vehicle.fuelType,
     vehicle.transmission,
   ]
@@ -273,11 +273,14 @@ export function vehicleJsonLd(vehicle: Vehicle): JsonLd {
     model: vehicle.model,
     vehicleConfiguration: vehicle.version || undefined,
     vehicleModelDate: String(vehicle.year),
-    mileageFromOdometer: {
-      "@type": "QuantitativeValue",
-      value: vehicle.mileage,
-      unitCode: "KMT",
-    },
+    mileageFromOdometer:
+      vehicle.mileage === null
+        ? undefined
+        : {
+            "@type": "QuantitativeValue",
+            value: vehicle.mileage,
+            unitCode: "KMT",
+          },
     fuelType: vehicle.fuelType || undefined,
     vehicleTransmission: vehicle.transmission || undefined,
     driveWheelConfiguration: vehicle.drivetrain || undefined,
@@ -322,11 +325,11 @@ export function vehicleJsonLd(vehicle: Vehicle): JsonLd {
         : undefined,
     color: vehicle.exteriorColor || undefined,
     vehicleInteriorColor: vehicle.interiorColor || undefined,
-    bodyType: vehicle.category.name || undefined,
+    bodyType: vehicle.category?.name || undefined,
     offers: compact({
       "@type": "Offer",
       url,
-      price: vehicle.price,
+      price: vehicle.price ?? undefined,
       priceCurrency: "COP",
       availability: offerAvailability[vehicle.availability],
       // Sin dirección: solo la ciudad que el propio registro guarda. MILLE

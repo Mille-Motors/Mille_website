@@ -9,6 +9,12 @@ import { useDialog } from "@/components/ui/use-dialog";
 import { typeLabel } from "@/lib/categories";
 import { formatCOP, formatInteger } from "@/lib/format";
 import {
+  DRIVETRAINS,
+  FUEL_TYPES,
+  TRANSMISSIONS,
+  VEHICLE_TAGS,
+} from "@/types/vehicle";
+import {
   activeFilterCount,
   clearedFilters,
   inventoryHref,
@@ -48,12 +54,15 @@ function Select({
   onChange,
   children,
   className,
+  disabled,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   children: React.ReactNode;
   className?: string;
+  /** Sin nada que elegir. Conserva el filete y el alto; pierde el hover. */
+  disabled?: boolean;
 }) {
   const active = value !== "";
   return (
@@ -61,12 +70,17 @@ function Select({
       <select
         aria-label={label}
         value={value}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "label-caps h-10 w-full cursor-pointer appearance-none rounded-none border-0 border-b bg-transparent pr-7 pl-0 transition-colors",
-          active
-            ? "border-burgundy text-burgundy"
-            : "border-stone-strong text-ink-soft hover:border-ink/50 hover:text-ink",
+          "label-caps h-10 w-full appearance-none rounded-none border-0 border-b bg-transparent pr-7 pl-0 transition-colors",
+          disabled
+            ? "cursor-not-allowed border-stone text-ink-muted/70"
+            : "cursor-pointer",
+          !disabled &&
+            (active
+              ? "border-burgundy text-burgundy"
+              : "border-stone-strong text-ink-soft hover:border-ink/50 hover:text-ink"),
         )}
       >
         {children}
@@ -76,7 +90,11 @@ function Select({
         strokeWidth={1.5}
         className={cn(
           "pointer-events-none absolute top-1/2 right-1 size-3.5 -translate-y-1/2",
-          active ? "text-burgundy" : "text-ink-muted",
+          disabled
+            ? "text-ink-muted/40"
+            : active
+              ? "text-burgundy"
+              : "text-ink-muted",
         )}
       />
     </div>
@@ -99,11 +117,18 @@ function RangeField({
   );
 }
 
-/** Un desplegable de "Todas / una de estas", que es la forma de casi todos. */
+/**
+ * Un desplegable de "Todas / una de estas", que es la forma de casi todos.
+ *
+ * Sin opciones no desaparece: se queda deshabilitado diciendo qué falta.
+ * Esconderlo dejaba el panel de "Más filtros" vacío con el inventario en
+ * cero, que se lee como una pantalla rota y no como un inventario vacío.
+ */
 function ChoiceField({
   legend,
   label,
   all,
+  empty,
   value,
   options,
   onChange,
@@ -112,18 +137,22 @@ function ChoiceField({
   label: string;
   /** "Todas" o "Todos", según el género de lo que se filtra. */
   all: string;
+  /** Qué se lee cuando todavía no hay nada que elegir. */
+  empty: string;
   value: string | undefined;
   options: { value: string; label: string }[];
   onChange: (value: string | undefined) => void;
 }) {
+  const disabled = options.length === 0;
   return (
     <RangeField legend={legend}>
       <Select
         label={label}
         value={value ?? ""}
+        disabled={disabled}
         onChange={(v) => onChange(v || undefined)}
       >
-        <option value="">{all}</option>
+        <option value="">{disabled ? empty : all}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -134,8 +163,42 @@ function ChoiceField({
   );
 }
 
+/**
+ * Un rango —año, precio— que todavía no tiene datos detrás.
+ *
+ * Se dibuja como un solo control inerte en vez de como dos "Desde/Hasta"
+ * muertos: la estructura, el filete y el epígrafe siguen ahí, pero no se
+ * inventa un rango a partir de un mínimo y un máximo que valen cero.
+ */
+function EmptyRange({ legend, label }: { legend: string; label: string }) {
+  return (
+    <RangeField legend={legend}>
+      <Select label={legend} value="" disabled onChange={() => {}}>
+        <option value="">{label}</option>
+      </Select>
+    </RangeField>
+  );
+}
+
 const plain = (values: string[]) =>
   values.map((value) => ({ value, label: value }));
+
+/**
+ * Lo que existe en el inventario, o el vocabulario entero si no existe nada.
+ *
+ * Combustible, transmisión, tracción y carácter tienen un conjunto de
+ * valores conocido de antemano (`src/types/vehicle.ts`), así que su control
+ * no depende de que haya stock para poder dibujarse. Mientras haya
+ * inventario se sigue ofreciendo solo lo que existe —prometer "Diésel"
+ * cuando MILLE no tiene ninguno es prometer un cero—; cuando no lo hay, la
+ * lista completa es lo que explica qué se podrá filtrar.
+ */
+function presentOrVocabulary(
+  present: string[],
+  vocabulary: readonly string[],
+): string[] {
+  return present.length > 0 ? present : [...vocabulary];
+}
 
 interface FieldsProps {
   value: InventoryFilters;
@@ -166,6 +229,12 @@ function PrimaryFields({
       ? [...facets.makes, value.marca].sort((a, b) => a.localeCompare(b, "es"))
       : facets.makes;
 
+  // La carrocería es taxonomía administrable: sin inventario se ofrece la
+  // que está activa en la base, que sigue siendo verdad aunque no cuelgue
+  // ningún vehículo de ella.
+  const bodies =
+    facets.categories.length > 0 ? facets.categories : facets.allCategories;
+
   return (
     <div className={className}>
       {showType ? (
@@ -192,24 +261,27 @@ function PrimaryFields({
           no un filtro paralelo: los dos escriben en la URL, así que no
           pueden desincronizarse. Aquí importa sobre todo en teléfono y en la
           vista "Todos", donde esa navegación no se dibuja. */}
-      {facets.categories.length > 0 ? (
-        <ChoiceField
-          legend="Carrocería"
-          label="Carrocería"
-          all="Todas"
-          value={value.categoria}
-          options={facets.categories.map((category) => ({
-            value: category.slug,
-            label: category.pluralName,
-          }))}
-          onChange={(categoria) => onChange({ categoria })}
-        />
-      ) : null}
+      <ChoiceField
+        legend="Carrocería"
+        label="Carrocería"
+        all="Todas"
+        empty="Sin carrocerías definidas"
+        value={value.categoria}
+        options={bodies.map((category) => ({
+          value: category.slug,
+          label: category.pluralName,
+        }))}
+        onChange={(categoria) => onChange({ categoria })}
+      />
 
       <ChoiceField
         legend="Marca"
         label="Marca"
         all="Todas"
+        // La marca sí depende del inventario: no hay una lista de marcas
+        // conocida de antemano y nombrar una que MILLE no ha tenido nunca
+        // sería inventarla.
+        empty="Sin marcas todavía"
         value={value.marca}
         options={plain(makes)}
         // Cambiar de marca invalida el modelo elegido: un "Serie 3" con
@@ -217,65 +289,76 @@ function PrimaryFields({
         onChange={(marca) => onChange({ marca, modelo: undefined })}
       />
 
-      <RangeField legend="Año">
-        <Select
-          label="Año desde"
-          value={value.minYear ? String(value.minYear) : ""}
-          onChange={(v) => onChange({ minYear: v ? Number(v) : undefined })}
-        >
-          <option value="">Desde</option>
-          {facets.years.map((year) => (
-            <option key={year} value={year}>
-              {year}
-            </option>
-          ))}
-        </Select>
-        <span aria-hidden className="text-ink-muted">
-          –
-        </span>
-        <Select
-          label="Año hasta"
-          value={value.maxYear ? String(value.maxYear) : ""}
-          onChange={(v) => onChange({ maxYear: v ? Number(v) : undefined })}
-        >
-          <option value="">Hasta</option>
-          {facets.years.map((year) => (
-            <option key={year} value={year}>
-              {year}
-            </option>
-          ))}
-        </Select>
-      </RangeField>
+      {facets.years.length > 0 ? (
+        <RangeField legend="Año">
+          <Select
+            label="Año desde"
+            value={value.minYear ? String(value.minYear) : ""}
+            onChange={(v) => onChange({ minYear: v ? Number(v) : undefined })}
+          >
+            <option value="">Desde</option>
+            {facets.years.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </Select>
+          <span aria-hidden className="text-ink-muted">
+            –
+          </span>
+          <Select
+            label="Año hasta"
+            value={value.maxYear ? String(value.maxYear) : ""}
+            onChange={(v) => onChange({ maxYear: v ? Number(v) : undefined })}
+          >
+            <option value="">Hasta</option>
+            {facets.years.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </Select>
+        </RangeField>
+      ) : (
+        <EmptyRange legend="Año" label="Sin años todavía" />
+      )}
 
-      <RangeField legend="Precio">
-        <Select
-          label="Precio mínimo"
-          value={value.minPrice ? String(value.minPrice) : ""}
-          onChange={(v) => onChange({ minPrice: v ? Number(v) : undefined })}
-        >
-          <option value="">Desde</option>
-          {prices.map((price) => (
-            <option key={price} value={price}>
-              {priceOptionLabel(price)}
-            </option>
-          ))}
-        </Select>
-        <span aria-hidden className="text-ink-muted">
-          –
-        </span>
-        <Select
-          label="Precio máximo"
-          value={value.maxPrice ? String(value.maxPrice) : ""}
-          onChange={(v) => onChange({ maxPrice: v ? Number(v) : undefined })}
-        >
-          <option value="">Hasta</option>
-          {prices.map((price) => (
-            <option key={price} value={price}>
-              {priceOptionLabel(price)}
-            </option>
-          ))}
-        </Select>
-      </RangeField>
+      {prices.length > 0 ? (
+        <RangeField legend="Precio">
+          <Select
+            label="Precio mínimo"
+            value={value.minPrice ? String(value.minPrice) : ""}
+            onChange={(v) => onChange({ minPrice: v ? Number(v) : undefined })}
+          >
+            <option value="">Desde</option>
+            {prices.map((price) => (
+              <option key={price} value={price}>
+                {priceOptionLabel(price)}
+              </option>
+            ))}
+          </Select>
+          <span aria-hidden className="text-ink-muted">
+            –
+          </span>
+          <Select
+            label="Precio máximo"
+            value={value.maxPrice ? String(value.maxPrice) : ""}
+            onChange={(v) => onChange({ maxPrice: v ? Number(v) : undefined })}
+          >
+            <option value="">Hasta</option>
+            {prices.map((price) => (
+              <option key={price} value={price}>
+                {priceOptionLabel(price)}
+              </option>
+            ))}
+          </Select>
+        </RangeField>
+      ) : (
+        // Con el inventario vacío, `minPrice` y `maxPrice` son 0 y la
+        // escalera sale vacía. No se inventa un rango: no hay precios que
+        // describir.
+        <EmptyRange legend="Precio" label="Sin precios todavía" />
+      )}
     </div>
   );
 }
@@ -283,9 +366,15 @@ function PrimaryFields({
 /**
  * Lo que se afina después.
  *
- * Cada control aparece solo si el inventario visible ofrece más de una
- * opción: un desplegable de "Transmisión" con una sola entrada no filtra
- * nada, y ofrecerlo hace creer que sí.
+ * Todos los controles se dibujan siempre. Antes se escondían los que
+ * ofrecían menos de dos opciones —con la idea de no ofrecer un filtro que
+ * no filtra nada— y con el inventario en cero eso dejaba el panel de "Más
+ * filtros" completamente vacío: se abría y no había nada dentro, que no se
+ * lee como "todavía no hay stock" sino como una pantalla rota.
+ *
+ * Ahora la ausencia se dice, no se esconde: los que tienen vocabulario
+ * conocido caen a la lista completa y los que dependen de los datos se
+ * quedan deshabilitados explicando qué falta.
  */
 function SecondaryFields({ value, facets, onChange, className }: FieldsProps) {
   const mileages = mileageLadder(facets.maxMileage);
@@ -302,87 +391,95 @@ function SecondaryFields({ value, facets, onChange, className }: FieldsProps) {
 
   return (
     <div className={className}>
-      {modelOptions.length > 1 ? (
-        <ChoiceField
-          legend="Modelo"
-          label="Modelo"
-          all="Todos"
-          value={value.modelo}
-          options={modelOptions}
-          onChange={(modelo) => onChange({ modelo })}
-        />
-      ) : null}
+      <ChoiceField
+        legend="Modelo"
+        label="Modelo"
+        all="Todos"
+        empty={
+          // Dos ausencias distintas, y se distinguen: con una marca elegida
+          // que no tiene modelos, el problema es esa marca; sin marca, es
+          // que no hay inventario del que sacarlos.
+          value.marca ? "Sin modelos de esa marca" : "Sin modelos todavía"
+        }
+        value={value.modelo}
+        options={modelOptions}
+        onChange={(modelo) => onChange({ modelo })}
+      />
 
-      {facets.fuelTypes.length > 1 ? (
-        <ChoiceField
-          legend="Combustible"
-          label="Combustible"
-          all="Todos"
-          value={value.combustible}
-          options={plain(facets.fuelTypes)}
-          onChange={(combustible) => onChange({ combustible })}
-        />
-      ) : null}
+      <ChoiceField
+        legend="Combustible"
+        label="Combustible"
+        all="Todos"
+        empty="Sin combustibles"
+        value={value.combustible}
+        options={plain(presentOrVocabulary(facets.fuelTypes, FUEL_TYPES))}
+        onChange={(combustible) => onChange({ combustible })}
+      />
 
-      {facets.transmissions.length > 1 ? (
-        <ChoiceField
-          legend="Transmisión"
-          label="Transmisión"
-          all="Todas"
-          value={value.transmision}
-          options={plain(facets.transmissions)}
-          onChange={(transmision) => onChange({ transmision })}
-        />
-      ) : null}
+      <ChoiceField
+        legend="Transmisión"
+        label="Transmisión"
+        all="Todas"
+        empty="Sin transmisiones"
+        value={value.transmision}
+        options={plain(presentOrVocabulary(facets.transmissions, TRANSMISSIONS))}
+        onChange={(transmision) => onChange({ transmision })}
+      />
 
-      {facets.drivetrains.length > 1 ? (
-        <ChoiceField
-          legend="Tracción"
-          label="Tracción"
-          all="Todas"
-          value={value.traccion}
-          options={plain(facets.drivetrains)}
-          onChange={(traccion) => onChange({ traccion })}
-        />
-      ) : null}
+      <ChoiceField
+        legend="Tracción"
+        label="Tracción"
+        all="Todas"
+        empty="Sin tracciones"
+        value={value.traccion}
+        options={plain(presentOrVocabulary(facets.drivetrains, DRIVETRAINS))}
+        onChange={(traccion) => onChange({ traccion })}
+      />
 
       {mileages.length > 0 ? (
         <ChoiceField
           legend="Kilometraje"
           label="Kilometraje máximo"
           all="Sin tope"
+          empty="Sin kilometrajes todavía"
           value={value.maxKm ? String(value.maxKm) : undefined}
           options={mileages.map((km) => ({
             value: String(km),
             label: `Hasta ${formatInteger(km)} km`,
           }))}
-          onChange={(maxKm) => onChange({ maxKm: maxKm ? Number(maxKm) : undefined })}
+          onChange={(maxKm) =>
+            onChange({ maxKm: maxKm ? Number(maxKm) : undefined })
+          }
         />
-      ) : null}
+      ) : (
+        // La escalera se recorta al inventario para no ofrecer un tope que
+        // incluya a todos. Sin inventario no hay nada a lo que recortarla.
+        <EmptyRange legend="Kilometraje" label="Sin kilometrajes todavía" />
+      )}
 
-      {facets.cities.length > 1 ? (
-        <ChoiceField
-          legend="Ciudad"
-          label="Ciudad"
-          all="Todas"
-          value={value.ciudad}
-          options={plain(facets.cities)}
-          onChange={(ciudad) => onChange({ ciudad })}
-        />
-      ) : null}
+      <ChoiceField
+        legend="Ciudad"
+        label="Ciudad"
+        all="Todas"
+        // La ciudad la escribe quien carga el vehículo: tampoco hay una
+        // lista conocida de antemano.
+        empty="Sin ciudades todavía"
+        value={value.ciudad}
+        options={plain(facets.cities)}
+        onChange={(ciudad) => onChange({ ciudad })}
+      />
 
       {/* Carácter, no carrocería. "Deportivo" vive aquí precisamente porque
           un M3 es un sedán deportivo y un Golf GTI un hatchback deportivo. */}
-      {facets.tags.length > 0 ? (
-        <ChoiceField
-          legend="Carácter"
-          label="Carácter del vehículo"
-          all="Todos"
-          value={value.etiqueta}
-          options={plain(facets.tags)}
-          onChange={(etiqueta) => onChange({ etiqueta })}
-        />
-      ) : null}
+      <ChoiceField
+        legend="Carácter"
+        label="Carácter del vehículo"
+        all="Todos"
+        empty="Sin etiquetas"
+        value={value.etiqueta}
+        options={plain(presentOrVocabulary(facets.tags, VEHICLE_TAGS))}
+        onChange={(etiqueta) => onChange({ etiqueta })}
+      />
     </div>
   );
 }

@@ -155,33 +155,64 @@ model Vehicle {
   slug    String @unique
   version String @default("")
 
+  /// Un BORRADOR puede estar incompleto, y eso no es un defecto del modelo:
+  /// es lo que significa `DRAFT`.
+  ///
+  /// La regla es que NADA del vehículo se afirma hasta que alguien lo elige.
+  /// Un borrador creado solo para poder subir la foto de un 330e no puede
+  /// existir como "Gasolina + AWD + SUV" porque esos fueran los primeros
+  /// valores de cada lista: sería un dato inventado guardado en la base,
+  /// exactamente lo que este proyecto no hace en ninguna otra parte.
+  ///
+  /// Por eso carrocería, combustible, transmisión, tracción, ciudad, año,
+  /// precio y kilometraje admiten NULL, que se lee "todavía no se sabe";
+  /// marca, modelo y descripción admiten la cadena vacía, igual que ya hacían
+  /// `version`, `engine` y los colores.
+  ///
+  /// La distinción NULL / 0 importa en kilometraje: 0 km es un valor legítimo
+  /// —un importado nuevo—, así que no puede servir de marcador de "sin
+  /// rellenar".
+  ///
+  /// `vehicleType` es la excepción, y es deliberada: no es un dato técnico
+  /// sino el universo al que pertenece la ficha —carro o moto—, y de él
+  /// dependen qué carrocerías se ofrecen y en qué listado aparece. Elegirlo
+  /// no afirma nada sobre la mecánica del vehículo.
+  ///
+  /// Nada de esto relaja la publicación: `publicationBlockers()` los exige
+  /// todos, y `assertPublishedInvariant()` lo comprueba dentro de cada
+  /// transacción que pueda romperlo. Incompleto se puede guardar; publicado,
+  /// nunca.
   vehicleType VehicleType
-  make        String
-  model       String
-  year        Int
-  price       BigInt
-  mileage     Int
+  make        String  @default("")
+  model       String  @default("")
+  year        Int?
+  price       BigInt?
+  mileage     Int?
 
   /// La CARROCERÍA. El nombre de la relación se conserva porque es el de la
   /// tabla y el del parámetro `?categoria=` que ya viaja en enlaces
   /// compartidos; en la interfaz se titula siempre "Carrocería".
-  categoryId String   @db.Uuid
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  ///
+  /// Opcional porque un borrador puede no tenerla elegida. No se inventa una
+  /// categoría "Pendiente" para esquivarlo: una carrocería falsa en la tabla
+  /// de taxonomía contaminaría los filtros, la navegación y la portada.
+  categoryId String?   @db.Uuid
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
-  fuelType      String
-  transmission  String
-  drivetrain    String
+  fuelType      String?
+  transmission  String?
+  drivetrain    String?
   /// Nombre del motor tal como se lee: "3.0 L I6 TwinPower Turbo".
-  engine        String @default("")
-  exteriorColor String @default("")
-  interiorColor String @default("")
-  city          String
+  engine        String  @default("")
+  exteriorColor String  @default("")
+  interiorColor String  @default("")
+  city          String?
 
   availabilityStatus AvailabilityStatus @default(AVAILABLE)
   publicationStatus  PublicationStatus  @default(DRAFT)
   featured           Boolean            @default(false)
 
-  description String
+  description String @default("")
 
   // --- Motor -------------------------------------------------------------
   engineLayout   String?

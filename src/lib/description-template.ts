@@ -23,7 +23,8 @@ export interface DescriptionSeed {
   make: string;
   model: string;
   version: string;
-  year: number;
+  /** Todo puede faltar: la plantilla se salta la frase que no puede escribir. */
+  year: number | null;
   mileage: number | null;
   city: string;
   exteriorColor: string;
@@ -37,10 +38,11 @@ export function buildDescriptionTemplate(seed: DescriptionSeed): string {
   const name = [seed.make, seed.model, seed.version].filter(Boolean).join(" ");
   const heading = name || "[Marca] [Modelo] [Versión]";
 
+  const year = seed.year === null ? "" : ` ${seed.year}`;
   const first =
     seed.mileage !== null
-      ? `${heading} ${seed.year}, con ${formatInteger(seed.mileage)} km.`
-      : `${heading} ${seed.year}.`;
+      ? `${heading}${year}, con ${formatInteger(seed.mileage)} km.`
+      : `${heading}${year}.`;
 
   const lines: string[] = [first, ""];
 

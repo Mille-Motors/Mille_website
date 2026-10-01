@@ -183,6 +183,8 @@ Las que importan:
 4. `..._site_media*` — las fotografías estructurales de la home.
 5. `20260930000000_vehicle_taxonomy_and_specs` — separa carrocería de
    propulsión, tracción y carácter, y añade la ficha técnica ampliada.
+6. `20260930120000_incomplete_drafts` — deja que un borrador esté a medias.
+7. `20260930150000_draft_nothing_asserted` — y que no afirme nada sin elegir.
 
 Nunca `prisma migrate reset` ni `prisma db push` contra Supabase.
 
@@ -214,6 +216,110 @@ Nada destructivo, y nada adivinado:
   administración muestra como aviso hasta que alguien elija.
 - Retiró las cuatro categorías falsas: desactivadas si todavía tenían
   vehículos, borradas solo si estaban vacías.
+
+#### Qué hizo la migración de borradores incompletos
+
+Nada: solo dejó de prohibir. `make`, `model` y `description` admiten la cadena
+vacía —como ya hacían `version`, `engine` y los colores— y `price` y `mileage`
+admiten NULL. Ninguna fila existente cambió, porque todas tenían valor.
+
+El motivo es de producto, no de esquema. Las imágenes cuelgan de un vehículo
+—la ruta en Storage es `vehicles/<id>` y `VehicleImage` lleva su clave
+ajena—, así que sin fila no hay dónde ponerlas, y eso obligaba a escribir
+marca, modelo, precio y descripción **antes** de poder subir una foto. A un
+carro se le hacen las fotos antes de escribir nada, así que ese orden lo
+imponía la base de datos, no el trabajo.
+
+La alternativa era un almacén temporal de imágenes sin dueño, con su
+caducidad y su propio riesgo de huérfanos. No hacía falta: `DRAFT` ya
+significa "todavía no está listo".
+
+#### Qué hizo la migración de "no afirmar nada"
+
+La anterior dejó que un borrador existiera sin marca, modelo, precio,
+kilometraje ni descripción, pero seguía naciendo con **carrocería,
+combustible, transmisión, tracción y ciudad puestos**: los primeros valores
+de cada lista. El borrador creado solo para subir la foto de un 330e quedaba
+guardado como "Gasolina + AWD + SUV en Bogotá".
+
+Nadie había elegido nada de eso. Era un dato inventado escrito en disco, que
+además se podía publicar sin que nadie volviera a mirarlo. Así que esas cinco
+columnas, más `year`, admiten ahora NULL. Otra migración puramente permisiva:
+no toca ni una fila.
+
+Tampoco valía crear una carrocería "Pendiente": una fila falsa en la tabla de
+taxonomía aparecería en los filtros públicos, en la navegación por categorías
+y en la banda de la portada.
+
+`vehicleType` es la única excepción y es deliberada: no describe la mecánica
+del vehículo sino el universo al que pertenece la ficha —de él dependen qué
+carrocerías se ofrecen y en qué listado sale—, así que la pantalla necesita
+uno para poder dibujarse. Vive en `src/lib/vehicle-defaults.ts`, que es todo
+lo que queda de "valores por defecto".
+
+### Borradores incompletos
+
+Quién valida qué, que es lo único que hay que tener claro aquí:
+
+| Momento | Qué se comprueba | Dónde |
+| --- | --- | --- |
+| Guardar | La **forma** de cada dato: rangos, fechas reales, enums | `vehicleInputSchema` / `vehiclePatchSchema` |
+| Publicar | Que esté **completo**: los doce requisitos | `publicationBlockers()` |
+| Cualquier mutación sobre un publicado | Que siga completo | `assertPublishedInvariant()`, dentro de la transacción |
+
+Los doce son: marca, modelo, carrocería, año válido, precio, kilometraje,
+combustible, transmisión, tracción, ciudad, descripción y al menos una
+fotografía. Como la base ya no obliga a ninguno, **lo que antes garantizaba
+el `NOT NULL` lo garantiza ahora esa lista, y solo ella**: quitar una línea
+de `publicationBlockers()` no deja un formulario más cómodo, deja una ficha
+pública con huecos.
+
+Doce requisitos no son doce mensajes: marca y modelo comparten uno —"Faltan
+la marca o el modelo"— así que un borrador al que solo le falta todo menos
+la fotografía devuelve diez. La cuenta de mensajes y la de requisitos no
+tienen por qué coincidir.
+
+Guardar a medias, sí. Publicar a medias, nunca. El formulario enseña la lista
+mientras el vehículo sigue en borrador y deshabilita el botón de publicar,
+pero eso es cortesía: quien decide es el servidor, que rechaza con **409** y
+dice qué falta.
+
+`price` y `mileage` son `null` cuando no se saben, y ahí la diferencia con el
+0 es real: **0 km es un valor legítimo** —un importado nuevo— así que el cero
+no puede hacer también de "sin rellenar". Cuidado con `Number(null)`, que es
+0: la conversión pasa por `toPriceNumber()` justamente por eso.
+
+Cambiar de universo a un borrador con carrocería del otro **la deja en
+blanco** en vez de fallar: una moto con carrocería "SUV" no significa nada, y
+la respuesta honesta es que la carrocería ha dejado de conocerse. Sobre un
+vehículo publicado, ese mismo cambio lo revierte entero la invariante.
+
+#### Cuándo nace el borrador
+
+`POST /api/admin/vehicles/draft` crea una fila vacía, y el formulario lo llama
+**solo ante la primera acción que necesita persistir** —hoy, la primera
+fotografía—. Abrir `/admin/vehiculos/nuevo` y marcharse no crea nada: si el
+borrador naciera al renderizar, cada visita dejaría una fila.
+
+Nace **sin nada elegido**: ni carrocería, ni combustible, ni transmisión, ni
+tracción, ni ciudad, ni año. Lo único que trae es el universo, y por eso
+`src/lib/vehicle-defaults.ts` exporta una sola constante. El formulario hace
+lo mismo en su lado —"Seleccionar carrocería", "Seleccionar combustible"…— de
+modo que lo que se guarda es exactamente lo que la pantalla enseña: un hueco,
+no la primera opción de la lista.
+
+Si la subida que motivó el borrador falla, el formulario llama a
+`DELETE /api/admin/vehicles/draft?id=…`, que solo borra borradores sin
+solicitudes. Así un fallo de red no deja una fila vacía por intento, y
+tampoco una `VehicleImage` apuntando a un objeto que no llegó a subirse.
+
+#### El slug de un borrador
+
+Un borrador sin nombre nace como `borrador`, `borrador-2`… Si eso se quedara
+congelado, el carro acabaría publicado en `/vehiculos/borrador`. Así que
+mientras `publishedAt` sea `null`, el slug **se rehace** a partir de marca,
+modelo y versión en cada guardado. Desde la primera publicación deja de
+moverse: romper enlaces compartidos para arreglar una errata es mal negocio.
 
 ### Seed
 
@@ -398,6 +504,7 @@ Forma única de respuesta: `{ data }` cuando sale bien,
 | --- | --- |
 | `GET` `POST` | `/api/admin/vehicles` |
 | `GET` `PATCH` `DELETE` | `/api/admin/vehicles/[id]` |
+| `POST` `DELETE` | `/api/admin/vehicles/draft` |
 | `POST` | `/api/admin/vehicles/[id]/publish` |
 | `POST` | `/api/admin/vehicles/[id]/availability` |
 | `POST` `PATCH` | `/api/admin/vehicles/[id]/images` |
@@ -512,6 +619,12 @@ romper:
 `vehiclePatchSchema` se deriva de la misma forma que el alta pero **sin
 valores por defecto**: un `PATCH` que solo trae el precio no puede llegar al
 servicio con `equipment: []` y borrar el equipamiento entero.
+
+Las fotografías están activas desde el primer segundo, sin haber escrito
+nada. `ImageManager` es el mismo componente en alta y en edición; la única
+diferencia es que en el alta puede recibir `vehicle={null}` y pedir la fila
+por `ensureVehicle()` cuando le hace falta. No hay dos implementaciones ni un
+orden obligatorio entre las fotos y la ficha.
 
 ## Despliegue
 

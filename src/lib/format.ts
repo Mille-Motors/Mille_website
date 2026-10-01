@@ -34,6 +34,21 @@ export function vehicleTitle(vehicle: {
 }
 
 /**
+ * Cómo se nombra un vehículo en el admin, donde un borrador puede no tener
+ * todavía ni marca ni modelo. Devolver "" dejaba filas de la tabla sin nada
+ * en la celda del título y sin nada que pulsar.
+ *
+ * El sitio público no lo necesita: ahí no llega nada sin nombre.
+ */
+export function vehicleLabel(vehicle: {
+  make: string;
+  model: string;
+  version: string;
+}): string {
+  return vehicleTitle(vehicle) || "Borrador sin título";
+}
+
+/**
  * Agrupa los miles a la colombiana: 289900000 -> "289.900.000".
  *
  * Trabaja sobre la cadena de dígitos y no sobre un number, para que un campo

@@ -87,7 +87,7 @@ export function powerToWeight(vehicle: Vehicle): string | null {
 }
 
 /** Cómo se titula la potencia según lo que la produce. */
-export function powerLabel(fuelType: string): string {
+export function powerLabel(fuelType: string | null): string {
   if (isFullyElectric(fuelType)) return "Potencia total";
   if (hasElectricDrive(fuelType)) return "Potencia combinada";
   return "Potencia";
@@ -108,6 +108,7 @@ export function quickFacts(vehicle: Vehicle): SpecRow[] {
   push(rows, "Tracción", vehicle.drivetrain);
   return rows;
 }
+
 
 /** Cilindrada, arquitectura y alimentación. Vacío en un eléctrico. */
 export function engineRows(vehicle: Vehicle): SpecRow[] {
@@ -154,9 +155,13 @@ export function performanceRows(vehicle: Vehicle): SpecRow[] {
 /** Lo general: colores, ciudad, carrocería. */
 export function generalRows(vehicle: Vehicle): SpecRow[] {
   const rows: SpecRow[] = [];
-  push(rows, "Año", String(vehicle.year));
-  push(rows, "Kilometraje", `${formatInteger(vehicle.mileage)} km`);
-  push(rows, "Carrocería", vehicle.category.name);
+  push(rows, "Año", vehicle.year === null ? null : String(vehicle.year));
+  push(
+    rows,
+    "Kilometraje",
+    vehicle.mileage === null ? null : `${formatInteger(vehicle.mileage)} km`,
+  );
+  push(rows, "Carrocería", vehicle.category?.name);
   push(rows, "Color exterior", vehicle.exteriorColor);
   push(rows, "Color interior", vehicle.interiorColor);
   push(rows, "Ciudad", vehicle.city);

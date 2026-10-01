@@ -83,7 +83,7 @@ describe("CASO A · BMW M3 · sedán gasolina RWD, deportivo", () => {
   });
 
   it("su carrocería es Sedán: «Deportivo» es carácter, no carrocería", () => {
-    assert.equal(m3.category.name, "Sedán");
+    assert.equal(m3.category?.name, "Sedán");
     assert.ok(m3.tags.includes("Deportivo"));
   });
 });
@@ -197,7 +197,7 @@ describe("CASO D · Toyota Land Cruiser · SUV diésel 4WD, off-road", () => {
   });
 
   it("su carrocería es SUV: «4x4» era tracción, y ahí está", () => {
-    assert.equal(cruiser.category.name, "SUV");
+    assert.equal(cruiser.category?.name, "SUV");
     assert.equal(valueOf(quickFacts(cruiser), "Tracción"), "4x4 (4WD)");
   });
 
@@ -222,7 +222,7 @@ describe("CASO E · Mazda MX-5 · cabrio gasolina RWD", () => {
   });
 
   it("Cabrio es una carrocería de pleno derecho y admite el carácter deportivo", () => {
-    assert.equal(mx5.category.slug, "cabrio");
+    assert.equal(mx5.category?.slug, "cabrio");
     assert.deepEqual(mx5.tags, ["Deportivo"]);
   });
 });
@@ -245,7 +245,7 @@ describe("CASO F · Volkswagen Golf GTI · hatchback gasolina FWD", () => {
     // Un M3 es un sedán deportivo y este es un hatchback deportivo. Con
     // "Deportivo" como carrocería, los dos caían en el mismo cajón y ninguno
     // se podía encontrar filtrando por su forma real.
-    assert.equal(gti.category.name, "Hatchback");
+    assert.equal(gti.category?.name, "Hatchback");
     assert.ok(gti.tags.includes("Deportivo"));
   });
 });

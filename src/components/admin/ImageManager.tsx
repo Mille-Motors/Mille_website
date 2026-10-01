@@ -17,38 +17,74 @@ const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "image/avif"];
  * Galería real: sube a Supabase Storage y guarda la fila correspondiente.
  *
  * A diferencia del maquetado anterior, aquí nada vive solo en el navegador.
- * Cada acción llama a su endpoint y refresca desde el servidor, así que lo
- * que se ve es lo que está guardado. El orden es el de la galería pública y
- * la primera imagen es la portada.
+ * Cada acción llama a su endpoint y usa el vehículo que la respuesta
+ * devuelve, así que lo que se ve es lo que está guardado. El orden es el de
+ * la galería pública y la primera imagen es la portada.
  *
  * Las imágenes marcadas como heredadas viven en /public desde antes de que
  * existiera la base: se pueden quitar de la ficha, pero el archivo no se
  * borra del repositorio desde aquí.
+ *
+ * Funciona igual en alta y en edición, y es el mismo componente en las dos.
+ * La diferencia es que en el alta puede que todavía no exista la fila: las
+ * imágenes cuelgan de un vehículo —la ruta en Storage es `vehicles/<id>`—
+ * así que la primera subida pide por `ensureVehicle()` que se cree el
+ * borrador. Nadie tiene que rellenar nada antes de empezar por las fotos.
  */
-export function ImageManager({ vehicle }: { vehicle: Vehicle }) {
+export function ImageManager({
+  vehicle,
+  ensureVehicle,
+  onVehicleChange,
+}: {
+  /** `null` en el alta, mientras no exista todavía la fila. */
+  vehicle: Vehicle | null;
+  /**
+   * Devuelve el vehículo al que colgar las imágenes, creándolo si hace
+   * falta. `null` si no se pudo, con el motivo ya mostrado por quien llama.
+   */
+  ensureVehicle: () => Promise<Vehicle | null>;
+  /** El vehículo tal como quedó tras la última operación. */
+  onVehicleChange: (vehicle: Vehicle) => void;
+}) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const images = vehicle.images.filter((image) => image.id !== "placeholder");
+  const images =
+    vehicle?.images.filter((image) => image.id !== "placeholder") ?? [];
 
-  async function run(call: () => Promise<{ ok: boolean; message?: string }>) {
+  /**
+   * Toda operación sigue el mismo camino: una sola a la vez, y la pantalla
+   * se actualiza con el vehículo que responde el servidor.
+   *
+   * El cerrojo `busy` es también el control de concurrencia: soltar ocho
+   * archivos es UNA petición, y un segundo arrastre mientras la primera
+   * sigue en vuelo se descarta en vez de pelearse por las posiciones.
+   */
+  async function run(
+    call: () => Promise<
+      { ok: true; data: { vehicle: Vehicle } } | { ok: false; message: string }
+    >,
+  ) {
     if (busy) return;
     setBusy(true);
     setError(null);
     const result = await call();
     setBusy(false);
     if (!result.ok) {
-      setError(result.message ?? "No se pudo completar.");
+      setError(result.message);
       return;
     }
+    onVehicleChange(result.data.vehicle);
+    // La pantalla de edición lee el vehículo del servidor: sin esto, volver
+    // atrás o recargar enseñaría la galería de antes.
     router.refresh();
   }
 
   async function upload(files: FileList | null) {
-    if (!files || files.length === 0) return;
+    if (!files || files.length === 0 || busy) return;
 
     const chosen: File[] = [];
     let rejected = false;
@@ -66,23 +102,62 @@ export function ImageManager({ vehicle }: { vehicle: Vehicle }) {
     }
     if (chosen.length === 0) return;
 
+    setBusy(true);
+    setError(null);
+
+    // En el alta, la fila puede no existir todavía. Se crea aquí y no al
+    // abrir la pantalla: abrir /nuevo y marcharse no debe dejar rastro.
+    let target = vehicle;
+    const created = target === null;
+    if (!target) {
+      target = await ensureVehicle();
+      if (!target) {
+        setBusy(false);
+        setError("No se pudo preparar el vehículo para las fotos.");
+        return;
+      }
+    }
+
     const form = new FormData();
     for (const file of chosen) form.append("files", file);
 
-    await run(() =>
-      adminRequest(`/api/admin/vehicles/${vehicle.id}/images`, {
-        method: "POST",
-        body: form,
-      }),
+    const result = await adminRequest<{ vehicle: Vehicle }>(
+      `/api/admin/vehicles/${target.id}/images`,
+      { method: "POST", body: form },
     );
+    setBusy(false);
+
+    if (!result.ok) {
+      // Si el borrador se creó solo para esta subida y la subida falló, se
+      // deshace: un fallo de red no puede ir dejando vehículos vacíos en la
+      // lista, uno por intento. El endpoint solo borra borradores, así que
+      // esto no puede llevarse nada publicado por delante.
+      if (created) {
+        await adminJson(`/api/admin/vehicles/draft?id=${target.id}`, "DELETE");
+        onVehicleChange(target);
+      }
+      setError(result.message);
+      return;
+    }
+
+    onVehicleChange(result.data.vehicle);
+    router.refresh();
   }
 
   /** Reordenar manda el orden entero: el servidor no adivina posiciones. */
   function reorder(next: VehicleImage[]) {
+    if (!vehicle) return;
     return run(() =>
-      adminJson(`/api/admin/vehicles/${vehicle.id}/images`, "PATCH", {
-        images: next.map((image, index) => ({ id: image.id, position: index })),
-      }),
+      adminJson<{ vehicle: Vehicle }>(
+        `/api/admin/vehicles/${vehicle.id}/images`,
+        "PATCH",
+        {
+          images: next.map((image, index) => ({
+            id: image.id,
+            position: index,
+          })),
+        },
+      ),
     );
   }
 
@@ -102,8 +177,9 @@ export function ImageManager({ vehicle }: { vehicle: Vehicle }) {
   }
 
   function remove(image: VehicleImage) {
+    if (!vehicle) return;
     void run(() =>
-      adminJson(
+      adminJson<{ vehicle: Vehicle }>(
         `/api/admin/vehicles/${vehicle.id}/images/${image.id}`,
         "DELETE",
       ),
@@ -260,6 +336,7 @@ export function ImageManager({ vehicle }: { vehicle: Vehicle }) {
       ) : (
         <p className="mt-4 text-xs text-ink-muted">
           Un vehículo necesita al menos una fotografía para poder publicarse.
+          Puedes subirlas ahora y rellenar la ficha después.
         </p>
       )}
     </div>

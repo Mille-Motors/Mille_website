@@ -61,16 +61,22 @@ export const FUEL_TYPES = [
 export type FuelType = (typeof FUEL_TYPES)[number];
 
 /**
- * Qué secciones técnicas tienen sentido para cada propulsión. Son las cuatro
+ * Qué secciones técnicas tienen sentido para cada propulsión. Son las cinco
  * preguntas que deciden qué campos se piden en el admin y qué bloques se
  * dibujan en la ficha pública; tenerlas aquí evita repetir la condición —y
  * equivocarse en una de ellas— en cada pantalla.
+ *
+ * Todas aceptan `null` y todas responden que NO. Sin combustible elegido no
+ * se sabe si el vehículo tiene cilindrada o batería, y la respuesta honesta
+ * a una pregunta sin datos es no enseñar nada: ni pedir la capacidad de una
+ * batería que quizá no exista, ni dibujar un bloque de motor térmico en lo
+ * que puede ser un eléctrico.
  */
-export function hasCombustionEngine(fuelType: string): boolean {
-  return fuelType !== "Eléctrico";
+export function hasCombustionEngine(fuelType: string | null): boolean {
+  return fuelType !== null && fuelType !== "" && fuelType !== "Eléctrico";
 }
 
-export function hasElectricDrive(fuelType: string): boolean {
+export function hasElectricDrive(fuelType: string | null): boolean {
   return (
     fuelType === "Híbrido ligero (MHEV)" ||
     fuelType === "Híbrido" ||
@@ -83,7 +89,7 @@ export function hasElectricDrive(fuelType: string): boolean {
  * Un MHEV lleva una batería de 48 V que ningún fabricante publica como
  * capacidad ni como autonomía: pedirla sería invitar a inventarla.
  */
-export function hasTractionBattery(fuelType: string): boolean {
+export function hasTractionBattery(fuelType: string | null): boolean {
   return (
     fuelType === "Híbrido" ||
     fuelType === "Híbrido enchufable" ||
@@ -91,11 +97,11 @@ export function hasTractionBattery(fuelType: string): boolean {
   );
 }
 
-export function hasPlugCharging(fuelType: string): boolean {
+export function hasPlugCharging(fuelType: string | null): boolean {
   return fuelType === "Híbrido enchufable" || fuelType === "Eléctrico";
 }
 
-export function isFullyElectric(fuelType: string): boolean {
+export function isFullyElectric(fuelType: string | null): boolean {
   return fuelType === "Eléctrico";
 }
 
@@ -345,22 +351,37 @@ export interface Vehicle {
   make: string;
   model: string;
   version: string;
-  year: number;
-  /** Pesos colombianos, unidades enteras. */
-  price: number;
-  /** Kilómetros. */
-  mileage: number;
+  /** `null` mientras nadie lo haya escrito. */
+  year: number | null;
+  /** Pesos colombianos, unidades enteras. `null` en un borrador sin precio. */
+  price: number | null;
+  /**
+   * Kilómetros. `null` es "sin rellenar" y 0 es cero de verdad: un importado
+   * nuevo tiene 0 km, así que el cero no puede hacer también de ausencia.
+   */
+  mileage: number | null;
+  /**
+   * El universo al que pertenece la ficha. No es un dato técnico: de él
+   * dependen qué carrocerías se ofrecen y en qué listado aparece, así que
+   * siempre tiene valor y elegirlo no afirma nada sobre la mecánica.
+   */
   vehicleType: VehicleType;
-  /** La carrocería. Ver `VehicleCategory`. */
-  category: VehicleCategory;
-  fuelType: string;
-  transmission: string;
-  drivetrain: string;
+  /**
+   * La carrocería. `null` mientras no se haya elegido.
+   *
+   * Nada la sustituye por una categoría "Pendiente": una fila falsa en la
+   * taxonomía aparecería en los filtros, en la navegación y en la portada.
+   */
+  category: VehicleCategory | null;
+  /** `null` mientras nadie lo haya elegido. Nunca un valor por defecto. */
+  fuelType: string | null;
+  transmission: string | null;
+  drivetrain: string | null;
   /** Nombre del motor tal como se lee: "3.0 L I6 TwinPower Turbo". */
   engine: string;
   exteriorColor: string;
   interiorColor: string;
-  city: string;
+  city: string | null;
   availability: AvailabilityStatus;
   publication: PublicationStatus;
   featured: boolean;

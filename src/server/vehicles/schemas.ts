@@ -120,6 +120,25 @@ const optionalDate = z
     return clean;
   });
 
+/**
+ * La carrocería: un uuid, o nada. La cadena vacía es el estado
+ * "Seleccionar carrocería" del desplegable y significa que no se ha
+ * elegido, no que se haya elegido mal.
+ */
+const optionalUuid = z
+  .union([z.string(), z.null()])
+  .optional()
+  .transform((value, ctx) => {
+    if (value === null || value === undefined || value.trim() === "") {
+      return null;
+    }
+    if (!z.uuid().safeParse(value).success) {
+      ctx.addIssue({ code: "custom", message: "Carrocería no válida." });
+      return null;
+    }
+    return value;
+  });
+
 export const specialEquipmentItemSchema = z.object({
   name: required(120, "Ponle nombre al extra."),
   description: optionalText(400),
@@ -131,39 +150,46 @@ export const specialEquipmentItemSchema = z.object({
  * aquí y no puede quedarse atrás cuando se añade un campo nuevo.
  */
 const vehicleFieldsSchema = z.object({
+  /**
+   * El universo de la ficha. Es lo único obligatorio de todo el bloque, y
+   * no porque describa al vehículo sino porque decide qué carrocerías se le
+   * pueden ofrecer y en qué listado aparece.
+   */
   vehicleType: z.enum(VEHICLE_TYPES),
-  make: required(60, "Indica la marca."),
-  model: required(60, "Indica el modelo."),
+
+  // NADA de lo que sigue se exige aquí: ni marca, ni carrocería, ni año, ni
+  // precio, ni kilometraje, ni combustible, ni transmisión, ni tracción, ni
+  // ciudad, ni descripción.
+  //
+  // No es una relajación de las reglas: es dónde se aplican. Un borrador
+  // puede estar a medias —a un carro se le hacen las fotos antes de escribir
+  // nada— y este esquema valida la FORMA de cada dato, nunca si está. Que un
+  // vehículo pueda llegar al público lo decide `publicationBlockers()`, que
+  // los exige TODOS, y lo hace cumplir `assertPublishedInvariant()` dentro
+  // de cada transacción que pueda romperlo.
+  //
+  // Guardar a medias, sí. Publicar a medias, nunca.
+  make: trimmed(60).default(""),
+  model: trimmed(60).default(""),
   version: trimmed(80).default(""),
-  year: z
-    .number()
-    .int()
-    .min(1900, { message: "Año no válido." })
-    .max(MAX_YEAR, { message: "Año no válido." }),
-  price: z
-    .number()
-    .int({ message: "El precio debe ser un número entero de pesos." })
-    .min(0, { message: "El precio no puede ser negativo." })
-    .max(MAX_PRICE, { message: "Precio fuera de rango." }),
-  mileage: z
-    .number()
-    .int()
-    .min(0, { message: "El kilometraje no puede ser negativo." })
-    .max(2_000_000, { message: "Kilometraje fuera de rango." }),
+  year: optionalNumber(1900, MAX_YEAR),
+  price: optionalNumber(0, MAX_PRICE),
+  mileage: optionalNumber(0, 2_000_000),
   /** La carrocería. Se llama `categoryId` porque así se llama la relación. */
-  categoryId: z.uuid({ message: "Elige una carrocería." }),
+  categoryId: optionalUuid,
   // Se validan contra las mismas uniones que usa la interfaz, pero se guardan
-  // como texto: ampliar la lista no debería exigir una migración.
-  fuelType: z.enum(FUEL_TYPES),
-  transmission: z.enum(TRANSMISSIONS),
-  drivetrain: z.enum(DRIVETRAINS),
+  // como texto: ampliar la lista no debería exigir una migración. Un valor
+  // inventado sigue siendo un error; la ausencia, no.
+  fuelType: optionalEnum(FUEL_TYPES),
+  transmission: optionalEnum(TRANSMISSIONS),
+  drivetrain: optionalEnum(DRIVETRAINS),
   engine: trimmed(120).default(""),
   exteriorColor: trimmed(60).default(""),
   interiorColor: trimmed(60).default(""),
-  city: required(80, "Indica la ciudad."),
+  city: optionalText(80),
   availability: z.enum(AVAILABILITY_STATUSES).default("available"),
   featured: z.boolean().default(false),
-  description: required(4000, "Escribe una descripción."),
+  description: trimmed(4000).default(""),
 
   // --- Motor y prestaciones ------------------------------------------------
   engineLayout: optionalEnum(ENGINE_LAYOUTS),

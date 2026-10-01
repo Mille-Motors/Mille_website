@@ -22,7 +22,14 @@ import { PublicationPill } from "@/components/ui/PublicationPill";
 import { adminJson } from "@/lib/admin-client";
 import { typeLabel } from "@/lib/categories";
 import { buildDescriptionTemplate } from "@/lib/description-template";
-import { vehicleTitle } from "@/lib/format";
+import { vehicleLabel } from "@/lib/format";
+import { publicationBlockers } from "@/lib/publication";
+import {
+  DECIMAL_KEYS,
+  draftHasContent,
+  emptyDraft,
+  type Draft,
+} from "@/lib/vehicle-draft";
 import { statusMeta } from "@/lib/vehicle-status";
 import {
   ASPIRATIONS,
@@ -45,7 +52,6 @@ import {
 } from "@/types/vehicle";
 import type {
   AvailabilityStatus,
-  SpecialEquipmentItem,
   Vehicle,
   VehicleCategory,
   VehicleType,
@@ -54,164 +60,6 @@ import type {
 const DESCRIPTION_LIMIT = 4000;
 const FUN_FACT_LIMIT = 900;
 const MAX_YEAR = new Date().getFullYear() + 2;
-
-/**
- * Exactamente lo que el formulario posee. El slug y las fechas de sistema
- * son del servidor.
- *
- * Todo lo opcional es `null` y nunca `""` ni `0`: la base distingue "no lo
- * sabemos" de "cero", y la ficha pública oculta lo primero en vez de
- * escribir "N/A". Si el borrador usara cadenas vacías, esa distinción se
- * perdería aquí, antes de llegar al servidor.
- */
-interface Draft {
-  vehicleType: VehicleType;
-  make: string;
-  model: string;
-  version: string;
-  year: number;
-  /** `null` es "sin rellenar". 0 es cero de verdad, y en kilometraje es válido. */
-  price: number | null;
-  mileage: number | null;
-  categoryId: string;
-  fuelType: string;
-  transmission: string;
-  drivetrain: string;
-  engine: string;
-  exteriorColor: string;
-  interiorColor: string;
-  city: string;
-  availability: AvailabilityStatus;
-  featured: boolean;
-  description: string;
-
-  engineLayout: string;
-  cylinders: number | null;
-  displacementCc: number | null;
-  aspiration: string;
-  powerHp: number | null;
-  torqueNm: number | null;
-  accel0100: string;
-  topSpeedKph: number | null;
-  topSpeedLimited: boolean;
-  topSpeedLimitedKph: number | null;
-  curbWeightKg: number | null;
-
-  icePowerHp: number | null;
-  iceTorqueNm: number | null;
-  electricMotorCount: number | null;
-  electricPowerHp: number | null;
-  electricTorqueNm: number | null;
-  electricMotorLayout: string;
-  hybridSystem: string;
-  batteryGrossKwh: string;
-  batteryNetKwh: string;
-  electricRangeKm: number | null;
-  rangeStandard: string;
-  chargeAcKw: string;
-  chargeDcKw: string;
-  chargeConnector: string;
-  chargeTimeNote: string;
-
-  registrationCity: string;
-  plateLastDigit: string;
-  soatValid: boolean | null;
-  soatExpiresOn: string;
-  techInspectionApplies: boolean | null;
-  techInspectionExpiresOn: string;
-  taxStatus: string;
-  taxesPaidThroughYear: number | null;
-  documentationCheckedOn: string;
-  documentationNotes: string;
-
-  funFactEnabled: boolean;
-  funFactTitle: string;
-  funFactBody: string;
-
-  features: string[];
-  specialEquipment: SpecialEquipmentItem[];
-  tags: string[];
-}
-
-/** Los campos que el borrador guarda como texto y la base como número. */
-const DECIMAL_KEYS = [
-  "accel0100",
-  "batteryGrossKwh",
-  "batteryNetKwh",
-  "chargeAcKw",
-  "chargeDcKw",
-] as const satisfies readonly (keyof Draft)[];
-
-function emptyDraft(categories: VehicleCategory[]): Draft {
-  const firstAuto = categories.find((c) => c.vehicleType === "auto");
-  return {
-    vehicleType: "auto",
-    make: "",
-    model: "",
-    version: "",
-    year: new Date().getFullYear(),
-    price: null,
-    mileage: null,
-    categoryId: firstAuto?.id ?? categories[0]?.id ?? "",
-    fuelType: "Gasolina",
-    transmission: "Automática",
-    drivetrain: "Integral (AWD)",
-    engine: "",
-    exteriorColor: "",
-    interiorColor: "",
-    city: "Bogotá, CO",
-    availability: "available",
-    featured: false,
-    description: "",
-
-    engineLayout: "",
-    cylinders: null,
-    displacementCc: null,
-    aspiration: "",
-    powerHp: null,
-    torqueNm: null,
-    accel0100: "",
-    topSpeedKph: null,
-    topSpeedLimited: false,
-    topSpeedLimitedKph: null,
-    curbWeightKg: null,
-
-    icePowerHp: null,
-    iceTorqueNm: null,
-    electricMotorCount: null,
-    electricPowerHp: null,
-    electricTorqueNm: null,
-    electricMotorLayout: "",
-    hybridSystem: "",
-    batteryGrossKwh: "",
-    batteryNetKwh: "",
-    electricRangeKm: null,
-    rangeStandard: "",
-    chargeAcKw: "",
-    chargeDcKw: "",
-    chargeConnector: "",
-    chargeTimeNote: "",
-
-    registrationCity: "",
-    plateLastDigit: "",
-    soatValid: null,
-    soatExpiresOn: "",
-    techInspectionApplies: null,
-    techInspectionExpiresOn: "",
-    taxStatus: "",
-    taxesPaidThroughYear: null,
-    documentationCheckedOn: "",
-    documentationNotes: "",
-
-    funFactEnabled: false,
-    funFactTitle: "",
-    funFactBody: "",
-
-    features: [],
-    specialEquipment: [],
-    tags: [],
-  };
-}
 
 /** `null` se convierte en el vacío que el control sabe mostrar. */
 const str = (value: string | null): string => value ?? "";
@@ -235,14 +83,14 @@ function toDraft(vehicle: Vehicle): Draft {
     year: vehicle.year,
     price: vehicle.price,
     mileage: vehicle.mileage,
-    categoryId: vehicle.category.id,
-    fuelType: vehicle.fuelType,
-    transmission: vehicle.transmission,
-    drivetrain: vehicle.drivetrain,
+    categoryId: vehicle.category?.id ?? "",
+    fuelType: str(vehicle.fuelType),
+    transmission: str(vehicle.transmission),
+    drivetrain: str(vehicle.drivetrain),
     engine: vehicle.engine,
     exteriorColor: vehicle.exteriorColor,
     interiorColor: vehicle.interiorColor,
-    city: vehicle.city,
+    city: str(vehicle.city),
     availability: vehicle.availability,
     featured: vehicle.featured,
     description: vehicle.description,
@@ -364,10 +212,21 @@ export function VehicleForm({
   categories: VehicleCategory[];
 }) {
   const router = useRouter();
-  const editing = Boolean(vehicle);
+  /** Se entró por "Crear vehículo". No cambia aunque la fila ya exista. */
+  const creating = !vehicle;
+
+  /**
+   * La fila que hay detrás, si ya existe.
+   *
+   * En edición es la que llega por props. En el alta empieza en `null` y
+   * pasa a existir en cuanto algo necesita persistirse —la primera
+   * fotografía— sin que la pantalla se recargue ni se pierda lo escrito.
+   * A partir de ahí, guardar es un PATCH y no un POST.
+   */
+  const [persisted, setPersisted] = useState<Vehicle | null>(vehicle ?? null);
 
   const [draft, setDraft] = useState<Draft>(
-    vehicle ? toDraft(vehicle) : emptyDraft(categories),
+    vehicle ? toDraft(vehicle) : emptyDraft(),
   );
   const [equipmentText, setEquipmentText] = useState(
     (vehicle?.equipment ?? []).join("\n"),
@@ -398,21 +257,54 @@ export function VehicleForm({
   const showCharging = hasPlugCharging(draft.fuelType);
   const fullyElectric = isFullyElectric(draft.fuelType);
 
+  /**
+   * El vehículo al que colgar una fotografía, creándolo si aún no existe.
+   *
+   * Se llama desde el gestor de imágenes y solo cuando de verdad hace falta
+   * persistir. Abrir /nuevo y marcharse no crea nada.
+   */
+  async function ensureVehicle(): Promise<Vehicle | null> {
+    if (persisted) return persisted;
+
+    const result = await adminJson<{ vehicle: Vehicle }>(
+      "/api/admin/vehicles/draft",
+      "POST",
+    );
+    if (!result.ok) {
+      setFormError(result.message);
+      return null;
+    }
+    setPersisted(result.data.vehicle);
+    return result.data.vehicle;
+  }
+
+  /**
+   * Lo que el formulario comprueba antes de guardar: la FORMA de lo escrito,
+   * nunca si está completo.
+   *
+   * Un borrador puede estar a medias a propósito —se puede empezar por las
+   * fotos y escribir la ficha otro día—, así que exigir marca o precio aquí
+   * sería volver a imponer el orden que este cambio quita. Lo que decide si
+   * un vehículo puede llegar al público es `publicationBlockers()`, y eso se
+   * comprueba al publicar, no al guardar.
+   */
   function validate(): boolean {
     const next: Record<string, string> = {};
-    if (!draft.make.trim()) next.make = "Indica la marca.";
-    if (!draft.model.trim()) next.model = "Indica el modelo.";
-    if (!draft.year || draft.year < 1900 || draft.year > MAX_YEAR) {
+    // El precio puede faltar en un borrador, pero si está escrito no puede
+    // ser negativo ni cero: eso no es "sin rellenar", es un error.
+    if (draft.price !== null && draft.price <= 0) {
+      next.price = "El precio debe ser mayor que cero.";
+    }
+    // 0 km es un valor legítimo —un importado nuevo, una unidad sin uso—,
+    // así que solo se rechaza lo imposible.
+    if (draft.mileage !== null && draft.mileage < 0) {
+      next.mileage = "Kilometraje no válido.";
+    }
+    // La carrocería ya no se exige para guardar: un borrador puede no
+    // tenerla todavía, igual que no tiene marca. Publicar sí la exige.
+    if (draft.year !== null && (draft.year < 1900 || draft.year > MAX_YEAR)) {
       next.year = "Año no válido.";
     }
-    if (draft.price === null || draft.price <= 0) next.price = "Indica un precio.";
-    // Se compara contra null explícitamente: 0 km es un valor legítimo —un
-    // importado nuevo, una unidad sin uso— y `!draft.mileage` lo rechazaría.
-    if (draft.mileage === null) next.mileage = "Indica el kilometraje.";
-    else if (draft.mileage < 0) next.mileage = "Kilometraje no válido.";
-    if (!draft.categoryId) next.categoryId = "Elige una carrocería.";
-    if (!draft.description.trim()) next.description = "Escribe una descripción.";
-    if (!draft.city.trim()) next.city = "Indica la ciudad.";
 
     for (const key of DECIMAL_KEYS) {
       const raw = draft[key];
@@ -452,17 +344,21 @@ export function VehicleForm({
       model: draft.model,
       version: draft.version,
       year: draft.year,
-      // validate() ya garantizó que ninguno es null.
-      price: draft.price ?? 0,
-      mileage: draft.mileage ?? 0,
-      categoryId: draft.categoryId,
-      fuelType: draft.fuelType,
-      transmission: draft.transmission,
-      drivetrain: draft.drivetrain,
+      // `null` viaja tal cual: es "todavía no se sabe", y convertirlo en 0
+      // haría que un borrador sin precio pareciera valer cero pesos.
+      price: draft.price,
+      mileage: draft.mileage,
+      // El "Seleccionar…" de cada desplegable es la cadena vacía, y se manda
+      // como ausencia. Así el borrador guarda lo que la pantalla enseña: un
+      // hueco, no la primera opción de la lista.
+      categoryId: text(draft.categoryId),
+      fuelType: text(draft.fuelType),
+      transmission: text(draft.transmission),
+      drivetrain: text(draft.drivetrain),
       engine: draft.engine,
       exteriorColor: draft.exteriorColor,
       interiorColor: draft.interiorColor,
-      city: draft.city,
+      city: text(draft.city),
       availability: draft.availability,
       featured: draft.featured,
       description: draft.description,
@@ -536,14 +432,26 @@ export function VehicleForm({
     if (saving) return;
     if (!validate()) return;
 
+    // Guardar una pantalla en la que nadie escribió nada crearía una fila
+    // vacía por cada visita. No es una regla de orden —las fotos ya la
+    // habrían creado— sino que todavía no hay nada que guardar.
+    if (!persisted && !draftHasContent(draft, equipmentText)) {
+      setFormError(
+        "Escribe algo o sube una fotografía antes de guardar el borrador.",
+      );
+      return;
+    }
+
     setSaving(true);
     setFormError(null);
 
     const payload = toPayload();
 
-    const result = editing
+    // Si ya hay fila —porque se subió una foto primero, o porque estamos
+    // editando— se actualiza. El alta desde cero es lo único que crea.
+    const result = persisted
       ? await adminJson<{ vehicle: Vehicle }>(
-          `/api/admin/vehicles/${vehicle!.id}`,
+          `/api/admin/vehicles/${persisted.id}`,
           "PATCH",
           payload,
         )
@@ -563,10 +471,13 @@ export function VehicleForm({
       return;
     }
 
-    if (!editing) {
-      // Recién creado: se va a su pantalla de edición, que es donde se
-      // pueden subir las fotos y publicarlo.
-      router.push(`/admin/vehiculos/${result.data.vehicle.id}/editar`);
+    setPersisted(result.data.vehicle);
+
+    if (creating) {
+      // El borrador ya tiene URL propia. Se sustituye la del alta en vez de
+      // apilarla, para que "atrás" no devuelva a un formulario en blanco que
+      // volvería a empezar de cero.
+      router.replace(`/admin/vehiculos/${result.data.vehicle.id}/editar`);
       router.refresh();
       return;
     }
@@ -576,15 +487,16 @@ export function VehicleForm({
   }
 
   async function togglePublication() {
-    if (!vehicle || saving) return;
+    if (!persisted || saving) return;
     setSaving(true);
     setFormError(null);
 
-    const result = await adminJson(
-      `/api/admin/vehicles/${vehicle.id}/publish`,
+    const result = await adminJson<{ vehicle: Vehicle }>(
+      `/api/admin/vehicles/${persisted.id}/publish`,
       "POST",
       {
-        publication: vehicle.publication === "published" ? "draft" : "published",
+        publication:
+          persisted.publication === "published" ? "draft" : "published",
       },
     );
 
@@ -593,10 +505,22 @@ export function VehicleForm({
       setFormError(result.message);
       return;
     }
+    setPersisted(result.data.vehicle);
     router.refresh();
   }
 
-  const title = editing ? "Editar vehículo" : "Crear vehículo";
+  const title = creating ? "Crear vehículo" : "Editar vehículo";
+
+  /**
+   * Qué le falta a este vehículo para poder publicarse.
+   *
+   * Se calcula con la MISMA función que el servidor usa para rechazar la
+   * publicación, así que no puede decir una cosa aquí y otra allá. Se lee
+   * sobre lo guardado y no sobre lo que se está escribiendo: mientras no se
+   * guarde, lo que el servidor ve es lo de antes.
+   */
+  const blockers = persisted ? publicationBlockers(persisted) : [];
+  const published = persisted?.publication === "published";
   const powerLabel = fullyElectric
     ? "Potencia total"
     : showElectric
@@ -608,9 +532,9 @@ export function VehicleForm({
       <AdminPageHeader
         title={title}
         subtitle={
-          editing
-            ? "Edita la información y administra las fotos del vehículo."
-            : "Completa la información. El vehículo se guarda como borrador y las fotos se suben en el siguiente paso."
+          creating
+            ? "Puedes empezar por donde quieras: subir las fotos primero o escribir la ficha. Se guarda como borrador y no se publica solo."
+            : "Edita la información y administra las fotos del vehículo."
         }
         breadcrumb={
           <nav aria-label="Ruta">
@@ -625,14 +549,16 @@ export function VehicleForm({
               </li>
               <li aria-hidden>›</li>
               <li aria-current="page" className="text-ink-soft">
-                {editing ? vehicleTitle(draft) : "Nuevo vehículo"}
+                {creating && !persisted ? "Nuevo vehículo" : vehicleLabel(draft)}
               </li>
             </ol>
           </nav>
         }
         action={
           <div className="flex flex-wrap items-center gap-3">
-            {vehicle ? <PublicationPill status={vehicle.publication} /> : null}
+            {persisted ? (
+              <PublicationPill status={persisted.publication} />
+            ) : null}
             <Link
               href="/admin/vehiculos"
               className="label-caps inline-flex items-center gap-2 rounded-xs border border-stone px-4 py-2.5 text-ink transition-colors hover:border-ink/40"
@@ -709,13 +635,17 @@ export function VehicleForm({
               <Input
                 label="Año"
                 type="number"
-                required
                 inputMode="numeric"
                 min={1900}
                 max={MAX_YEAR}
-                value={draft.year || ""}
+                placeholder="2021"
+                // Vacío es vacío: el año no se presupone al abrir la
+                // pantalla, porque el carro no tiene por qué ser de este año.
+                value={draft.year ?? ""}
                 error={errors.year}
-                onChange={(e) => set("year", Number(e.target.value))}
+                onChange={(e) =>
+                  set("year", e.target.value === "" ? null : Number(e.target.value))
+                }
               />
               <NumberField
                 label="Precio"
@@ -764,15 +694,18 @@ export function VehicleForm({
                   del vehículo. Un híbrido no es una carrocería. */}
               <Select
                 label="Carrocería"
-                required
                 value={draft.categoryId}
                 error={errors.categoryId}
                 onChange={(e) => set("categoryId", e.target.value)}
                 containerClassName="sm:col-span-2"
               >
-                {typeCategories.length === 0 ? (
-                  <option value="">No hay carrocerías para este tipo</option>
-                ) : null}
+                {/* Sin preselección: la primera carrocería de la lista no es
+                    la carrocería del carro que se está cargando. */}
+                <option value="">
+                  {typeCategories.length === 0
+                    ? "No hay carrocerías para este tipo"
+                    : "Seleccionar carrocería"}
+                </option>
                 {typeCategories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
@@ -783,11 +716,11 @@ export function VehicleForm({
 
               <Select
                 label="Combustible"
-                required
                 value={draft.fuelType}
                 error={errors.fuelType}
                 onChange={(e) => set("fuelType", e.target.value)}
               >
+                <option value="">Seleccionar combustible</option>
                 {FUEL_TYPES.map((f) => (
                   <option key={f} value={f}>
                     {f}
@@ -796,11 +729,11 @@ export function VehicleForm({
               </Select>
               <Select
                 label="Transmisión"
-                required
                 value={draft.transmission}
                 error={errors.transmission}
                 onChange={(e) => set("transmission", e.target.value)}
               >
+                <option value="">Seleccionar transmisión</option>
                 {TRANSMISSIONS.map((t) => (
                   <option key={t} value={t}>
                     {t}
@@ -809,11 +742,11 @@ export function VehicleForm({
               </Select>
               <Select
                 label="Tracción"
-                required
                 value={draft.drivetrain}
                 error={errors.drivetrain}
                 onChange={(e) => set("drivetrain", e.target.value)}
               >
+                <option value="">Seleccionar tracción</option>
                 {DRIVETRAINS.map((d) => (
                   <option key={d} value={d}>
                     {d}
@@ -823,7 +756,9 @@ export function VehicleForm({
 
               <Input
                 label="Ciudad"
-                required
+                placeholder="Bogotá, CO"
+                // Marcador de posición, no valor: el campo llega vacío y lo
+                // que se guarde será lo que alguien escriba.
                 value={draft.city}
                 error={errors.city}
                 onChange={(e) => set("city", e.target.value)}
@@ -902,7 +837,7 @@ export function VehicleForm({
           <FormSection
             title="Especificaciones técnicas"
             description="Todo opcional. Lo que se deje vacío no se muestra en la ficha: vale más un dato ausente que uno inventado."
-            defaultOpen={editing}
+            defaultOpen={!creating}
           >
             {showIce ? (
               <fieldset>
@@ -1217,7 +1152,7 @@ export function VehicleForm({
           <FormSection
             title="Documentación y matrícula"
             description="Lo que decide si el carro se puede usar mañana. Las fechas usan calendario; en la ficha se leen en español."
-            defaultOpen={editing}
+            defaultOpen={!creating}
           >
             <div className="grid gap-5 sm:grid-cols-2">
               <Input
@@ -1322,7 +1257,7 @@ export function VehicleForm({
                 ? `${draft.features.length} seleccionados`
                 : undefined
             }
-            defaultOpen={editing}
+            defaultOpen={!creating}
           >
             <EquipmentPicker
               selected={draft.features}
@@ -1432,18 +1367,48 @@ export function VehicleForm({
           </FormSection>
         </div>
 
-        {/* H. Fotografías ---------------------------------------------- */}
+        {/* H. Fotografías ----------------------------------------------
+            Activas desde el primer segundo, sin haber escrito nada. El
+            gestor pide por `ensureVehicle()` la fila que necesita para
+            colgar los archivos, y es el mismo componente que en edición. */}
         <div className="grid gap-6 self-start">
-          <FormSection title="Fotos del vehículo" collapsible={false}>
-            {vehicle ? (
-              <ImageManager vehicle={vehicle} />
-            ) : (
-              <p className="font-serif text-[0.9375rem] leading-relaxed text-ink-soft">
-                Guarda el vehículo primero. Las fotos se suben a su ficha, así
-                que necesitan que exista.
-              </p>
-            )}
+          <FormSection
+            title="Fotos del vehículo"
+            collapsible={false}
+            description={
+              creating && !persisted
+                ? "Puedes empezar por aquí: sube las fotos ahora y rellena la ficha después."
+                : undefined
+            }
+          >
+            <ImageManager
+              vehicle={persisted}
+              ensureVehicle={ensureVehicle}
+              onVehicleChange={setPersisted}
+            />
           </FormSection>
+
+          {/* Qué falta para publicar. Sale de la misma función que el
+              servidor usa para rechazar la publicación, así que no puede
+              prometer algo que luego se deniegue. */}
+          {persisted && !published && blockers.length > 0 ? (
+            <div className="border border-stone bg-paper px-5 py-5 sm:px-7">
+              <h2 className="eyebrow text-ink-muted">Falta para publicar</h2>
+              <ul className="mt-3 grid gap-1.5">
+                {blockers.map((blocker) => (
+                  <li
+                    key={blocker}
+                    className="font-serif text-[0.9375rem] leading-snug text-ink-soft"
+                  >
+                    {blocker}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-xs text-ink-muted">
+                Mientras tanto se guarda como borrador y no se ve en el sitio.
+              </p>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end xl:col-span-2">
@@ -1458,9 +1423,9 @@ export function VehicleForm({
           {/* Solo cuando está publicado: el sitio público únicamente sirve
               PUBLISHED, así que en borrador o archivado este enlace abría
               deliberadamente una pestaña con un 404. */}
-          {vehicle?.publication === "published" ? (
+          {published && persisted ? (
             <a
-              href={`/vehiculos/${vehicle.slug}`}
+              href={`/vehiculos/${persisted.slug}`}
               target="_blank"
               rel="noreferrer noopener"
               className="label-caps inline-flex h-13 items-center justify-center gap-2.5 rounded-xs border border-stone px-8 text-ink transition-colors hover:border-ink/40"
@@ -1470,22 +1435,29 @@ export function VehicleForm({
             </a>
           ) : null}
 
-          {vehicle ? (
+          {persisted ? (
             <Button
               type="button"
               variant="ghost"
               size="lg"
-              disabled={saving}
+              // Publicar sigue exigiéndolo todo: el botón ni se ofrece
+              // mientras falte algo, y el servidor lo rechazaría igual.
+              disabled={saving || (!published && blockers.length > 0)}
+              title={
+                !published && blockers.length > 0
+                  ? `Falta: ${blockers.join(" ")}`
+                  : undefined
+              }
               onClick={() => void togglePublication()}
             >
-              {vehicle.publication === "published" ? "Despublicar" : "Publicar"}
+              {published ? "Despublicar" : "Publicar"}
             </Button>
           ) : null}
 
           <Button type="submit" size="lg" disabled={saving}>
             {saving ? (
               "Guardando…"
-            ) : editing ? (
+            ) : !creating || persisted ? (
               <>
                 <Save aria-hidden className="size-4" strokeWidth={1.5} />
                 Guardar cambios
