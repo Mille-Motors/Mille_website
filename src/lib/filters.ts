@@ -58,7 +58,10 @@ export interface InventoryFilters {
   modelo?: string;
   combustible?: string;
   transmision?: string;
+  /** Solo carros: FWD/RWD/AWD/4WD. */
   traccion?: string;
+  /** Solo motos: cadena, correa, cardán. */
+  transmisionFinal?: string;
   ciudad?: string;
   /** Carácter del vehículo: "Deportivo", "Off-road"… Nunca carrocería. */
   etiqueta?: string;
@@ -144,6 +147,7 @@ export function parseFilters(params: RawSearchParams): InventoryFilters {
     combustible: text(params.combustible),
     transmision: text(params.transmision),
     traccion: text(params.traccion),
+    transmisionFinal: text(params.transmisionFinal),
     ciudad: text(params.ciudad),
     etiqueta: text(params.etiqueta),
     minYear,
@@ -182,6 +186,7 @@ export const FILTER_KEYS = [
   "combustible",
   "transmision",
   "traccion",
+  "transmisionFinal",
   "ciudad",
   "etiqueta",
   "minYear",

@@ -10,9 +10,11 @@ import { typeLabel } from "@/lib/categories";
 import { formatCOP, formatInteger } from "@/lib/format";
 import {
   DRIVETRAINS,
+  FINAL_DRIVES,
   FUEL_TYPES,
-  TRANSMISSIONS,
-  VEHICLE_TAGS,
+  categoryLabel,
+  tagsFor,
+  transmissionsFor,
 } from "@/types/vehicle";
 import {
   activeFilterCount,
@@ -245,8 +247,14 @@ function PrimaryFields({
             onChange={(v) =>
               onChange({
                 tipo: (v || "all") as TypeFilter,
-                // La carrocería pertenece a un universo: no sobrevive al salto.
+                // Nada del universo anterior sobrevive al salto: ni la
+                // categoría, ni la caja, ni la tracción. Dejarlos puestos
+                // daría cero con la URL diciendo que hay filtro aplicado.
                 categoria: undefined,
+                transmision: undefined,
+                traccion: undefined,
+                transmisionFinal: undefined,
+                etiqueta: undefined,
               })
             }
           >
@@ -261,11 +269,14 @@ function PrimaryFields({
           no un filtro paralelo: los dos escriben en la URL, así que no
           pueden desincronizarse. Aquí importa sobre todo en teléfono y en la
           vista "Todos", donde esa navegación no se dibuja. */}
+      {/* "Carrocería: ADV" no significa nada: en el universo moto el mismo
+          filtro se titula "Tipo de moto". En la vista "Todos" queda con el
+          nombre neutro, porque mezcla los dos. */}
       <ChoiceField
-        legend="Carrocería"
-        label="Carrocería"
+        legend={value.tipo === "all" ? "Categoría" : categoryLabel(value.tipo)}
+        label={value.tipo === "all" ? "Categoría" : categoryLabel(value.tipo)}
         all="Todas"
-        empty="Sin carrocerías definidas"
+        empty="Sin categorías definidas"
         value={value.categoria}
         options={bodies.map((category) => ({
           value: category.slug,
@@ -416,25 +427,56 @@ function SecondaryFields({ value, facets, onChange, className }: FieldsProps) {
         onChange={(combustible) => onChange({ combustible })}
       />
 
+      {/* El vocabulario de transmisión no se mezcla: con Motos elegido se
+          ofrecen cajas de moto y con Carros las de carro. */}
       <ChoiceField
         legend="Transmisión"
         label="Transmisión"
         all="Todas"
         empty="Sin transmisiones"
         value={value.transmision}
-        options={plain(presentOrVocabulary(facets.transmissions, TRANSMISSIONS))}
+        options={plain(
+          value.tipo === "all"
+            ? facets.transmissions
+            : presentOrVocabulary(
+                facets.transmissions,
+                transmissionsFor(value.tipo),
+              ),
+        )}
         onChange={(transmision) => onChange({ transmision })}
       />
 
-      <ChoiceField
-        legend="Tracción"
-        label="Tracción"
-        all="Todas"
-        empty="Sin tracciones"
-        value={value.traccion}
-        options={plain(presentOrVocabulary(facets.drivetrains, DRIVETRAINS))}
-        onChange={(traccion) => onChange({ traccion })}
-      />
+      {/* FWD/RWD/AWD solo en carros; cadena, correa y cardán solo en motos.
+          Ofrecerle "Integral" a quien busca una moto es ofrecerle un cero. */}
+      {value.tipo !== "moto" ? (
+        <ChoiceField
+          legend="Tracción"
+          label="Tracción"
+          all="Todas"
+          empty="Sin tracciones"
+          value={value.traccion}
+          options={plain(presentOrVocabulary(facets.drivetrains, DRIVETRAINS))}
+          onChange={(traccion) => onChange({ traccion })}
+        />
+      ) : null}
+
+      {value.tipo !== "auto" ? (
+        <ChoiceField
+          legend="Transmisión final"
+          label="Transmisión final"
+          all="Todas"
+          empty="Sin transmisiones finales"
+          value={value.transmisionFinal}
+          options={plain(
+            // En "Todos" solo se ofrece lo que exista: volcar el vocabulario
+            // entero sobre un inventario de puros carros prometería ceros.
+            value.tipo === "moto"
+              ? presentOrVocabulary(facets.finalDrives, FINAL_DRIVES)
+              : facets.finalDrives,
+          )}
+          onChange={(transmisionFinal) => onChange({ transmisionFinal })}
+        />
+      ) : null}
 
       {mileages.length > 0 ? (
         <ChoiceField
@@ -477,7 +519,11 @@ function SecondaryFields({ value, facets, onChange, className }: FieldsProps) {
         all="Todos"
         empty="Sin etiquetas"
         value={value.etiqueta}
-        options={plain(presentOrVocabulary(facets.tags, VEHICLE_TAGS))}
+        options={plain(
+          value.tipo === "all"
+            ? facets.tags
+            : presentOrVocabulary(facets.tags, tagsFor(value.tipo)),
+        )}
         onChange={(etiqueta) => onChange({ etiqueta })}
       />
     </div>
@@ -491,6 +537,7 @@ function hasSecondary(filters: InventoryFilters): boolean {
     filters.combustible,
     filters.transmision,
     filters.traccion,
+    filters.transmisionFinal,
     filters.ciudad,
     filters.etiqueta,
     filters.maxKm,
@@ -756,6 +803,13 @@ function ActiveChips({
       key: "traccion",
       label: filters.traccion,
       clear: { traccion: undefined },
+    });
+  }
+  if (filters.transmisionFinal) {
+    chips.push({
+      key: "transmisionFinal",
+      label: filters.transmisionFinal,
+      clear: { transmisionFinal: undefined },
     });
   }
   if (filters.ciudad) {

@@ -200,8 +200,16 @@ model Vehicle {
   category   Category? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
   fuelType      String?
+  /// Vocabulario propio de cada universo: ver `transmissionsFor()`.
   transmission  String?
+  /// Número de marchas. Opcional y sin valor por defecto en ninguno de los
+  /// dos universos: "seis" es lo habitual en moto, pero habitual no es sabido.
+  gearCount     Int?
+  /// Solo carros (FWD/RWD/AWD/4WD). En una moto queda nulo.
   drivetrain    String?
+  /// Solo motos: cadena, correa, cardán. Es lo que una ficha de moto publica
+  /// y lo que sustituye al selector de tracción en ese universo.
+  finalDrive    String?
   /// Nombre del motor tal como se lee: "3.0 L I6 TwinPower Turbo".
   engine        String  @default("")
   exteriorColor String  @default("")
@@ -255,7 +263,10 @@ model Vehicle {
   /// `@db.Date` y no timestamp: un vencimiento de SOAT es un día del
   /// calendario. Guardarlo como instante lo corría un día al leerlo en Bogotá.
   registrationCity        String?
-  plateLastDigit          Int?
+  /// Cómo termina la placa, en texto. En carro es un dígito —lo que mira el
+  /// pico y placa—; en moto los formatos colombianos han cambiado con los
+  /// años, así que se acepta alfanumérico en vez de imponer una forma.
+  plateEnding             String?
   soatValid               Boolean?
   soatExpiresOn           DateTime? @db.Date
   /// `false` es una respuesta: hay vehículos a los que todavía no les aplica.
@@ -274,11 +285,14 @@ model Vehicle {
   funFactBody    String?
 
   // --- Equipamiento y carácter -------------------------------------------
-  /// Claves del catálogo de src/lib/equipment-catalog.ts. Arreglo y no cien
-  /// columnas booleanas ni tabla de unión: ver el comentario de ese archivo.
-  features         String[] @default([])
-  /// Equipamiento adicional en texto libre. Lista ordenada; text[] conserva
-  /// el orden sin necesidad de otra tabla.
+  /// El equipamiento, una línea por elemento y en orden.
+  ///
+  /// Era un catálogo cerrado de ochenta y cuatro casillas más una lista de
+  /// texto libre al lado. Buscar una opción entre decenas de checkboxes era
+  /// peor que escribirla, y el catálogo no podía describir una suspensión
+  /// Skyhook ni unas pinzas Brembo Stylema. Ahora es texto, con líneas
+  /// `[Sección]` que agrupan, y el formulario ofrece una plantilla distinta
+  /// para carro y para moto.
   equipment        String[] @default([])
   /// [{ name, description }]. Opciones destacadas de ESTA unidad.
   specialEquipment Json     @default("[]")

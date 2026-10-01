@@ -72,8 +72,25 @@ export type FuelType = (typeof FUEL_TYPES)[number];
  * batería que quizá no exista, ni dibujar un bloque de motor térmico en lo
  * que puede ser un eléctrico.
  */
+/**
+ * `null` responde que SÍ, al revés que las demás, y la asimetría es
+ * deliberada.
+ *
+ * Esconder el motor térmico porque todavía no se eligió el combustible
+ * dejaba el formulario sin cilindrada ni cilindros nada más abrirlo —y con
+ * un texto que daba por hecho que era eléctrico—. Enseñar los campos vacíos
+ * no afirma nada: siguen en blanco hasta que alguien escriba. Esconderlos sí
+ * afirmaba algo, y era falso.
+ *
+ * Las otras cuatro responden que no ante `null` precisamente por lo
+ * contrario: pedir la capacidad de la batería de algo que quizá no la tenga
+ * es invitar a inventarla.
+ *
+ * No mira el tipo de vehículo. Una moto de gasolina tiene motor térmico
+ * exactamente igual que un carro de gasolina.
+ */
 export function hasCombustionEngine(fuelType: string | null): boolean {
-  return fuelType !== null && fuelType !== "" && fuelType !== "Eléctrico";
+  return fuelType !== "Eléctrico";
 }
 
 export function hasElectricDrive(fuelType: string | null): boolean {
@@ -105,7 +122,14 @@ export function isFullyElectric(fuelType: string | null): boolean {
   return fuelType === "Eléctrico";
 }
 
-export const TRANSMISSIONS = [
+/**
+ * Transmisión, y aquí empieza a separarse el vocabulario por universo.
+ *
+ * Un carro y una moto no se describen igual. "Automática" dice poco de una
+ * moto, y "Manual secuencial" no significa nada en un carro. Compartir una
+ * sola lista obligaba a elegir la etiqueta menos mala en los dos lados.
+ */
+export const CAR_TRANSMISSIONS = [
   "Automática",
   "Manual",
   "Doble embrague",
@@ -114,7 +138,60 @@ export const TRANSMISSIONS = [
   "Otra",
 ] as const;
 
+/**
+ * El quickshifter NO está aquí, y no por olvido: no es un tipo de caja. Una
+ * Panigale con caja manual secuencial de seis marchas y quickshifter sigue
+ * teniendo una caja manual secuencial; el quickshifter es equipamiento.
+ */
+export const MOTO_TRANSMISSIONS = [
+  "Manual secuencial",
+  "Automática DCT",
+  "CVT / variador",
+  "Semiautomática",
+  "Transmisión directa",
+  "Otra",
+] as const;
+
+/**
+ * La unión, para validar y para ordenar facetas. Nadie la ofrece entera en
+ * un desplegable: para eso está `transmissionsFor()`.
+ */
+export const TRANSMISSIONS = [
+  ...CAR_TRANSMISSIONS,
+  ...MOTO_TRANSMISSIONS,
+] as const;
+
 export type Transmission = (typeof TRANSMISSIONS)[number];
+
+export function transmissionsFor(
+  vehicleType: VehicleType,
+): readonly string[] {
+  return vehicleType === "moto" ? MOTO_TRANSMISSIONS : CAR_TRANSMISSIONS;
+}
+
+/**
+ * Cuántas marchas. Opcional y para los dos universos: una caja de ocho
+ * relaciones es tan descriptiva en un X5 como las seis de una Multistrada.
+ * No hay valor por defecto — "6" es lo habitual en moto, pero habitual no es
+ * sabido.
+ */
+export const MIN_GEAR_COUNT = 1;
+export const MAX_GEAR_COUNT = 8;
+
+/**
+ * Transmisión final: cómo llega el par a la rueda. Es un dato que toda ficha
+ * de moto publica y que en un carro no se menciona nunca, así que sustituye
+ * al selector de tracción cuando el universo es moto.
+ */
+export const FINAL_DRIVES = [
+  "Cadena",
+  "Correa",
+  "Cardán",
+  "Directa",
+  "Otra",
+] as const;
+
+export type FinalDrive = (typeof FINAL_DRIVES)[number];
 
 /**
  * AWD y 4WD no son lo mismo y el inventario ya no los mezcla: un Land
@@ -135,7 +212,7 @@ export type Drivetrain = (typeof DRIVETRAINS)[number];
 // Especificaciones técnicas
 // ---------------------------------------------------------------------------
 
-export const ENGINE_LAYOUTS = [
+export const CAR_ENGINE_LAYOUTS = [
   "I3",
   "I4",
   "I5",
@@ -150,7 +227,42 @@ export const ENGINE_LAYOUTS = [
   "Otra",
 ] as const;
 
+/**
+ * La arquitectura de una moto no se nombra como la de un carro. Un bóxer de
+ * una GS tiene dos cilindros, no cuatro; una Panigale es un V4 y una
+ * Multistrada V2 un L-Twin. Forzar ambas en la lista de carros obligaba a
+ * elegir "Otra" para casi todo el parque.
+ *
+ * `cylinders` sigue siendo un número aparte: la arquitectura dice cómo están
+ * dispuestos, no cuántos son.
+ */
+export const MOTO_ENGINE_LAYOUTS = [
+  "Monocilíndrico",
+  "Bicilíndrico paralelo",
+  "V2 / V-Twin",
+  "L-Twin",
+  "Bóxer 2",
+  "I3",
+  "I4",
+  "V4",
+  "I6",
+  "Bóxer 6",
+  "Otra",
+] as const;
+
+/** La unión, solo para validar: nadie la ofrece entera. */
+export const ENGINE_LAYOUTS = [
+  ...CAR_ENGINE_LAYOUTS,
+  ...MOTO_ENGINE_LAYOUTS,
+] as const;
+
 export type EngineLayout = (typeof ENGINE_LAYOUTS)[number];
+
+export function engineLayoutsFor(
+  vehicleType: VehicleType,
+): readonly string[] {
+  return vehicleType === "moto" ? MOTO_ENGINE_LAYOUTS : CAR_ENGINE_LAYOUTS;
+}
 
 export const ASPIRATIONS = [
   "Atmosférico",
@@ -211,7 +323,7 @@ export type TaxStatus = (typeof TAX_STATUSES)[number];
  * deportiva. "Deportivo" describe los tres y no es la carrocería de ninguno,
  * así que vive aquí, como etiqueta opcional y múltiple.
  */
-export const VEHICLE_TAGS = [
+export const CAR_TAGS = [
   "Deportivo",
   "Performance",
   "Lujo",
@@ -221,10 +333,135 @@ export const VEHICLE_TAGS = [
   "Edición especial",
 ] as const;
 
+/**
+ * Corta a propósito, y sin repetir la categoría. "Sport" ya es un tipo de
+ * moto, así que no hace falta también como carácter; "Familiar" no
+ * significa nada aquí.
+ */
+export const MOTO_TAGS = [
+  "Performance",
+  "Off-road",
+  "Urbana",
+  "Confort",
+  "Lujo",
+  "Retro / Heritage",
+  "Edición especial",
+] as const;
+
+/** La unión, para validar y para ordenar facetas. */
+export const VEHICLE_TAGS = [
+  ...CAR_TAGS,
+  ...MOTO_TAGS.filter(
+    (tag): tag is Exclude<(typeof MOTO_TAGS)[number], (typeof CAR_TAGS)[number]> =>
+      !(CAR_TAGS as readonly string[]).includes(tag),
+  ),
+] as const;
+
 export type VehicleTag = (typeof VEHICLE_TAGS)[number];
 
+export function tagsFor(vehicleType: VehicleType): readonly string[] {
+  return vehicleType === "moto" ? MOTO_TAGS : CAR_TAGS;
+}
+
 // ---------------------------------------------------------------------------
-// Categorías (carrocería)
+// Qué campos aplican a qué universo
+// ---------------------------------------------------------------------------
+
+/**
+ * Carro y moto no son el mismo formulario con dos etiquetas cambiadas.
+ *
+ * Estas cuatro funciones son la única autoridad sobre qué campo aplica a
+ * qué universo, y las consultan el formulario, la validación, los requisitos
+ * de publicación, la ficha pública y los filtros. Tenerlas aquí es lo que
+ * impide que una moto quede bloqueada por "falta la tracción" mientras el
+ * selector de tracción ni siquiera se le muestra.
+ */
+
+/** FWD/RWD/AWD/4WD: un concepto de carro. */
+export function usesDrivetrain(vehicleType: VehicleType): boolean {
+  return vehicleType === "auto";
+}
+
+/** Cadena, correa o cardán: lo que una ficha de moto sí publica. */
+export function usesFinalDrive(vehicleType: VehicleType): boolean {
+  return vehicleType === "moto";
+}
+
+/** Una moto no tiene habitáculo que tapizar. */
+export function usesInteriorColor(vehicleType: VehicleType): boolean {
+  return vehicleType === "auto";
+}
+
+/**
+ * Cómo se titula la categoría. La tabla y el parámetro `?categoria=` no
+ * cambian; lo que cambia es que a nadie le interesa leer "Carrocería: ADV".
+ */
+export function categoryLabel(vehicleType: VehicleType): string {
+  return vehicleType === "moto" ? "Tipo de moto" : "Carrocería";
+}
+
+/**
+ * Los campos que pertenecen a un universo y no al vehículo.
+ *
+ * `categoryId` es `string | null` porque al formulario le llega como cadena
+ * vacía y al servicio como null: lo que importa es que no sobrevive al
+ * salto en ninguno de los dos.
+ */
+export interface TypeScopedFields {
+  transmission: string | null;
+  engineLayout: string | null;
+  drivetrain: string | null;
+  finalDrive: string | null;
+  interiorColor: string;
+  tags: string[];
+  categoryId: string | null;
+}
+
+/**
+ * Qué sobrevive a un cambio de universo.
+ *
+ * Una moto no conserva la tracción integral de un carro, ni un carro el
+ * cardán de una moto; un V8 no es arquitectura de moto y "Familiar" no es
+ * carácter de ninguna. Lo que SÍ vale en los dos —"Otra", un I4, la
+ * etiqueta "Lujo"— se conserva, porque obligar a reelegir lo que ya era
+ * correcto es trabajo inventado.
+ *
+ * Esta función existe porque la regla estaba escrita dos veces —una en el
+ * formulario y otra en el servicio— y se desincronizaron: el formulario
+ * limpiaba la transmisión al cambiar de tipo y el servicio no, así que un
+ * carro podía acabar guardado con una caja "Manual secuencial". Ahora las
+ * dos caras llaman aquí.
+ *
+ * No toca nada que sea del vehículo y no de su universo: marca, modelo,
+ * precio, kilometraje, descripción y fotografías se quedan como estaban.
+ */
+export function keepOnTypeChange(
+  nextType: VehicleType,
+  current: TypeScopedFields,
+): TypeScopedFields {
+  return {
+    transmission:
+      current.transmission &&
+      transmissionsFor(nextType).includes(current.transmission)
+        ? current.transmission
+        : null,
+    engineLayout:
+      current.engineLayout &&
+      engineLayoutsFor(nextType).includes(current.engineLayout)
+        ? current.engineLayout
+        : null,
+    drivetrain: usesDrivetrain(nextType) ? current.drivetrain : null,
+    finalDrive: usesFinalDrive(nextType) ? current.finalDrive : null,
+    interiorColor: usesInteriorColor(nextType) ? current.interiorColor : "",
+    tags: current.tags.filter((tag) => tagsFor(nextType).includes(tag)),
+    // La categoría pertenece a un universo por definición: la relación en
+    // la base lleva su propio `vehicleType`.
+    categoryId: null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Categorías (carrocería / tipo de moto)
 // ---------------------------------------------------------------------------
 
 /**
@@ -321,8 +558,18 @@ export interface VehicleElectrification {
  */
 export interface VehicleDocumentation {
   registrationCity: string | null;
-  /** 0–9. Es lo que decide el pico y placa. */
-  plateLastDigit: number | null;
+  /**
+   * Cómo termina la placa, en texto.
+   *
+   * En carro es un dígito, que es lo que mira el pico y placa. En moto no:
+   * los formatos colombianos han cambiado con los años y dar por hecho
+   * "número + letra" dejaría fuera placas perfectamente válidas, así que se
+   * acepta alfanumérico y se guarda tal cual, en mayúsculas.
+   *
+   * Es un dato que se muestra, no uno del que se deduzca nada: aquí no se
+   * calcula ningún pico y placa.
+   */
+  plateEnding: string | null;
   soatValid: boolean | null;
   soatExpiresOn: string | null;
   /** `false` es una respuesta: hay vehículos a los que todavía no les aplica. */
@@ -375,8 +622,14 @@ export interface Vehicle {
   category: VehicleCategory | null;
   /** `null` mientras nadie lo haya elegido. Nunca un valor por defecto. */
   fuelType: string | null;
+  /** Vocabulario propio de cada universo: ver `transmissionsFor()`. */
   transmission: string | null;
+  /** Número de marchas, opcional. Se lee junto a la transmisión. */
+  gearCount: number | null;
+  /** Solo carros. En una moto es siempre `null`. */
   drivetrain: string | null;
+  /** Solo motos: cadena, correa, cardán… En un carro es siempre `null`. */
+  finalDrive: string | null;
   /** Nombre del motor tal como se lee: "3.0 L I6 TwinPower Turbo". */
   engine: string;
   exteriorColor: string;
@@ -386,9 +639,10 @@ export interface Vehicle {
   publication: PublicationStatus;
   featured: boolean;
   description: string;
-  /** Claves del catálogo de src/lib/equipment-catalog.ts. */
-  features: string[];
-  /** Equipamiento adicional en texto libre. Lista ordenada. */
+  /**
+   * El equipamiento, una línea por elemento y en orden. Una línea entre
+   * corchetes —`[Frenos]`— abre una sección.
+   */
   equipment: string[];
   specialEquipment: SpecialEquipmentItem[];
   tags: string[];

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { formatDateOnly, isPastDate } from "@/lib/format";
-import { groupFeatures } from "@/lib/equipment-catalog";
+import { equipmentSections } from "@/lib/equipment";
 import {
   documentationRows,
   electrificationBlocks,
@@ -299,7 +299,7 @@ describe("CASO I · un vehículo con la ficha técnica incompleta", () => {
     ]);
     assert.deepEqual(
       specBlocks(bare).map((block) => block.title),
-      ["General"],
+      ["General", "Transmisión"],
     );
     assert.deepEqual(labels(specBlocks(bare)[0].rows), [
       "Año", "Kilometraje", "Carrocería", "Ciudad",
@@ -356,7 +356,7 @@ describe("documentación, dicha como se dice en Colombia", () => {
 
   it("el dígito 0 de la placa se muestra: es un dígito, no un vacío", () => {
     const rows = documentationRows(
-      makeVehicle({ documentation: { plateLastDigit: 0 } }),
+      makeVehicle({ documentation: { plateEnding: "0" } }),
     );
     assert.equal(valueOf(rows, "Placa termina en"), "0");
   });
@@ -392,23 +392,31 @@ describe("fechas administrativas", () => {
   });
 });
 
-describe("equipamiento por categorías", () => {
-  it("agrupa en el orden del catálogo y descarta los grupos vacíos", () => {
-    const groups = groupFeatures([
-      "camera-360", "led-headlights", "head-up-display", "launch-control",
+describe("equipamiento por secciones", () => {
+  it("agrupa por las secciones escritas y conserva el orden", () => {
+    const sections = equipmentSections([
+      "[Exterior]",
+      "Faros LED",
+      "[Frenos]",
+      "Brembo Stylema",
+      "Disco de 330 mm",
     ]);
     assert.deepEqual(
-      groups.map((group) => group.title),
-      ["Exterior", "Interior", "Seguridad y asistencias", "Performance"],
+      sections.map((s) => s.title),
+      ["Exterior", "Frenos"],
     );
-    assert.deepEqual(groups[0].labels, ["Faros LED"]);
+    assert.deepEqual(sections[1].items, ["Brembo Stylema", "Disco de 330 mm"]);
   });
 
-  it("una clave desconocida no dibuja un identificador suelto", () => {
-    assert.deepEqual(groupFeatures(["no-existe"]), []);
+  it("lo escrito sin sección cae en un grupo sin epígrafe", () => {
+    const sections = equipmentSections(["Llantas de invierno", "Barras"]);
+    assert.equal(sections.length, 1);
+    assert.equal(sections[0].title, null);
+    assert.deepEqual(sections[0].items, ["Llantas de invierno", "Barras"]);
   });
 
-  it("sin nada seleccionado no hay grupos", () => {
-    assert.deepEqual(groupFeatures([]), []);
+  it("una sección sin elementos no se dibuja", () => {
+    assert.deepEqual(equipmentSections(["[Frenos]"]), []);
+    assert.deepEqual(equipmentSections([]), []);
   });
 });

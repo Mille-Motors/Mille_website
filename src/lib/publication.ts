@@ -1,4 +1,31 @@
-import type { Vehicle } from "@/types/vehicle";
+import { usesDrivetrain, usesFinalDrive } from "@/types/vehicle";
+import type { VehicleType } from "@/types/vehicle";
+
+/**
+ * Lo que hace falta mirar para decidir si algo puede publicarse.
+ *
+ * Es más estrecho que `Vehicle` a propósito. El formulario necesita
+ * responder la pregunta sobre lo que el administrador TIENE DELANTE —su
+ * borrador sin guardar— y no sobre la copia que el servidor devolvió la
+ * última vez; con `Vehicle` entero no podía, porque el borrador no es un
+ * `Vehicle`. Un `Vehicle` encaja aquí por forma, sin convertir nada.
+ */
+export interface PublicationCandidate {
+  vehicleType: VehicleType;
+  make: string;
+  model: string;
+  category: { id: string } | null;
+  year: number | null;
+  price: number | null;
+  mileage: number | null;
+  fuelType: string | null;
+  transmission: string | null;
+  drivetrain: string | null;
+  finalDrive: string | null;
+  city: string | null;
+  description: string;
+  images: { id: string }[];
+}
 
 /**
  * Lo mínimo que necesita un vehículo para poder estar en el sitio público.
@@ -15,11 +42,15 @@ import type { Vehicle } from "@/types/vehicle";
  * entre lo que se puede guardar y lo que se puede enseñar. Guardar a medias
  * es normal; publicar a medias, imposible.
  *
- * Son DOCE requisitos —marca, modelo, carrocería, año, precio, kilometraje,
- * combustible, transmisión, tracción, ciudad, descripción y al menos una
- * fotografía— y eso no son doce mensajes: marca y modelo comparten uno,
- * porque a quien edita le da igual cuál de los dos falta. La cuenta de
- * mensajes no tiene por qué coincidir con la de requisitos.
+ * La lista DEPENDE DEL TIPO. Once requisitos son comunes —marca, modelo,
+ * categoría, año, precio, kilometraje, combustible, transmisión, ciudad,
+ * descripción y al menos una fotografía— y el duodécimo cambia de universo:
+ * un carro necesita tracción y una moto, transmisión final. Exigirle a una
+ * moto la tracción integral de un carro la dejaba bloqueada por un campo
+ * que su propio formulario ni siquiera le muestra.
+ *
+ * Doce requisitos tampoco son doce mensajes: marca y modelo comparten uno,
+ * porque a quien edita le da igual cuál de los dos falta.
  *
  * Y es la ÚNICA puerta. Como la base ya no obliga a rellenar carrocería,
  * combustible, transmisión, tracción ni ciudad —un borrador no puede
@@ -30,12 +61,18 @@ import type { Vehicle } from "@/types/vehicle";
 /** El año más lejano que se acepta como plausible al publicar. */
 const MIN_YEAR = 1900;
 
-export function publicationBlockers(vehicle: Vehicle): string[] {
+export function publicationBlockers(vehicle: PublicationCandidate): string[] {
   const blockers: string[] = [];
   if (!vehicle.make.trim() || !vehicle.model.trim()) {
     blockers.push("Faltan la marca o el modelo.");
   }
-  if (!vehicle.category) blockers.push("Falta la carrocería.");
+  if (!vehicle.category) {
+    blockers.push(
+      vehicle.vehicleType === "moto"
+        ? "Falta el tipo de moto."
+        : "Falta la carrocería.",
+    );
+  }
   // Un año fuera de rango no es un borrador a medias: es un error, y en una
   // ficha pública se nota.
   if (
@@ -56,7 +93,13 @@ export function publicationBlockers(vehicle: Vehicle): string[] {
   if (vehicle.mileage === null) blockers.push("Falta el kilometraje.");
   if (!vehicle.fuelType) blockers.push("Falta el combustible.");
   if (!vehicle.transmission) blockers.push("Falta la transmisión.");
-  if (!vehicle.drivetrain) blockers.push("Falta la tracción.");
+  // El duodécimo requisito, y el único que cambia de universo.
+  if (usesDrivetrain(vehicle.vehicleType) && !vehicle.drivetrain) {
+    blockers.push("Falta la tracción.");
+  }
+  if (usesFinalDrive(vehicle.vehicleType) && !vehicle.finalDrive) {
+    blockers.push("Falta la transmisión final.");
+  }
   if (!vehicle.city?.trim()) blockers.push("Falta la ciudad.");
   if (!vehicle.description.trim()) blockers.push("Falta la descripción.");
   // `placeholder` es la imagen de respaldo que inventa el mapeo cuando no hay

@@ -1,3 +1,4 @@
+import type { PublicationCandidate } from "@/lib/publication";
 import { DEFAULT_VEHICLE_TYPE } from "@/lib/vehicle-defaults";
 import type {
   AvailabilityStatus,
@@ -44,7 +45,11 @@ export interface Draft {
   categoryId: string;
   fuelType: string;
   transmission: string;
+  gearCount: number | null;
+  /** Solo carros. En moto se queda vacío y no se muestra. */
   drivetrain: string;
+  /** Solo motos: cadena, correa, cardán. En carro se queda vacío. */
+  finalDrive: string;
   engine: string;
   exteriorColor: string;
   interiorColor: string;
@@ -82,7 +87,8 @@ export interface Draft {
   chargeTimeNote: string;
 
   registrationCity: string;
-  plateLastDigit: string;
+  /** Texto: un dígito en carro, alfanumérico en moto. */
+  plateEnding: string;
   soatValid: boolean | null;
   soatExpiresOn: string;
   techInspectionApplies: boolean | null;
@@ -96,7 +102,6 @@ export interface Draft {
   funFactTitle: string;
   funFactBody: string;
 
-  features: string[];
   specialEquipment: SpecialEquipmentItem[];
   tags: string[];
 }
@@ -129,7 +134,9 @@ export function emptyDraft(): Draft {
     categoryId: "",
     fuelType: "",
     transmission: "",
+    gearCount: null,
     drivetrain: "",
+    finalDrive: "",
     engine: "",
     exteriorColor: "",
     interiorColor: "",
@@ -167,7 +174,7 @@ export function emptyDraft(): Draft {
     chargeTimeNote: "",
 
     registrationCity: "",
-    plateLastDigit: "",
+    plateEnding: "",
     soatValid: null,
     soatExpiresOn: "",
     techInspectionApplies: null,
@@ -181,7 +188,6 @@ export function emptyDraft(): Draft {
     funFactTitle: "",
     funFactBody: "",
 
-    features: [],
     specialEquipment: [],
     tags: [],
   };
@@ -220,4 +226,44 @@ export function draftHasContent(draft: Draft, equipmentText = ""): boolean {
     // obsoleta cuando el borrador gana un campo nuevo.
     return JSON.stringify(current) !== JSON.stringify(initial);
   });
+}
+
+
+/**
+ * El borrador, en la forma que `publicationBlockers()` sabe leer.
+ *
+ * Existe por un fallo concreto: el panel "Falta para publicar" se calculaba
+ * sobre la copia que el servidor devolvió la última vez, así que mientras
+ * alguien rellenaba la ficha el panel seguía enumerando como ausente todo lo
+ * que acababa de escribir. No era un cálculo stale por accidente: era que se
+ * estaba preguntando por el objeto equivocado.
+ *
+ * Lo que el administrador tiene delante es el borrador. Lo único que el
+ * borrador no sabe son las fotografías, que viven en el servidor porque se
+ * suben una a una — así que se pasan aparte.
+ *
+ * El servidor sigue teniendo la última palabra: esto decide qué se enseña,
+ * no qué se permite.
+ */
+export function draftPublicationCandidate(
+  draft: Draft,
+  images: { id: string }[],
+): PublicationCandidate {
+  return {
+    vehicleType: draft.vehicleType,
+    make: draft.make,
+    model: draft.model,
+    // Al panel solo le importa si hay carrocería elegida, no cuál.
+    category: draft.categoryId ? { id: draft.categoryId } : null,
+    year: draft.year,
+    price: draft.price,
+    mileage: draft.mileage,
+    fuelType: draft.fuelType || null,
+    transmission: draft.transmission || null,
+    drivetrain: draft.drivetrain || null,
+    finalDrive: draft.finalDrive || null,
+    city: draft.city.trim() || null,
+    description: draft.description,
+    images,
+  };
 }

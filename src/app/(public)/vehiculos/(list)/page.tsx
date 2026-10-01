@@ -96,6 +96,7 @@ export default async function InventoryPage(props: PageProps<"/vehiculos">) {
     fuelType: filters.combustible,
     transmission: filters.transmision,
     drivetrain: filters.traccion,
+    finalDrive: filters.transmisionFinal,
     city: filters.ciudad,
     tag: filters.etiqueta,
     minYear: filters.minYear,

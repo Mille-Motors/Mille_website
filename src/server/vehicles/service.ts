@@ -29,9 +29,17 @@ import type {
 } from "@/server/vehicles/schemas";
 import {
   DRIVETRAINS,
+  FINAL_DRIVES,
   FUEL_TYPES,
   TRANSMISSIONS,
   VEHICLE_TAGS,
+  engineLayoutsFor,
+  keepOnTypeChange,
+  tagsFor,
+  transmissionsFor,
+  usesDrivetrain,
+  usesFinalDrive,
+  usesInteriorColor,
 } from "@/types/vehicle";
 import type {
   AvailabilityStatus,
@@ -61,6 +69,7 @@ export interface PublicVehicleQuery {
   fuelType?: string;
   transmission?: string;
   drivetrain?: string;
+  finalDrive?: string;
   city?: string;
   /** Carácter del vehículo: "Deportivo", "Off-road"… */
   tag?: string;
@@ -120,6 +129,7 @@ function publicWhere(query: PublicVehicleQuery): Prisma.VehicleWhereInput {
   if (query.fuelType) where.fuelType = query.fuelType;
   if (query.transmission) where.transmission = query.transmission;
   if (query.drivetrain) where.drivetrain = query.drivetrain;
+  if (query.finalDrive) where.finalDrive = query.finalDrive;
   if (query.city) where.city = query.city;
   // `has` se traduce a `tags @> ARRAY[...]`, que es lo que sabe usar el
   // índice GIN de la columna.
@@ -284,6 +294,8 @@ export interface InventoryFacets {
   fuelTypes: string[];
   transmissions: string[];
   drivetrains: string[];
+  /** Solo tiene contenido en el universo moto. */
+  finalDrives: string[];
   cities: string[];
   tags: string[];
   minPrice: number;
@@ -344,6 +356,7 @@ export async function getInventoryFacets(
         fuelType: true,
         transmission: true,
         drivetrain: true,
+        finalDrive: true,
         city: true,
         tags: true,
         category: {
@@ -449,6 +462,10 @@ export async function getInventoryFacets(
     drivetrains: orderedByVocabulary(
       presentValues(pool.map((v) => v.drivetrain)),
       DRIVETRAINS,
+    ),
+    finalDrives: orderedByVocabulary(
+      presentValues(pool.map((v) => v.finalDrive)),
+      FINAL_DRIVES,
     ),
     cities: [...presentValues(pool.map((v) => v.city))].sort((a, b) =>
       a.localeCompare(b, "es"),
@@ -618,6 +635,106 @@ export async function requireVehicle(id: string): Promise<Vehicle> {
 // Mutaciones
 // ---------------------------------------------------------------------------
 
+/**
+ * Que lo guardado pertenezca al universo del vehículo.
+ *
+ * Zod comprueba que un valor exista en ALGUNO de los dos vocabularios; esto
+ * comprueba que exista en el que toca. Vive aquí y no en el esquema porque
+ * un PATCH puede no traer `vehicleType`, y entonces el universo efectivo es
+ * el que ya tiene la fila: ese dato solo lo conoce el servicio.
+ *
+ * Es la red de seguridad del servidor, no la del formulario: la pantalla ya
+ * ofrece únicamente lo que corresponde, pero la API es la que manda.
+ */
+function assertVocabulary(
+  input: VehiclePatch,
+  vehicleType: VehicleType,
+): void {
+  const fields: Record<string, string> = {};
+
+  if (
+    input.transmission &&
+    !transmissionsFor(vehicleType).includes(input.transmission)
+  ) {
+    fields.transmission = `"${input.transmission}" no es una transmisión de ${vehicleType === "moto" ? "moto" : "carro"}.`;
+  }
+  if (
+    input.engineLayout &&
+    !engineLayoutsFor(vehicleType).includes(input.engineLayout)
+  ) {
+    fields.engineLayout = `"${input.engineLayout}" no es una arquitectura de ${vehicleType === "moto" ? "moto" : "carro"}.`;
+  }
+  for (const tag of input.tags ?? []) {
+    if (!tagsFor(vehicleType).includes(tag)) {
+      fields.tags = `"${tag}" no aplica a ${vehicleType === "moto" ? "una moto" : "un carro"}.`;
+    }
+  }
+  if (input.drivetrain && !usesDrivetrain(vehicleType)) {
+    fields.drivetrain = "La tracción FWD/RWD/AWD es un concepto de carro.";
+  }
+  if (input.finalDrive && !usesFinalDrive(vehicleType)) {
+    fields.finalDrive = "La transmisión final es un concepto de moto.";
+  }
+  if (input.interiorColor && !usesInteriorColor(vehicleType)) {
+    fields.interiorColor = "Una moto no tiene color de interior.";
+  }
+  // En carro la terminación de placa es el dígito del pico y placa. En moto
+  // no se impone forma: los formatos colombianos han cambiado con los años.
+  if (
+    input.plateEnding &&
+    vehicleType === "auto" &&
+    !/^[0-9]$/.test(input.plateEnding)
+  ) {
+    fields.plateEnding = "En un carro es un solo dígito, de 0 a 9.";
+  }
+
+  const reasons = Object.values(fields);
+  if (reasons.length > 0) {
+    // El motivo concreto va también en el mensaje, no solo en el mapa por
+    // campo: quien llame a la API desde fuera del formulario merece saber
+    // qué rechazó sin tener que leer la estructura del error.
+    throw conflict(reasons.join(" "), fields);
+  }
+}
+
+/**
+ * Lo que deja de tener sentido al cambiar de universo, en la forma que
+ * Prisma espera.
+ *
+ * La decisión —qué sobrevive y qué no— la toma `keepOnTypeChange()`, que es
+ * la misma función que usa el formulario. Aquí solo se traduce a columnas.
+ * Tenerla en un solo sitio es lo que impide que las dos caras se
+ * desincronicen, que ya pasó una vez: el formulario limpiaba la transmisión
+ * y el servicio no, así que un carro podía quedar guardado con una caja de
+ * moto.
+ *
+ * Sobre un vehículo publicado esto no puede ocurrir a escondidas:
+ * `assertPublishedInvariant()` corre al final de la misma transacción y la
+ * revierte entera si el cambio lo dejaría incompleto.
+ */
+function fieldsClearedByTypeChange(
+  nextType: VehicleType,
+  current: {
+    transmission: string | null;
+    engineLayout: string | null;
+    drivetrain: string | null;
+    finalDrive: string | null;
+    interiorColor: string;
+    tags: string[];
+  },
+): Prisma.VehicleUpdateInput {
+  const kept = keepOnTypeChange(nextType, { ...current, categoryId: null });
+
+  return {
+    transmission: kept.transmission,
+    engineLayout: kept.engineLayout,
+    drivetrain: kept.drivetrain,
+    finalDrive: kept.finalDrive,
+    interiorColor: kept.interiorColor,
+    tags: kept.tags,
+  };
+}
+
 async function assertCategory(
   categoryId: string | null,
   vehicleType: VehicleType,
@@ -695,7 +812,9 @@ const DIRECT_FIELDS = [
   "mileage",
   "fuelType",
   "transmission",
+  "gearCount",
   "drivetrain",
+  "finalDrive",
   "engine",
   "exteriorColor",
   "interiorColor",
@@ -729,7 +848,7 @@ const DIRECT_FIELDS = [
   "chargeConnector",
   "chargeTimeNote",
   "registrationCity",
-  "plateLastDigit",
+  "plateEnding",
   "soatValid",
   "techInspectionApplies",
   "taxStatus",
@@ -738,7 +857,6 @@ const DIRECT_FIELDS = [
   "funFactEnabled",
   "funFactTitle",
   "funFactBody",
-  "features",
   "equipment",
   "specialEquipment",
   "tags",
@@ -898,6 +1016,7 @@ export async function discardDraftVehicle(id: string): Promise<void> {
  * explícita, con sus propios requisitos.
  */
 export async function createVehicle(input: VehicleInput): Promise<Vehicle> {
+  assertVocabulary(input, input.vehicleType);
   await assertCategory(input.categoryId, input.vehicleType);
 
   const slug = await uniqueVehicleSlug(input, { preferred: input.slug });
@@ -931,6 +1050,10 @@ export async function updateVehicle(
   const vehicleType = patch.vehicleType ?? undefined;
   const nextType = vehicleType ?? currentType;
 
+  // Contra el universo que QUEDARÁ, no contra el que había: mandar en la
+  // misma petición "moto" y "Manual secuencial" es correcto.
+  assertVocabulary(patch, nextType);
+
   /**
    * Cambiar de universo no puede arrastrar una carrocería del otro: una moto
    * con carrocería "SUV" no significa nada.
@@ -954,6 +1077,19 @@ export async function updateVehicle(
   }
 
   const data: Prisma.VehicleUpdateInput = {
+    // El arrastre del universo anterior se limpia ANTES de aplicar el
+    // parche, para que lo que venga en la misma petición mande sobre ello:
+    // pasar a moto y elegir cardán a la vez guarda el cardán.
+    ...(vehicleType && vehicleType !== currentType
+      ? fieldsClearedByTypeChange(nextType, {
+          transmission: current.transmission,
+          engineLayout: current.engineLayout,
+          drivetrain: current.drivetrain,
+          finalDrive: current.finalDrive,
+          interiorColor: current.interiorColor,
+          tags: current.tags,
+        })
+      : {}),
     ...pickDefined(patch, DIRECT_FIELDS),
     ...dateFields(patch),
   };

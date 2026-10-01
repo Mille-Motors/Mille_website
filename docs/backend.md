@@ -148,11 +148,14 @@ forma real.
 
 | Concepto | Dónde vive | Valores |
 | --- | --- | --- |
-| Carrocería | `Category` (relación) | `src/lib/body-types.ts` |
+| Carrocería / tipo de moto | `Category` (relación) | `src/lib/body-types.ts` |
 | Propulsión | `Vehicle.fuelType` | `FUEL_TYPES` |
-| Transmisión | `Vehicle.transmission` | `TRANSMISSIONS` |
-| Tracción | `Vehicle.drivetrain` | `DRIVETRAINS` |
-| Carácter | `Vehicle.tags` (`text[]`) | `VEHICLE_TAGS` |
+| Transmisión | `Vehicle.transmission` | `transmissionsFor(tipo)` |
+| Marchas | `Vehicle.gearCount` | 1–8, opcional |
+| Tracción (solo carro) | `Vehicle.drivetrain` | `DRIVETRAINS` |
+| Transmisión final (solo moto) | `Vehicle.finalDrive` | `FINAL_DRIVES` |
+| Arquitectura de motor | `Vehicle.engineLayout` | `engineLayoutsFor(tipo)` |
+| Carácter | `Vehicle.tags` (`text[]`) | `tagsFor(tipo)` |
 
 Los vocabularios están en `src/types/vehicle.ts` y son la **fuente única**: de
 ahí salen los `<option>` del admin, los del filtro público y los `z.enum` de la
@@ -166,6 +169,88 @@ base limpia —el mismo que usó la migración y que usa el seed— está en
 `isFullyElectric()`. El formulario decide con ellas qué secciones pedir y la
 ficha pública qué bloques dibujar, de modo que no existen dos criterios
 distintos de "esto es un híbrido".
+
+### Carro y moto no son el mismo formulario
+
+Un carro y una moto comparten marca, modelo, año, precio, kilometraje,
+combustible, ciudad, documentación, fotografías y descripción. Casi todo lo
+demás es distinto, y antes no lo era: a una moto se le pedía tracción
+integral, se le ofrecía "Carrocería: ADV", se le guardaba un color de
+interior que no tiene y se le exigía todo eso para publicarla — mientras que
+la caja, las marchas y la transmisión final, que es lo que cualquier revista
+publica de una moto, no cabían en ninguna columna.
+
+`vehicleType` decide ahora el vocabulario, los campos, la validación, los
+requisitos de publicación, los filtros y las etiquetas públicas. La
+autoridad son cuatro funciones en `src/types/vehicle.ts`:
+
+| Función | Responde |
+| --- | --- |
+| `usesDrivetrain(tipo)` | ¿Tiene FWD/RWD/AWD? Solo carro. |
+| `usesFinalDrive(tipo)` | ¿Cadena, correa o cardán? Solo moto. |
+| `usesInteriorColor(tipo)` | ¿Tiene habitáculo que tapizar? Solo carro. |
+| `categoryLabel(tipo)` | "Carrocería" o "Tipo de moto". |
+
+más `transmissionsFor()`, `engineLayoutsFor()` y `tagsFor()`, que devuelven
+el vocabulario del universo. Nadie ofrece la unión: existe solo para validar
+y para ordenar facetas.
+
+Tres detalles que conviene no deshacer:
+
+- **El quickshifter no es una transmisión.** Una Panigale con caja manual
+  secuencial de seis marchas y quickshifter tiene una caja manual
+  secuencial; el quickshifter es equipamiento, y está en la plantilla.
+- **`hasCombustionEngine(null)` devuelve `true`**, al revés que las demás
+  predicciones de propulsión. Esconder el motor térmico porque todavía no
+  se eligió el combustible dejaba el formulario sin cilindrada nada más
+  abrirlo. Enseñar los campos vacíos no afirma nada; esconderlos sí.
+- **`keepOnTypeChange()` es la única regla** sobre qué sobrevive a un cambio
+  de universo, y la llaman el formulario y el servicio. Estuvo escrita dos
+  veces y se desincronizaron: el formulario limpiaba la transmisión y el
+  servicio no, así que un carro podía quedar guardado con una caja de moto.
+
+#### Dónde se valida el vocabulario
+
+Zod comprueba que un valor exista en **alguno** de los dos vocabularios.
+Que exista en **el que toca** lo comprueba `assertVocabulary()` en el
+servicio, y tiene que ser ahí: un `PATCH` puede no traer `vehicleType`, y
+entonces el universo efectivo es el de la fila, que solo el servicio conoce.
+
+#### La placa
+
+`plateEnding` es texto. En carro es el dígito del pico y placa —el servicio
+exige `^[0-9]$`—; en moto se acepta alfanumérico, porque los formatos
+colombianos han cambiado con los años y dar por hecho "número + letra"
+dejaría fuera placas válidas. Se normaliza en mayúsculas y sin espacios, y
+**no se deduce ningún pico y placa de él**: es un dato que se muestra.
+
+#### El equipamiento es texto
+
+Era un catálogo cerrado de ochenta casillas. Buscar una opción entre decenas
+de checkboxes salía más lento que escribirla, y el catálogo no podía nombrar
+una suspensión Skyhook ni unas pinzas Brembo Stylema: para motos no servía
+casi de nada.
+
+Ahora `equipment` es una línea por elemento, y una línea `[Frenos]` abre una
+sección. `src/lib/equipment.ts` tiene las dos plantillas —una por universo—
+y el parseo. **Cargar la plantilla y guardar sin tocar nada no inventa
+equipamiento**: las líneas sin rellenar ("ABS:" a secas) y las secciones que
+se quedan vacías se descartan al guardar.
+
+La migración tradujo las claves del catálogo viejo a líneas con su sección,
+así que nadie perdió lo que tenía marcado.
+
+#### Las fechas se escriben
+
+`DateField` (`src/components/ui/DateField.tsx`) es un campo de texto que se
+teclea seguido —`01102026` se convierte en `01/10/2026`— con el calendario
+nativo detrás de un botón. El `<input type="date">` obligaba a trabajar por
+segmentos y a corregir con el ratón.
+
+Hacia fuera siempre viaja ISO. La conversión es **de cadena a cadena** y
+está en `src/lib/date-input.ts`: no se construye ningún `Date`, porque
+`new Date("2026-10-01")` es medianoche UTC y en Bogotá cae el 30 de
+septiembre.
 
 ### Migraciones
 
@@ -185,6 +270,8 @@ Las que importan:
    propulsión, tracción y carácter, y añade la ficha técnica ampliada.
 6. `20260930120000_incomplete_drafts` — deja que un borrador esté a medias.
 7. `20260930150000_draft_nothing_asserted` — y que no afirme nada sin elegir.
+8. `20261001090000_motorcycle_semantics` — carro y moto dejan de ser el mismo
+   formulario.
 
 Nunca `prisma migrate reset` ni `prisma db push` contra Supabase.
 
@@ -234,6 +321,19 @@ La alternativa era un almacén temporal de imágenes sin dueño, con su
 caducidad y su propio riesgo de huérfanos. No hacía falta: `DRAFT` ya
 significa "todavía no está listo".
 
+#### Qué hizo la migración de motos
+
+Añadió `gearCount` y `finalDrive`, convirtió `plateLastDigit` (entero 0–9) en
+`plateEnding` (texto) copiando el valor antes de soltar la columna, y
+tradujo las claves de `features` a líneas de `equipment` con su sección
+—`[Frenos] Brembo Stylema`— antes de soltar también esa columna.
+
+La traducción de claves a etiquetas va **escrita en el SQL** y no leída del
+código a propósito: una migración tiene que dar el mismo resultado dentro de
+un año, aunque el catálogo ya no exista en el repositorio.
+
+Se verificó sobre una fila real sembrada a propósito antes de aplicarla.
+
 #### Qué hizo la migración de "no afirmar nada"
 
 La anterior dejó que un borrador existiera sin marca, modelo, precio,
@@ -267,9 +367,12 @@ Quién valida qué, que es lo único que hay que tener claro aquí:
 | Publicar | Que esté **completo**: los doce requisitos | `publicationBlockers()` |
 | Cualquier mutación sobre un publicado | Que siga completo | `assertPublishedInvariant()`, dentro de la transacción |
 
-Los doce son: marca, modelo, carrocería, año válido, precio, kilometraje,
-combustible, transmisión, tracción, ciudad, descripción y al menos una
-fotografía. Como la base ya no obliga a ninguno, **lo que antes garantizaba
+Los doce son: marca, modelo, categoría, año válido, precio, kilometraje,
+combustible, transmisión, ciudad, descripción, al menos una fotografía y
+—según el universo— **tracción** en un carro o **transmisión final** en una
+moto. Ese último es el único que cambia: exigirle a una moto la tracción
+integral de un carro la dejaba bloqueada por un campo que su propio
+formulario ni siquiera le muestra. Como la base ya no obliga a ninguno, **lo que antes garantizaba
 el `NOT NULL` lo garantiza ahora esa lista, y solo ella**: quitar una línea
 de `publicationBlockers()` no deja un formulario más cómodo, deja una ficha
 pública con huecos.

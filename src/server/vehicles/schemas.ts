@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { EQUIPMENT_KEYS } from "@/lib/equipment-catalog";
 import {
   ASPIRATIONS,
   AVAILABILITY_STATUSES,
@@ -7,7 +6,10 @@ import {
   DRIVETRAINS,
   ELECTRIC_MOTOR_LAYOUTS,
   ENGINE_LAYOUTS,
+  FINAL_DRIVES,
   FUEL_TYPES,
+  MAX_GEAR_COUNT,
+  MIN_GEAR_COUNT,
   PUBLICATION_STATUSES,
   RANGE_STANDARDS,
   TAX_STATUSES,
@@ -22,8 +24,12 @@ import {
  *
  * Los vocabularios cerrados se comprueban contra las mismas listas que
  * pintan los desplegables (src/types/vehicle.ts) y contra el mismo catálogo
- * que pinta el equipamiento (src/lib/equipment-catalog.ts). No hay ninguna
- * opción escrita dos veces.
+ * en src/types/vehicle.ts. No hay ninguna opción escrita dos veces.
+ *
+ * Lo que este archivo NO puede comprobar es si un valor corresponde al
+ * universo del vehículo —"Manual secuencial" existe, pero no en un carro—
+ * porque un PATCH puede no traer `vehicleType`. Eso lo hace
+ * `assertVocabulary()` en el servicio, que sí conoce el tipo efectivo.
  */
 
 const MAX_YEAR = new Date().getFullYear() + 2;
@@ -181,8 +187,13 @@ const vehicleFieldsSchema = z.object({
   // como texto: ampliar la lista no debería exigir una migración. Un valor
   // inventado sigue siendo un error; la ausencia, no.
   fuelType: optionalEnum(FUEL_TYPES),
+  // La unión de los dos vocabularios. Que el valor corresponda al universo
+  // del vehículo se comprueba después, en `checkVocabulary()`: aquí solo se
+  // rechaza lo que no existe en ninguno de los dos.
   transmission: optionalEnum(TRANSMISSIONS),
+  gearCount: optionalNumber(MIN_GEAR_COUNT, MAX_GEAR_COUNT),
   drivetrain: optionalEnum(DRIVETRAINS),
+  finalDrive: optionalEnum(FINAL_DRIVES),
   engine: trimmed(120).default(""),
   exteriorColor: trimmed(60).default(""),
   interiorColor: trimmed(60).default(""),
@@ -223,7 +234,29 @@ const vehicleFieldsSchema = z.object({
 
   // --- Documentación y matrícula ------------------------------------------
   registrationCity: optionalText(80),
-  plateLastDigit: optionalNumber(0, 9),
+  /**
+   * La terminación de la placa, en texto y en mayúsculas.
+   *
+   * Aquí solo se limpia la forma —letras, números y los separadores que la
+   * gente escribe—; que un carro traiga un solo dígito lo comprueba
+   * `checkVocabulary()`, porque esa regla depende del universo.
+   */
+  plateEnding: z
+    .union([z.string(), z.null()])
+    .optional()
+    .transform((value, ctx) => {
+      if (value === null || value === undefined) return null;
+      const clean = value.trim().toUpperCase().replace(/\s+/g, "");
+      if (clean === "") return null;
+      if (!/^[A-Z0-9-]{1,8}$/.test(clean)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Usa solo letras y números.",
+        });
+        return null;
+      }
+      return clean;
+    }),
   soatValid: optionalBoolean,
   soatExpiresOn: optionalDate,
   techInspectionApplies: optionalBoolean,
@@ -244,21 +277,20 @@ const vehicleFieldsSchema = z.object({
    * rechazar el guardado entero: si una clave se retira del catálogo, editar
    * un vehículo antiguo no puede quedar bloqueado por algo que él no eligió.
    */
-  features: z
-    .array(z.string())
-    .max(200)
-    .default([])
-    .transform((keys) => {
-      const valid = new Set(EQUIPMENT_KEYS);
-      return [...new Set(keys.filter((key) => valid.has(key)))];
-    }),
+  /**
+   * El equipamiento, una línea por elemento. El tope sube de 60 a 200
+   * porque ahora incluye las líneas de sección y una ficha de moto bien
+   * detallada las gasta.
+   */
   equipment: z
     .array(trimmed(200))
-    .max(60)
+    .max(200)
     .default([])
     // El orden importa y las líneas vacías no son equipamiento.
     .transform((items) => items.filter((item) => item.length > 0)),
   specialEquipment: z.array(specialEquipmentItemSchema).max(30).default([]),
+  // Como con la transmisión: la unión de los dos vocabularios, y que
+  // correspondan al universo se comprueba en `checkVocabulary()`.
   tags: z
     .array(z.enum(VEHICLE_TAGS))
     .max(VEHICLE_TAGS.length)

@@ -11,22 +11,28 @@ import {
   Save,
 } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
-import { EquipmentPicker } from "@/components/admin/EquipmentPicker";
 import { FormSection } from "@/components/admin/FormSection";
 import { ImageManager } from "@/components/admin/ImageManager";
 import { SpecialEquipmentEditor } from "@/components/admin/SpecialEquipmentEditor";
 import { Button } from "@/components/ui/Button";
+import { DateField } from "@/components/ui/DateField";
 import { Checkbox, Input, Select, Textarea } from "@/components/ui/Field";
 import { NumberField } from "@/components/ui/NumberField";
 import { PublicationPill } from "@/components/ui/PublicationPill";
 import { adminJson } from "@/lib/admin-client";
 import { typeLabel } from "@/lib/categories";
 import { buildDescriptionTemplate } from "@/lib/description-template";
+import {
+  equipmentLinesFromText,
+  equipmentTemplate,
+  equipmentTextFromLines,
+} from "@/lib/equipment";
 import { vehicleLabel } from "@/lib/format";
 import { publicationBlockers } from "@/lib/publication";
 import {
   DECIMAL_KEYS,
   draftHasContent,
+  draftPublicationCandidate,
   emptyDraft,
   type Draft,
 } from "@/lib/vehicle-draft";
@@ -37,18 +43,25 @@ import {
   CHARGE_CONNECTORS,
   DRIVETRAINS,
   ELECTRIC_MOTOR_LAYOUTS,
-  ENGINE_LAYOUTS,
+  FINAL_DRIVES,
   FUEL_TYPES,
+  MAX_GEAR_COUNT,
   RANGE_STANDARDS,
   TAX_STATUSES,
-  TRANSMISSIONS,
-  VEHICLE_TAGS,
   VEHICLE_TYPES,
+  categoryLabel,
+  engineLayoutsFor,
+  keepOnTypeChange,
   hasCombustionEngine,
   hasElectricDrive,
   hasPlugCharging,
   hasTractionBattery,
   isFullyElectric,
+  tagsFor,
+  transmissionsFor,
+  usesDrivetrain,
+  usesFinalDrive,
+  usesInteriorColor,
 } from "@/types/vehicle";
 import type {
   AvailabilityStatus,
@@ -86,7 +99,9 @@ function toDraft(vehicle: Vehicle): Draft {
     categoryId: vehicle.category?.id ?? "",
     fuelType: str(vehicle.fuelType),
     transmission: str(vehicle.transmission),
+    gearCount: vehicle.gearCount,
     drivetrain: str(vehicle.drivetrain),
+    finalDrive: str(vehicle.finalDrive),
     engine: vehicle.engine,
     exteriorColor: vehicle.exteriorColor,
     interiorColor: vehicle.interiorColor,
@@ -124,7 +139,7 @@ function toDraft(vehicle: Vehicle): Draft {
     chargeTimeNote: str(e.chargeTimeNote),
 
     registrationCity: str(d.registrationCity),
-    plateLastDigit: num(d.plateLastDigit),
+    plateEnding: str(d.plateEnding),
     soatValid: d.soatValid,
     soatExpiresOn: str(d.soatExpiresOn),
     techInspectionApplies: d.techInspectionApplies,
@@ -138,7 +153,6 @@ function toDraft(vehicle: Vehicle): Draft {
     funFactTitle: str(funFact.title),
     funFactBody: str(funFact.body),
 
-    features: vehicle.features,
     specialEquipment: vehicle.specialEquipment,
     tags: vehicle.tags,
   };
@@ -228,8 +242,8 @@ export function VehicleForm({
   const [draft, setDraft] = useState<Draft>(
     vehicle ? toDraft(vehicle) : emptyDraft(),
   );
-  const [equipmentText, setEquipmentText] = useState(
-    (vehicle?.equipment ?? []).join("\n"),
+  const [equipmentText, setEquipmentText] = useState(() =>
+    equipmentTextFromLines(vehicle?.equipment ?? []),
   );
   // El aviso que dejó la migración de taxonomía. Se quita al guardar, y solo
   // si quien edita lo marca como resuelto.
@@ -251,6 +265,9 @@ export function VehicleForm({
   // Qué secciones tienen sentido para esta propulsión. Se calcula una vez y
   // lo usan tanto el formulario como, con las mismas funciones, la ficha
   // pública: no hay dos criterios distintos de "esto es un híbrido".
+  const isMoto = draft.vehicleType === "moto";
+  /** Cuántas líneas sobrevivirían al guardado, sin huecos de plantilla. */
+  const equipmentLines = equipmentLinesFromText(equipmentText).length;
   const showIce = hasCombustionEngine(draft.fuelType);
   const showElectric = hasElectricDrive(draft.fuelType);
   const showBattery = hasTractionBattery(draft.fuelType);
@@ -313,8 +330,15 @@ export function VehicleForm({
     const accel = decimal(draft.accel0100);
     if (accel !== null && accel <= 0) next.accel0100 = "Debe ser mayor que cero.";
 
-    if (draft.plateLastDigit !== "" && !/^[0-9]$/.test(draft.plateLastDigit)) {
-      next.plateLastDigit = "Un solo dígito, de 0 a 9.";
+    // En carro la terminación de placa es el dígito del pico y placa; en
+    // moto los formatos colombianos han cambiado con los años y no se le
+    // impone forma.
+    if (draft.plateEnding !== "") {
+      if (!/^[A-Z0-9-]{1,8}$/i.test(draft.plateEnding)) {
+        next.plateEnding = "Usa solo letras y números.";
+      } else if (!isMoto && !/^[0-9]$/.test(draft.plateEnding)) {
+        next.plateEnding = "En un carro es un solo dígito, de 0 a 9.";
+      }
     }
     if (draft.funFactEnabled && !draft.funFactBody.trim()) {
       next.funFactBody = "Escribe el apunte o desactívalo.";
@@ -354,10 +378,16 @@ export function VehicleForm({
       categoryId: text(draft.categoryId),
       fuelType: text(draft.fuelType),
       transmission: text(draft.transmission),
-      drivetrain: text(draft.drivetrain),
+      gearCount: draft.gearCount,
+      // Cada universo manda el suyo y NULL el del otro: así cambiar de tipo
+      // no deja escondido debajo un dato que ya no aplica.
+      drivetrain: usesDrivetrain(draft.vehicleType) ? text(draft.drivetrain) : null,
+      finalDrive: usesFinalDrive(draft.vehicleType) ? text(draft.finalDrive) : null,
       engine: draft.engine,
       exteriorColor: draft.exteriorColor,
-      interiorColor: draft.interiorColor,
+      interiorColor: usesInteriorColor(draft.vehicleType)
+        ? draft.interiorColor
+        : "",
       city: text(draft.city),
       availability: draft.availability,
       featured: draft.featured,
@@ -392,8 +422,7 @@ export function VehicleForm({
       chargeTimeNote: showCharging ? text(draft.chargeTimeNote) : null,
 
       registrationCity: text(draft.registrationCity),
-      plateLastDigit:
-        draft.plateLastDigit === "" ? null : Number(draft.plateLastDigit),
+      plateEnding: text(draft.plateEnding),
       soatValid: draft.soatValid,
       soatExpiresOn: text(draft.soatExpiresOn),
       techInspectionApplies: draft.techInspectionApplies,
@@ -412,11 +441,9 @@ export function VehicleForm({
       funFactTitle: draft.funFactEnabled ? text(draft.funFactTitle) : null,
       funFactBody: draft.funFactEnabled ? text(draft.funFactBody) : null,
 
-      features: draft.features,
-      equipment: equipmentText
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean),
+      // El texto se convierte en líneas aquí: se tiran las vacías y los
+      // huecos de la plantilla que nadie rellenó ("ABS:" a secas).
+      equipment: equipmentLinesFromText(equipmentText),
       specialEquipment: draft.specialEquipment
         .filter((item) => item.name.trim())
         .map((item) => ({
@@ -519,8 +546,28 @@ export function VehicleForm({
    * sobre lo guardado y no sobre lo que se está escribiendo: mientras no se
    * guarde, lo que el servidor ve es lo de antes.
    */
-  const blockers = persisted ? publicationBlockers(persisted) : [];
+  /**
+   * Qué le falta a este vehículo para poder publicarse.
+   *
+   * Se calcula sobre el BORRADOR, que es lo que el administrador tiene
+   * delante, y no sobre la copia que el servidor devolvió la última vez.
+   * Antes se preguntaba por esa copia, así que mientras alguien rellenaba la
+   * ficha el panel seguía enumerando como ausente todo lo que acababa de
+   * escribir, y no se despejaba hasta guardar.
+   *
+   * Lo único que el borrador no sabe son las fotografías, porque se suben
+   * una a una contra el servidor: ésas sí salen de `persisted`.
+   *
+   * Es la MISMA función que usa el servidor para rechazar la publicación,
+   * así que no puede prometer algo que luego se deniegue. Y sigue siendo el
+   * servidor quien decide: esto solo elige qué enseñar.
+   */
+  const blockers = publicationBlockers(
+    draftPublicationCandidate(draft, persisted?.images ?? []),
+  );
   const published = persisted?.publication === "published";
+  /** Lo guardado, que es sobre lo que el servidor va a decidir al publicar. */
+  const savedBlockers = persisted ? publicationBlockers(persisted) : [];
   const powerLabel = fullyElectric
     ? "Potencia total"
     : showElectric
@@ -672,14 +719,39 @@ export function VehicleForm({
                 value={draft.vehicleType}
                 onChange={(e) => {
                   const type = e.target.value as VehicleType;
-                  // La carrocería pertenece al tipo: cambiar de universo la
-                  // reinicia a la primera del nuevo.
-                  const first = categories.find((c) => c.vehicleType === type);
-                  setDraft((current) => ({
-                    ...current,
-                    vehicleType: type,
-                    categoryId: first?.id ?? "",
-                  }));
+                  // Cambiar de universo invalida lo que pertenecía al
+                  // anterior. Se limpia aquí y el servidor lo repite al
+                  // guardar: la pantalla no puede quedar enseñando una
+                  // tracción integral sobre una moto.
+                  //
+                  // Lo que NO se toca: marca, modelo, precio, kilometraje,
+                  // descripción y fotografías son del vehículo, no de su
+                  // universo.
+                  setDraft((current) => {
+                    // La MISMA función que usa el servidor al guardar: si
+                    // cada cara decidiera por su cuenta, acabarían
+                    // discrepando — y ya pasó una vez.
+                    const kept = keepOnTypeChange(type, {
+                      transmission: current.transmission || null,
+                      engineLayout: current.engineLayout || null,
+                      drivetrain: current.drivetrain || null,
+                      finalDrive: current.finalDrive || null,
+                      interiorColor: current.interiorColor,
+                      tags: current.tags,
+                      categoryId: current.categoryId || null,
+                    });
+                    return {
+                      ...current,
+                      vehicleType: type,
+                      transmission: kept.transmission ?? "",
+                      engineLayout: kept.engineLayout ?? "",
+                      drivetrain: kept.drivetrain ?? "",
+                      finalDrive: kept.finalDrive ?? "",
+                      interiorColor: kept.interiorColor,
+                      tags: kept.tags,
+                      categoryId: kept.categoryId ?? "",
+                    };
+                  });
                   setSaved(false);
                 }}
               >
@@ -692,19 +764,21 @@ export function VehicleForm({
               {/* Carrocería, no "categoría": el campo se llama `categoryId`
                   en la base por historia, pero lo que describe es la forma
                   del vehículo. Un híbrido no es una carrocería. */}
+              {/* "Carrocería: ADV" no significa nada: en moto el mismo
+                  campo se titula "Tipo de moto". */}
               <Select
-                label="Carrocería"
+                label={categoryLabel(draft.vehicleType)}
                 value={draft.categoryId}
                 error={errors.categoryId}
                 onChange={(e) => set("categoryId", e.target.value)}
                 containerClassName="sm:col-span-2"
               >
-                {/* Sin preselección: la primera carrocería de la lista no es
-                    la carrocería del carro que se está cargando. */}
+                {/* Sin preselección: la primera de la lista no es la del
+                    vehículo que se está cargando. */}
                 <option value="">
                   {typeCategories.length === 0
-                    ? "No hay carrocerías para este tipo"
-                    : "Seleccionar carrocería"}
+                    ? `No hay opciones para ${isMoto ? "motos" : "carros"}`
+                    : `Seleccionar ${categoryLabel(draft.vehicleType).toLowerCase()}`}
                 </option>
                 {typeCategories.map((category) => (
                   <option key={category.id} value={category.id}>
@@ -727,6 +801,10 @@ export function VehicleForm({
                   </option>
                 ))}
               </Select>
+              {/* Cada universo tiene su vocabulario: "Automática" dice poco
+                  de una moto y "Manual secuencial" no significa nada en un
+                  carro. El quickshifter NO está en esta lista: no es un tipo
+                  de caja, es equipamiento. */}
               <Select
                 label="Transmisión"
                 value={draft.transmission}
@@ -734,25 +812,52 @@ export function VehicleForm({
                 onChange={(e) => set("transmission", e.target.value)}
               >
                 <option value="">Seleccionar transmisión</option>
-                {TRANSMISSIONS.map((t) => (
+                {transmissionsFor(draft.vehicleType).map((t) => (
                   <option key={t} value={t}>
                     {t}
                   </option>
                 ))}
               </Select>
-              <Select
-                label="Tracción"
-                value={draft.drivetrain}
-                error={errors.drivetrain}
-                onChange={(e) => set("drivetrain", e.target.value)}
-              >
-                <option value="">Seleccionar tracción</option>
-                {DRIVETRAINS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </Select>
+              <NumberField
+                label="Marchas"
+                max={MAX_GEAR_COUNT}
+                value={draft.gearCount}
+                error={errors.gearCount}
+                onChange={(next) => set("gearCount", next)}
+              />
+
+              {/* FWD/RWD/AWD es un concepto de carro; cadena, correa y
+                  cardán es lo que publica una ficha de moto. Nunca los dos. */}
+              {usesDrivetrain(draft.vehicleType) ? (
+                <Select
+                  label="Tracción"
+                  value={draft.drivetrain}
+                  error={errors.drivetrain}
+                  onChange={(e) => set("drivetrain", e.target.value)}
+                >
+                  <option value="">Seleccionar tracción</option>
+                  {DRIVETRAINS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </Select>
+              ) : null}
+              {usesFinalDrive(draft.vehicleType) ? (
+                <Select
+                  label="Transmisión final"
+                  value={draft.finalDrive}
+                  error={errors.finalDrive}
+                  onChange={(e) => set("finalDrive", e.target.value)}
+                >
+                  <option value="">Seleccionar transmisión final</option>
+                  {FINAL_DRIVES.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </Select>
+              ) : null}
 
               <Input
                 label="Ciudad"
@@ -768,11 +873,14 @@ export function VehicleForm({
                 value={draft.exteriorColor}
                 onChange={(e) => set("exteriorColor", e.target.value)}
               />
-              <Input
-                label="Color interior"
-                value={draft.interiorColor}
-                onChange={(e) => set("interiorColor", e.target.value)}
-              />
+              {/* Una moto no tiene habitáculo que tapizar. */}
+              {usesInteriorColor(draft.vehicleType) ? (
+                <Input
+                  label="Color interior"
+                  value={draft.interiorColor}
+                  onChange={(e) => set("interiorColor", e.target.value)}
+                />
+              ) : null}
 
               <Select
                 label="Disponibilidad"
@@ -812,7 +920,7 @@ export function VehicleForm({
                 cosa.
               </p>
               <div className="grid gap-2.5 sm:grid-cols-3">
-                {VEHICLE_TAGS.map((tag) => (
+                {tagsFor(draft.vehicleType).map((tag) => (
                   <Checkbox
                     key={tag}
                     label={tag}
@@ -821,7 +929,7 @@ export function VehicleForm({
                       set(
                         "tags",
                         event.target.checked
-                          ? VEHICLE_TAGS.filter(
+                          ? tagsFor(draft.vehicleType).filter(
                               (t) => t === tag || draft.tags.includes(t),
                             )
                           : draft.tags.filter((t) => t !== tag),
@@ -856,7 +964,7 @@ export function VehicleForm({
                     onChange={(e) => set("engineLayout", e.target.value)}
                   >
                     <option value="">Sin dato</option>
-                    {ENGINE_LAYOUTS.map((layout) => (
+                    {engineLayoutsFor(draft.vehicleType).map((layout) => (
                       <option key={layout} value={layout}>
                         {layout}
                       </option>
@@ -891,14 +999,20 @@ export function VehicleForm({
               </fieldset>
             ) : (
               <p className="font-serif text-[0.9375rem] leading-relaxed text-ink-muted">
-                Un eléctrico no tiene cilindrada ni cilindros, así que esos
-                campos no se piden. Su motor se describe abajo, en el sistema
-                eléctrico.
+                Un eléctrico no tiene cilindrada, cilindros ni alimentación,
+                así que esos campos no se piden. Su motor se describe abajo,
+                en el sistema eléctrico.
               </p>
             )}
 
+            {/* Las prestaciones son SIEMPRE las del sistema completo: en un
+                híbrido, la combinada; en un eléctrico, la total. El reparto
+                entre térmico y eléctrico vive abajo, en su sección, y no se
+                pide dos veces. */}
             <fieldset className={showIce ? "mt-8" : "mt-2"}>
-              <legend className="eyebrow mb-4 text-ink-muted">Prestaciones</legend>
+              <legend className="eyebrow mb-4 text-ink-muted">
+                {showElectric ? "Prestaciones del sistema" : "Prestaciones"}
+              </legend>
               <div className="grid gap-5 sm:grid-cols-2">
                 <NumberField
                   label={powerLabel}
@@ -989,18 +1103,21 @@ export function VehicleForm({
                 {showIce ? (
                   <fieldset>
                     <legend className="eyebrow mb-4 text-ink-muted">
-                      Motor de combustión
+                      Reparto del motor térmico
                     </legend>
+                    {/* Solo lo que entrega ESTE motor. Su cilindrada, su
+                        arquitectura y su denominación ya están arriba, en
+                        la sección Motor: aquí no se vuelven a pedir. */}
                     <div className="grid gap-5 sm:grid-cols-2">
                       <NumberField
-                        label="Potencia ICE"
+                        label="Potencia del motor térmico"
                         suffix="hp"
                         max={3_000}
                         value={draft.icePowerHp}
                         onChange={(next) => set("icePowerHp", next)}
                       />
                       <NumberField
-                        label="Torque ICE"
+                        label="Torque del motor térmico"
                         suffix="Nm"
                         max={5_000}
                         value={draft.iceTorqueNm}
@@ -1151,7 +1268,7 @@ export function VehicleForm({
           {/* D. Documentación y matrícula ------------------------------ */}
           <FormSection
             title="Documentación y matrícula"
-            description="Lo que decide si el carro se puede usar mañana. Las fechas usan calendario; en la ficha se leen en español."
+            description="Lo que decide si se puede usar mañana. Las fechas se escriben DD/MM/AAAA o se eligen en el calendario."
             defaultOpen={!creating}
           >
             <div className="grid gap-5 sm:grid-cols-2">
@@ -1160,15 +1277,25 @@ export function VehicleForm({
                 value={draft.registrationCity}
                 onChange={(e) => set("registrationCity", e.target.value)}
               />
+              {/* En carro es el dígito del pico y placa. En moto no se le
+                  impone forma: los formatos colombianos han cambiado con los
+                  años y "número + letra" dejaría fuera placas válidas. Aquí
+                  no se deduce ningún pico y placa; es un dato que se muestra. */}
               <Input
-                label="Último dígito de la placa"
-                inputMode="numeric"
-                maxLength={1}
-                placeholder="0–9"
-                value={draft.plateLastDigit}
-                error={errors.plateLastDigit}
+                label={isMoto ? "Terminación de placa" : "Último dígito de la placa"}
+                inputMode={isMoto ? "text" : "numeric"}
+                maxLength={isMoto ? 8 : 1}
+                placeholder={isMoto ? "12F" : "0–9"}
+                value={draft.plateEnding}
+                error={errors.plateEnding}
                 onChange={(e) =>
-                  set("plateLastDigit", e.target.value.replace(/[^0-9]/g, "").slice(0, 1))
+                  set(
+                    "plateEnding",
+                    e.target.value
+                      .toUpperCase()
+                      .replace(/[^A-Z0-9-]/g, "")
+                      .slice(0, isMoto ? 8 : 1),
+                  )
                 }
               />
 
@@ -1177,12 +1304,11 @@ export function VehicleForm({
                 value={draft.soatValid}
                 onChange={(value) => set("soatValid", value)}
               />
-              <Input
+              <DateField
                 label="Vence el SOAT"
-                type="date"
-                value={draft.soatExpiresOn}
+                value={draft.soatExpiresOn || null}
                 error={errors.soatExpiresOn}
-                onChange={(e) => set("soatExpiresOn", e.target.value)}
+                onChange={(value) => set("soatExpiresOn", value ?? "")}
               />
 
               <TriState
@@ -1199,12 +1325,13 @@ export function VehicleForm({
                   En la ficha se leerá «No aplica actualmente».
                 </p>
               ) : (
-                <Input
+                <DateField
                   label="Vence la técnico-mecánica"
-                  type="date"
-                  value={draft.techInspectionExpiresOn}
+                  value={draft.techInspectionExpiresOn || null}
                   error={errors.techInspectionExpiresOn}
-                  onChange={(e) => set("techInspectionExpiresOn", e.target.value)}
+                  onChange={(value) =>
+                    set("techInspectionExpiresOn", value ?? "")
+                  }
                 />
               )}
 
@@ -1228,12 +1355,11 @@ export function VehicleForm({
                 onChange={(next) => set("taxesPaidThroughYear", next)}
               />
 
-              <Input
+              <DateField
                 label="Documentación verificada el"
-                type="date"
-                value={draft.documentationCheckedOn}
+                value={draft.documentationCheckedOn || null}
                 error={errors.documentationCheckedOn}
-                onChange={(e) => set("documentationCheckedOn", e.target.value)}
+                onChange={(value) => set("documentationCheckedOn", value ?? "")}
               />
             </div>
 
@@ -1248,31 +1374,51 @@ export function VehicleForm({
             </div>
           </FormSection>
 
-          {/* E. Equipamiento ------------------------------------------- */}
+          {/* E. Equipamiento -------------------------------------------
+              Texto, no un catálogo de casillas. Buscar una opción entre
+              ochenta checkboxes salía más lento que escribirla, y el
+              catálogo no podía nombrar una Skyhook ni unas Brembo Stylema:
+              para motos no servía casi de nada. */}
           <FormSection
             title="Equipamiento"
-            description="Del catálogo, para que dos carros con lo mismo se describan igual."
+            description="Una línea por elemento. Una línea entre corchetes —[Frenos]— abre una sección."
             badge={
-              draft.features.length > 0
-                ? `${draft.features.length} seleccionados`
-                : undefined
+              equipmentLines > 0 ? `${equipmentLines} líneas` : undefined
             }
             defaultOpen={!creating}
           >
-            <EquipmentPicker
-              selected={draft.features}
-              onChange={(features) => set("features", features)}
+            <Textarea
+              label="Equipamiento"
+              rows={16}
+              value={equipmentText}
+              className="font-mono text-[0.8125rem]"
+              onChange={(e) => {
+                setEquipmentText(e.target.value);
+                setSaved(false);
+              }}
             />
-            <div className="mt-8 border-t border-stone pt-6">
-              <Textarea
-                label="Equipamiento adicional (una línea por ítem)"
-                rows={4}
-                value={equipmentText}
-                onChange={(e) => {
-                  setEquipmentText(e.target.value);
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              {/* La plantilla depende del universo, y es un punto de
+                  partida: lo que se deje sin rellenar no se guarda, así que
+                  cargarla y no tocar nada no inventa equipamiento. */}
+              <button
+                type="button"
+                onClick={() => {
+                  const template = equipmentTemplate(draft.vehicleType);
+                  setEquipmentText((current) =>
+                    current.trim() === ""
+                      ? template
+                      : `${current.trimEnd()}\n\n${template}`,
+                  );
                   setSaved(false);
                 }}
-              />
+                className="label-caps text-[10px] text-burgundy underline underline-offset-4"
+              >
+                Cargar plantilla de {isMoto ? "moto" : "carro"}
+              </button>
+              <p className="text-right text-xs text-ink-muted">
+                Las líneas sin rellenar —«ABS:» a secas— no se guardan.
+              </p>
             </div>
           </FormSection>
 
@@ -1388,25 +1534,39 @@ export function VehicleForm({
             />
           </FormSection>
 
-          {/* Qué falta para publicar. Sale de la misma función que el
-              servidor usa para rechazar la publicación, así que no puede
-              prometer algo que luego se deniegue. */}
-          {persisted && !published && blockers.length > 0 ? (
+          {/* Qué falta para publicar, leído sobre lo que hay en pantalla.
+              Cuando ya no falta nada el bloque no desaparece: decirlo es
+              más útil que dejar un hueco donde antes había una lista. */}
+          {persisted && !published ? (
             <div className="border border-stone bg-paper px-5 py-5 sm:px-7">
-              <h2 className="eyebrow text-ink-muted">Falta para publicar</h2>
-              <ul className="mt-3 grid gap-1.5">
-                {blockers.map((blocker) => (
-                  <li
-                    key={blocker}
-                    className="font-serif text-[0.9375rem] leading-snug text-ink-soft"
-                  >
-                    {blocker}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-3 text-xs text-ink-muted">
-                Mientras tanto se guarda como borrador y no se ve en el sitio.
-              </p>
+              {blockers.length > 0 ? (
+                <>
+                  <h2 className="eyebrow text-ink-muted">Falta para publicar</h2>
+                  <ul className="mt-3 grid gap-1.5">
+                    {blockers.map((blocker) => (
+                      <li
+                        key={blocker}
+                        className="font-serif text-[0.9375rem] leading-snug text-ink-soft"
+                      >
+                        {blocker}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-3 text-xs text-ink-muted">
+                    Mientras tanto se guarda como borrador y no se ve en el
+                    sitio.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="eyebrow text-burgundy">Listo para publicar</h2>
+                  <p className="mt-3 font-serif text-[0.9375rem] leading-relaxed text-ink-soft">
+                    {savedBlockers.length > 0
+                      ? "Guarda los cambios y el botón de publicar se activa."
+                      : "Ya cumple todo lo que se le exige a una ficha pública."}
+                  </p>
+                </>
+              )}
             </div>
           ) : null}
         </div>
@@ -1440,12 +1600,15 @@ export function VehicleForm({
               type="button"
               variant="ghost"
               size="lg"
-              // Publicar sigue exigiéndolo todo: el botón ni se ofrece
-              // mientras falte algo, y el servidor lo rechazaría igual.
-              disabled={saving || (!published && blockers.length > 0)}
+              // El botón mira lo GUARDADO, no lo que hay en pantalla: el
+              // servidor va a decidir sobre la fila, no sobre el formulario,
+              // y ofrecer publicar cambios sin guardar sería prometer un
+              // 409. El panel de arriba sí mira la pantalla, y por eso dice
+              // "guarda los cambios" cuando solo falta eso.
+              disabled={saving || (!published && savedBlockers.length > 0)}
               title={
-                !published && blockers.length > 0
-                  ? `Falta: ${blockers.join(" ")}`
+                !published && savedBlockers.length > 0
+                  ? `Falta: ${savedBlockers.join(" ")}`
                   : undefined
               }
               onClick={() => void togglePublication()}

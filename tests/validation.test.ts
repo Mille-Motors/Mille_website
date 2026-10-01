@@ -197,11 +197,15 @@ describe("campos técnicos opcionales", () => {
     assert.throws(() => vehicleInputSchema.parse({ ...valid, batteryGrossKwh: -1 }));
   });
 
-  it("el último dígito de la placa solo puede ser 0–9", () => {
-    assert.equal(vehicleInputSchema.parse({ ...valid, plateLastDigit: 0 }).plateLastDigit, 0);
-    assert.equal(vehicleInputSchema.parse({ ...valid, plateLastDigit: 9 }).plateLastDigit, 9);
-    assert.throws(() => vehicleInputSchema.parse({ ...valid, plateLastDigit: 10 }));
-    assert.throws(() => vehicleInputSchema.parse({ ...valid, plateLastDigit: -1 }));
+  it("la terminación de placa se normaliza en mayúsculas y sin espacios", () => {
+    const parse = (plateEnding: string) =>
+      vehicleInputSchema.parse({ ...valid, plateEnding }).plateEnding;
+    assert.equal(parse("7"), "7");
+    assert.equal(parse(" 12f "), "12F");
+    assert.equal(parse(""), null);
+    // Que en un CARRO sea un solo dígito lo comprueba el servicio, que es
+    // quien conoce el universo; aquí solo se valida la forma.
+    assert.throws(() => vehicleInputSchema.parse({ ...valid, plateEnding: "AB*" }));
   });
 
   it("solo acepta fechas de calendario que existan de verdad", () => {
@@ -250,12 +254,16 @@ describe("campos técnicos opcionales", () => {
     assert.throws(() => vehicleInputSchema.parse({ ...valid, tags: ["Rapidísimo"] }));
   });
 
-  it("descarta claves de equipamiento que no están en el catálogo", () => {
+  it("el equipamiento conserva el orden y descarta las líneas vacías", () => {
     const parsed = vehicleInputSchema.parse({
       ...valid,
-      features: ["head-up-display", "no-existe", "camera-360", "head-up-display"],
+      equipment: ["[Frenos]", "Brembo Stylema", "   ", "Disco de 330 mm"],
     });
-    assert.deepEqual(parsed.features, ["head-up-display", "camera-360"]);
+    assert.deepEqual(parsed.equipment, [
+      "[Frenos]",
+      "Brembo Stylema",
+      "Disco de 330 mm",
+    ]);
   });
 
   it("un extra destacado necesita nombre; la descripción es opcional", () => {
@@ -287,6 +295,8 @@ describe("simetría entre crear y editar", () => {
       topSpeedLimited: true,
       topSpeedLimitedKph: 250,
       curbWeightKg: 1725,
+      gearCount: 8,
+      finalDrive: null,
       engineLayout: "I6" as const,
       cylinders: 6,
       displacementCc: 2993,
@@ -307,7 +317,7 @@ describe("simetría entre crear y editar", () => {
       chargeConnector: "CCS Combo 2" as const,
       chargeTimeNote: "3,5 h en AC",
       registrationCity: "Bogotá",
-      plateLastDigit: 7,
+      plateEnding: "7",
       soatValid: true,
       soatExpiresOn: "2027-03-18",
       techInspectionApplies: true,
@@ -319,7 +329,6 @@ describe("simetría entre crear y editar", () => {
       funFactEnabled: true,
       funFactTitle: "Dirección trasera",
       funFactBody: "Gira las ruedas traseras en sentido contrario.",
-      features: ["head-up-display"],
       equipment: ["Extra"],
       specialEquipment: [{ name: "M Driver's Package" }],
       tags: ["Deportivo" as const],

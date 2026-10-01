@@ -1,5 +1,5 @@
 import { Check } from "lucide-react";
-import { groupFeatures } from "@/lib/equipment-catalog";
+import { equipmentSections } from "@/lib/equipment";
 import type { SpecialEquipmentItem } from "@/types/vehicle";
 
 /**
@@ -8,8 +8,7 @@ import type { SpecialEquipmentItem } from "@/types/vehicle";
  *   1. las opciones destacadas de ESTA unidad —un Bowers & Wilkins, unos
  *      frenos carbono-cerámicos, un paquete Individual—, que es lo que
  *      distingue este carro de otro igual;
- *   2. el equipamiento de catálogo, agrupado por categoría;
- *   3. lo que se escribió a mano y no cabía en ninguna lista.
+ *   2. el equipamiento, agrupado por las secciones que se escribieron.
  *
  * Cualquiera de las tres puede faltar entera y no deja hueco.
  */
@@ -60,36 +59,27 @@ function CheckList({ items }: { items: string[] }) {
 }
 
 /**
- * El equipamiento de catálogo por categorías, más el texto libre al final
- * bajo su propio título. Un grupo sin nada seleccionado no se dibuja: eso lo
- * decide `groupFeatures`, que solo devuelve los que tienen contenido.
+ * El equipamiento, agrupado por las secciones que se escribieron.
+ *
+ * Las secciones salen del propio texto —una línea `[Frenos]` abre una— así
+ * que lo que se ve es exactamente lo que alguien escribió, sin un catálogo
+ * que decida por él. Lo que venga sin sección cae en un grupo sin epígrafe y
+ * se dibuja igual.
  */
-export function VehicleEquipment({
-  features,
-  extra,
-}: {
-  /** Claves del catálogo. */
-  features: string[];
-  /** Equipamiento adicional escrito a mano. */
-  extra: string[];
-}) {
-  const groups = groupFeatures(features);
-  if (groups.length === 0 && extra.length === 0) return null;
+export function VehicleEquipment({ equipment }: { equipment: string[] }) {
+  const sections = equipmentSections(equipment);
+  if (sections.length === 0) return null;
 
   return (
     <div className="grid gap-8">
-      {groups.map((group) => (
-        <section key={group.key}>
-          <h3 className="eyebrow mb-4 text-ink-muted">{group.title}</h3>
-          <CheckList items={group.labels} />
+      {sections.map((section, index) => (
+        <section key={section.title ?? `sin-seccion-${index}`}>
+          {section.title ? (
+            <h3 className="eyebrow mb-4 text-ink-muted">{section.title}</h3>
+          ) : null}
+          <CheckList items={section.items} />
         </section>
       ))}
-      {extra.length > 0 ? (
-        <section>
-          <h3 className="eyebrow mb-4 text-ink-muted">Adicional</h3>
-          <CheckList items={extra} />
-        </section>
-      ) : null}
     </div>
   );
 }

@@ -1,10 +1,14 @@
 import { formatDateOnly, formatDecimal, formatInteger } from "@/lib/format";
 import {
+  categoryLabel,
   hasCombustionEngine,
   hasElectricDrive,
   hasPlugCharging,
   hasTractionBattery,
   isFullyElectric,
+  usesDrivetrain,
+  usesFinalDrive,
+  usesInteriorColor,
 } from "@/types/vehicle";
 import type { Vehicle } from "@/types/vehicle";
 
@@ -104,9 +108,31 @@ export function quickFacts(vehicle: Vehicle): SpecRow[] {
   push(rows, "Torque", formatNm(vehicle.specs.torqueNm));
   push(rows, "0–100 km/h", formatSeconds(vehicle.specs.accel0100));
   push(rows, "Combustible", vehicle.fuelType);
-  push(rows, "Transmisión", vehicle.transmission);
-  push(rows, "Tracción", vehicle.drivetrain);
+  push(rows, "Transmisión", transmissionValue(vehicle));
+  // Una moto no tiene tracción integral y un carro no tiene cardán: cada
+  // universo enseña el suyo, y nunca los dos.
+  if (usesDrivetrain(vehicle.vehicleType)) {
+    push(rows, "Tracción", vehicle.drivetrain);
+  }
+  if (usesFinalDrive(vehicle.vehicleType)) {
+    push(rows, "Transmisión final", vehicle.finalDrive);
+  }
   return rows;
+}
+
+/**
+ * "Manual secuencial · 6 velocidades".
+ *
+ * Las marchas no son una fila aparte: leídas solas no dicen nada, y leídas
+ * junto a la caja son media ficha de moto. Si no se conocen, se omite esa
+ * mitad en vez de inventar el seis de rigor.
+ */
+export function transmissionValue(vehicle: Vehicle): string | null {
+  const parts = [
+    vehicle.transmission,
+    vehicle.gearCount === null ? null : `${vehicle.gearCount} velocidades`,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 
@@ -152,6 +178,25 @@ export function performanceRows(vehicle: Vehicle): SpecRow[] {
   return rows;
 }
 
+/**
+ * Cómo se mueve: transmisión, marchas y lo que lleva el par a la rueda.
+ *
+ * Es un bloque propio porque en una moto esto ES ficha técnica —toda revista
+ * publica caja y transmisión final— mientras que en un carro la tracción ya
+ * va en los datos rápidos de arriba.
+ */
+export function drivelineRows(vehicle: Vehicle): SpecRow[] {
+  const rows: SpecRow[] = [];
+  push(rows, "Transmisión", transmissionValue(vehicle));
+  if (usesDrivetrain(vehicle.vehicleType)) {
+    push(rows, "Tracción", vehicle.drivetrain);
+  }
+  if (usesFinalDrive(vehicle.vehicleType)) {
+    push(rows, "Transmisión final", vehicle.finalDrive);
+  }
+  return rows;
+}
+
 /** Lo general: colores, ciudad, carrocería. */
 export function generalRows(vehicle: Vehicle): SpecRow[] {
   const rows: SpecRow[] = [];
@@ -161,9 +206,13 @@ export function generalRows(vehicle: Vehicle): SpecRow[] {
     "Kilometraje",
     vehicle.mileage === null ? null : `${formatInteger(vehicle.mileage)} km`,
   );
-  push(rows, "Carrocería", vehicle.category?.name);
+  // "Carrocería: ADV" no significa nada. En moto el mismo campo se titula
+  // "Tipo de moto".
+  push(rows, categoryLabel(vehicle.vehicleType), vehicle.category?.name);
   push(rows, "Color exterior", vehicle.exteriorColor);
-  push(rows, "Color interior", vehicle.interiorColor);
+  if (usesInteriorColor(vehicle.vehicleType)) {
+    push(rows, "Color interior", vehicle.interiorColor);
+  }
   push(rows, "Ciudad", vehicle.city);
   return rows;
 }
@@ -281,11 +330,7 @@ export function documentationRows(vehicle: Vehicle): SpecRow[] {
   }
 
   push(rows, "Ciudad de matrícula", d.registrationCity);
-  push(
-    rows,
-    "Placa termina en",
-    d.plateLastDigit === null ? null : String(d.plateLastDigit),
-  );
+  push(rows, "Placa termina en", d.plateEnding);
 
   const checked = formatDateOnly(d.documentationCheckedOn);
   if (checked) push(rows, "Verificado el", checked);
@@ -298,6 +343,7 @@ export function specBlocks(vehicle: Vehicle): SpecBlock[] {
   const blocks: SpecBlock[] = [
     { title: "General", rows: generalRows(vehicle) },
     { title: "Motor", rows: engineRows(vehicle) },
+    { title: "Transmisión", rows: drivelineRows(vehicle) },
     { title: "Prestaciones", rows: performanceRows(vehicle) },
   ];
   return blocks.filter((block) => block.rows.length > 0);

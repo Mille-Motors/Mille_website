@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { publicationBlockers } from "@/lib/publication";
 import {
   draftHasContent,
+  draftPublicationCandidate,
   emptyDraft,
   type Draft,
 } from "@/lib/vehicle-draft";
@@ -69,7 +71,9 @@ describe("cualquier dato elegido por el administrador cuenta", () => {
     ["categoryId", "2f1c9d4e-6b3a-4c1d-9e8f-0a1b2c3d4e5f"],
     ["fuelType", "Gasolina"],
     ["transmission", "Automática"],
+    ["gearCount", 6],
     ["drivetrain", "Trasera (RWD)"],
+    ["finalDrive", "Cadena"],
     ["engine", "3.0 L I6"],
     ["exteriorColor", "Gris"],
     ["interiorColor", "Negro"],
@@ -104,7 +108,7 @@ describe("cualquier dato elegido por el administrador cuenta", () => {
     ["chargeConnector", "CCS Combo 2"],
     ["chargeTimeNote", "3,5 h en AC"],
     ["registrationCity", "Bogotá"],
-    ["plateLastDigit", "7"],
+    ["plateEnding", "7"],
     ["soatValid", true],
     ["soatExpiresOn", "2027-03-18"],
     ["techInspectionApplies", false],
@@ -116,7 +120,6 @@ describe("cualquier dato elegido por el administrador cuenta", () => {
     ["funFactEnabled", true],
     ["funFactTitle", "Dirección trasera"],
     ["funFactBody", "Gira las ruedas traseras."],
-    ["features", ["head-up-display"]],
     ["specialEquipment", [{ name: "Bowers & Wilkins", description: null }]],
     ["tags", ["Deportivo"]],
   ];
@@ -142,5 +145,83 @@ describe("cualquier dato elegido por el administrador cuenta", () => {
 
   it("el equipamiento adicional vive fuera del borrador y también cuenta", () => {
     assert.equal(draftHasContent(emptyDraft(), "Llantas de invierno"), true);
+  });
+});
+
+/**
+ * CASO 23 · el panel "Falta para publicar" no puede ir un guardado por
+ * detrás.
+ *
+ * El fallo: se calculaba sobre la copia que el servidor devolvió la última
+ * vez, así que mientras alguien rellenaba la ficha el panel seguía
+ * enumerando como ausente todo lo que acababa de escribir, y solo se
+ * despejaba al guardar. No era un cálculo stale por accidente: se estaba
+ * preguntando por el objeto equivocado.
+ */
+describe("los requisitos se leen sobre lo que hay en pantalla", () => {
+  const completo = (over: Partial<Draft> = {}): Draft => ({
+    ...emptyDraft(),
+    make: "BMW",
+    model: "X5",
+    categoryId: "cat-suv",
+    year: 2021,
+    price: 195_000_000,
+    mileage: 42_000,
+    fuelType: "Híbrido enchufable",
+    transmission: "Automática",
+    drivetrain: "Integral (AWD)",
+    city: "Bogotá, CO",
+    description: "Una unidad cuidada.",
+    ...over,
+  });
+
+  const photo = [{ id: "i1" }];
+
+  it("un borrador recién rellenado ya no reporta nada pendiente", () => {
+    const candidate = draftPublicationCandidate(completo(), photo);
+    assert.deepEqual(publicationBlockers(candidate), []);
+  });
+
+  it("lo que todavía falta se nombra, y solo eso", () => {
+    const candidate = draftPublicationCandidate(
+      completo({ price: null, city: "" }),
+      photo,
+    );
+    const blockers = publicationBlockers(candidate);
+    assert.deepEqual(blockers.sort(), ["Falta el precio.", "Falta la ciudad."]);
+  });
+
+  it("las fotografías salen del servidor, que es quien las tiene", () => {
+    // El borrador no sabe de imágenes: se suben una a una contra la API.
+    const sinFotos = draftPublicationCandidate(completo(), []);
+    assert.deepEqual(publicationBlockers(sinFotos), [
+      "Falta al menos una fotografía.",
+    ]);
+  });
+
+  it("una moto se mide con la vara de una moto", () => {
+    const moto = draftPublicationCandidate(
+      completo({
+        vehicleType: "moto",
+        transmission: "Manual secuencial",
+        drivetrain: "",
+        finalDrive: "Cadena",
+      }),
+      photo,
+    );
+    assert.deepEqual(publicationBlockers(moto), []);
+  });
+
+  it("y sin transmisión final sí se la bloquea", () => {
+    const moto = draftPublicationCandidate(
+      completo({
+        vehicleType: "moto",
+        transmission: "Manual secuencial",
+        drivetrain: "",
+        finalDrive: "",
+      }),
+      photo,
+    );
+    assert.deepEqual(publicationBlockers(moto), ["Falta la transmisión final."]);
   });
 });

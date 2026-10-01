@@ -54,7 +54,7 @@ export const emptyElectrification: VehicleElectrification = {
 
 export const emptyDocumentation: VehicleDocumentation = {
   registrationCity: null,
-  plateLastDigit: null,
+  plateEnding: null,
   soatValid: null,
   soatExpiresOn: null,
   techInspectionApplies: null,
@@ -86,7 +86,9 @@ const base: Vehicle = {
   },
   fuelType: "Gasolina",
   transmission: "Automática",
+  gearCount: null,
   drivetrain: "Integral (AWD)",
+  finalDrive: null,
   engine: "3.0 L I6 TwinPower Turbo",
   exteriorColor: "Gris",
   interiorColor: "Negro",
@@ -95,7 +97,6 @@ const base: Vehicle = {
   publication: "draft",
   featured: false,
   description: "Un vehículo.",
-  features: [],
   equipment: [],
   specialEquipment: [],
   tags: [],

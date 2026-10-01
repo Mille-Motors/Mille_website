@@ -107,8 +107,7 @@ export default async function VehicleDetailPage(
   const electric = electrificationBlocks(vehicle);
   const papers = documentationRows(vehicle);
   const highlights = vehicle.specialEquipment;
-  const hasEquipment =
-    vehicle.features.length > 0 || vehicle.equipment.length > 0;
+  const hasEquipment = vehicle.equipment.length > 0;
   const funFactVisible =
     vehicle.funFact.enabled && Boolean(vehicle.funFact.body?.trim());
 
@@ -291,10 +290,7 @@ export default async function VehicleDetailPage(
                     Equipamiento
                   </h2>
                   <Rule className="mt-5 mb-7" />
-                  <VehicleEquipment
-                    features={vehicle.features}
-                    extra={vehicle.equipment}
-                  />
+                  <VehicleEquipment equipment={vehicle.equipment} />
                 </>
               ) : null}
             </div>
@@ -340,10 +336,7 @@ export default async function VehicleDetailPage(
 
               {hasEquipment ? (
                 <MobileAccordion title="Equipamiento">
-                  <VehicleEquipment
-                    features={vehicle.features}
-                    extra={vehicle.equipment}
-                  />
+                  <VehicleEquipment equipment={vehicle.equipment} />
                 </MobileAccordion>
               ) : null}
 

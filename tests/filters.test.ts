@@ -28,6 +28,7 @@ function filters(partial: Partial<InventoryFilters> = {}): InventoryFilters {
     combustible: undefined,
     transmision: undefined,
     traccion: undefined,
+    transmisionFinal: undefined,
     ciudad: undefined,
     etiqueta: undefined,
     minYear: undefined,
