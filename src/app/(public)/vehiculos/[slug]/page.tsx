@@ -6,10 +6,13 @@ import { Container } from "@/components/ui/Container";
 import { Rule } from "@/components/ui/Rule";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { StatusPill } from "@/components/ui/StatusPill";
-import { MobileAccordion } from "@/components/vehicle/MobileAccordion";
 import { StickyWhatsapp } from "@/components/vehicle/StickyWhatsapp";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
 import { VehicleContactActions } from "@/components/vehicle/VehicleContactActions";
+import {
+  VehicleDetails,
+  type DetailSection,
+} from "@/components/vehicle/VehicleDetails";
 import {
   VehicleEquipment,
   VehicleHighlights,
@@ -39,6 +42,8 @@ import {
   vehicleMetaTitle,
   vehiclePath,
 } from "@/lib/seo";
+import { equipmentSections } from "@/lib/equipment";
+import { isFullyElectric } from "@/types/vehicle";
 import { getRelatedVehicles, getVehicleBySlug } from "@/lib/vehicles";
 
 /**
@@ -107,9 +112,77 @@ export default async function VehicleDetailPage(
   const electric = electrificationBlocks(vehicle);
   const papers = documentationRows(vehicle);
   const highlights = vehicle.specialEquipment;
-  const hasEquipment = vehicle.equipment.length > 0;
   const funFactVisible =
     vehicle.funFact.enabled && Boolean(vehicle.funFact.body?.trim());
+  const equipmentGroups = equipmentSections(vehicle.equipment);
+
+  /**
+   * Lo consultable, en el orden en que se consulta. Una sección que se
+   * quedaría vacía no se construye: no hay títulos sin nada debajo.
+   */
+  const details: DetailSection[] = [];
+
+  if (blocks.length > 0) {
+    details.push({
+      id: "especificaciones",
+      title: "Especificaciones",
+      hint: `${blocks.length} ${blocks.length === 1 ? "grupo" : "grupos"}`,
+      children: <VehicleSpecs blocks={blocks} columns />,
+    });
+  }
+
+  if (electric.length > 0) {
+    details.push({
+      id: "sistema",
+      title: `Sistema ${isFullyElectric(vehicle.fuelType) ? "eléctrico" : "híbrido"}`,
+      children: <VehicleSpecs blocks={electric} columns />,
+    });
+  }
+
+  if (highlights.length > 0 || equipmentGroups.length > 0) {
+    details.push({
+      id: "equipamiento",
+      title: "Equipamiento",
+      hint:
+        equipmentGroups.length > 0
+          ? `${equipmentGroups.length} ${equipmentGroups.length === 1 ? "sección" : "secciones"}`
+          : undefined,
+      children: (
+        <div className="grid gap-12">
+          {/* Lo destacado va primero y con otro peso: es lo que distingue
+              esta unidad de otra igual, no una línea más de una lista. */}
+          {highlights.length > 0 ? (
+            <section>
+              <h4 className="eyebrow mb-5 text-burgundy">
+                Equipamiento destacado
+              </h4>
+              <VehicleHighlights items={highlights} />
+            </section>
+          ) : null}
+          {equipmentGroups.length > 0 ? (
+            <VehicleEquipment equipment={vehicle.equipment} />
+          ) : null}
+        </div>
+      ),
+    });
+  }
+
+  if (papers.length > 0) {
+    details.push({
+      id: "documentacion",
+      title: "Documentación",
+      children: (
+        <div className="max-w-3xl">
+          <SpecTable rows={papers} />
+          {vehicle.documentation.documentationNotes ? (
+            <p className="mt-6 font-serif text-[0.9375rem] leading-relaxed text-ink-muted">
+              {vehicle.documentation.documentationNotes}
+            </p>
+          ) : null}
+        </div>
+      ),
+    });
+  }
 
   return (
     <>
@@ -201,159 +274,82 @@ export default async function VehicleDetailPage(
         </Container>
       </section>
 
+      {/* A · La galería, a todo el ancho editorial. */}
       <section className="bg-cream pt-8 pb-10 lg:pt-10">
         <Container width="wide">
           <VehicleGallery images={vehicle.images} />
         </Container>
       </section>
 
-      {/* La tira de datos rápidos: lo que se mira antes de decidir si se
-          sigue leyendo. Desaparece entera si no conocemos ninguno. */}
+      {/* C · Los datos rápidos: lo que se mira antes de decidir si se sigue
+          leyendo. Se adaptan al universo —una moto enseña cilindrada y
+          transmisión final; un carro, tracción— y desaparecen enteros si no
+          conocemos ninguno. */}
       {facts.length > 0 ? (
-        <section className="bg-cream pb-10">
+        <section className="bg-cream pb-12 lg:pb-16">
           <Container width="wide">
             <VehicleQuickFacts facts={facts} />
           </Container>
         </section>
       ) : null}
 
-      {/* Desktop: especificaciones al lado del relato. Teléfono: acordeones. */}
-      <section className="bg-cream pb-4">
+      {/* D · El relato. En una medida de lectura, no a 1.400 px: un párrafo
+          de ciento veinte caracteres por línea no se lee, se recorre. */}
+      <section className="bg-cream pb-14 lg:pb-20">
         <Container width="wide">
-          <div className="hidden gap-14 lg:grid lg:grid-cols-2">
-            <div>
-              <h2 className="font-display text-3xl text-ink">Especificaciones</h2>
-              <Rule className="mt-5 mb-7" />
-              <VehicleSpecs blocks={blocks} />
-
-              {electric.length > 0 ? (
-                <>
-                  <h2 className="mt-12 font-display text-3xl text-ink">
-                    Sistema {vehicle.fuelType === "Eléctrico" ? "eléctrico" : "híbrido"}
-                  </h2>
-                  <Rule className="mt-5 mb-7" />
-                  <VehicleSpecs blocks={electric} />
-                </>
-              ) : null}
-
-              {papers.length > 0 ? (
-                <>
-                  <h2 className="mt-12 font-display text-3xl text-ink">
-                    Documentación
-                  </h2>
-                  <Rule className="mt-5 mb-7" />
-                  <SpecTable rows={papers} />
-                  {vehicle.documentation.documentationNotes ? (
-                    <p className="mt-5 font-serif text-[0.9375rem] leading-relaxed text-ink-muted">
-                      {vehicle.documentation.documentationNotes}
-                    </p>
-                  ) : null}
-                </>
-              ) : null}
-            </div>
-
-            <div>
-              <h2 className="font-display text-3xl text-ink">Descripción</h2>
-              <Rule className="mt-5 mb-7" />
-              {/* `whitespace-pre-line` conserva los párrafos que se
-                  escribieron en el admin: sin él, un texto de cinco bloques
-                  se leía como un muro de una sola línea. */}
-              <p className="font-serif text-[1.0625rem] leading-[1.8] whitespace-pre-line text-ink-soft">
-                {vehicle.description}
-              </p>
-
-              {vehicle.tags.length > 0 ? (
-                <div className="mt-7">
-                  <VehicleTags vehicle={vehicle} />
-                </div>
-              ) : null}
-
-              {funFactVisible ? (
-                <div className="mt-10">
-                  <VehicleFunFact funFact={vehicle.funFact} />
-                </div>
-              ) : null}
-
-              {highlights.length > 0 ? (
-                <>
-                  <h2 className="mt-12 font-display text-3xl text-ink">
-                    Equipamiento destacado
-                  </h2>
-                  <Rule className="mt-5 mb-7" />
-                  <VehicleHighlights items={highlights} />
-                </>
-              ) : null}
-
-              {hasEquipment ? (
-                <>
-                  <h2 className="mt-12 font-display text-3xl text-ink">
-                    Equipamiento
-                  </h2>
-                  <Rule className="mt-5 mb-7" />
-                  <VehicleEquipment equipment={vehicle.equipment} />
-                </>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="lg:hidden">
-            <p className="font-serif text-[1.0625rem] leading-[1.75] whitespace-pre-line text-ink-soft">
+          <div className="max-w-[68ch]">
+            <h2 className="font-display text-[clamp(1.75rem,3vw,2.25rem)] text-ink">
+              Acerca de este vehículo
+            </h2>
+            {/* Una línea de entrada, no un subtítulo: va en el mismo serif
+                menudo que el resto de texto secundario de la ficha, de modo
+                que se lea como una aclaración y no compita con el titular.
+                Vale igual para carro y para moto, y por eso no nombra
+                ninguno de los dos. */}
+            <p className="mt-2.5 font-serif text-[0.9375rem] leading-relaxed text-ink-muted">
+              Una visión general de su configuración, estado y detalles clave.
+            </p>
+            <Rule className="mt-4 mb-7" />
+            {/* `whitespace-pre-line` conserva los párrafos que se
+                escribieron en el admin. */}
+            <p className="font-serif text-[1.0625rem] leading-[1.85] whitespace-pre-line text-ink-soft lg:text-[1.125rem]">
               {vehicle.description}
             </p>
 
             {vehicle.tags.length > 0 ? (
-              <div className="mt-6">
+              <div className="mt-8">
                 <VehicleTags vehicle={vehicle} />
               </div>
             ) : null}
-
-            {funFactVisible ? (
-              <div className="mt-8">
-                <VehicleFunFact funFact={vehicle.funFact} />
-              </div>
-            ) : null}
-
-            <div className="mt-8 border-t border-stone">
-              {blocks.length > 0 ? (
-                <MobileAccordion title="Especificaciones" defaultOpen>
-                  <VehicleSpecs blocks={blocks} />
-                </MobileAccordion>
-              ) : null}
-
-              {electric.length > 0 ? (
-                <MobileAccordion
-                  title={`Sistema ${vehicle.fuelType === "Eléctrico" ? "eléctrico" : "híbrido"}`}
-                >
-                  <VehicleSpecs blocks={electric} />
-                </MobileAccordion>
-              ) : null}
-
-              {highlights.length > 0 ? (
-                <MobileAccordion title="Equipamiento destacado">
-                  <VehicleHighlights items={highlights} />
-                </MobileAccordion>
-              ) : null}
-
-              {hasEquipment ? (
-                <MobileAccordion title="Equipamiento">
-                  <VehicleEquipment equipment={vehicle.equipment} />
-                </MobileAccordion>
-              ) : null}
-
-              {papers.length > 0 ? (
-                <MobileAccordion title="Documentación">
-                  <SpecTable rows={papers} />
-                  {vehicle.documentation.documentationNotes ? (
-                    <p className="mt-5 font-serif text-[0.9375rem] leading-relaxed text-ink-muted">
-                      {vehicle.documentation.documentationNotes}
-                    </p>
-                  ) : null}
-                </MobileAccordion>
-              ) : null}
-            </div>
           </div>
+
+          {/* H · El apunte editorial, si existe. Va aquí, junto al relato,
+              porque es de la misma naturaleza: algo que contar, no un dato
+              que consultar. */}
+          {funFactVisible ? (
+            <div className="mt-12 max-w-[68ch]">
+              <VehicleFunFact funFact={vehicle.funFact} />
+            </div>
+          ) : null}
         </Container>
       </section>
+
+      {/* E, F, G · Todo lo consultable, en una sola pila desplegable y con
+          el MISMO patrón en teléfono y en escritorio. Antes el escritorio
+          abría dos columnas con todo desplegado a la vez y no había por
+          dónde empezar a mirar. */}
+      {details.length > 0 ? (
+        <section className="bg-cream pb-16 lg:pb-24">
+          <Container width="wide">
+            <h2 className="font-display text-[clamp(1.75rem,3vw,2.25rem)] text-ink">
+              Detalles del vehículo
+            </h2>
+            <div className="mt-7">
+              <VehicleDetails sections={details} />
+            </div>
+          </Container>
+        </section>
+      ) : null}
 
       <section className="bg-cream py-12">
         <Container width="wide">

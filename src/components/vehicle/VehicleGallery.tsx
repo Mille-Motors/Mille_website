@@ -6,6 +6,23 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { VehicleImage } from "@/types/vehicle";
 
+/**
+ * La galería de la ficha.
+ *
+ * Las fotografías de un vehículo son la mitad de la decisión, así que la
+ * principal se sirve a calidad 90 y no al 75 por defecto de Next. La
+ * diferencia son unos 130 KB en una foto de 1.800 px y se ve a simple vista
+ * en los reflejos de la carrocería, que es justo donde el 75 deja bandas.
+ * Las miniaturas se quedan en el valor por defecto: a 180 px nadie
+ * distingue una cosa de la otra y son cuatro o más por página.
+ *
+ * `sizes` describe el hueco REAL: la columna principal ocupa 1.62 de 2.62
+ * dentro de un contenedor de 1.480 px, o sea unos 860 px de CSS, que en una
+ * pantalla Retina son 1.720 de verdad. Declarar de menos haría que el
+ * navegador bajara una variante pequeña y la estirara.
+ */
+const HERO_QUALITY = 90;
+
 export function VehicleGallery({ images }: { images: VehicleImage[] }) {
   const [index, setIndex] = useState(0);
   const total = images.length;
@@ -20,7 +37,8 @@ export function VehicleGallery({ images }: { images: VehicleImage[] }) {
           alt={images[index].alt}
           fill
           priority
-          sizes="(min-width: 1024px) 60vw, 100vw"
+          quality={HERO_QUALITY}
+          sizes="(min-width: 1536px) 900px, (min-width: 1024px) 60vw, 100vw"
           className="object-cover"
         />
 
@@ -73,7 +91,7 @@ export function VehicleGallery({ images }: { images: VehicleImage[] }) {
                   src={image.src}
                   alt=""
                   fill
-                  sizes="(min-width: 1024px) 18vw, 24vw"
+                  sizes="(min-width: 1536px) 280px, (min-width: 1024px) 18vw, 24vw"
                   className="object-cover"
                 />
               </button>

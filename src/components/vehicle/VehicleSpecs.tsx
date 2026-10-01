@@ -1,3 +1,4 @@
+import { cn } from "@/lib/cn";
 import type { SpecBlock, SpecRow } from "@/lib/vehicle-display";
 
 /**
@@ -30,11 +31,33 @@ export function SpecTable({ rows }: { rows: SpecRow[] }) {
  * como el resto del sitio nombra una subsección sin competir con los títulos
  * de sección en display.
  */
-export function VehicleSpecs({ blocks }: { blocks: SpecBlock[] }) {
+export function VehicleSpecs({
+  blocks,
+  columns = false,
+}: {
+  blocks: SpecBlock[];
+  /**
+   * Reparte los grupos en dos columnas cuando hay ancho.
+   *
+   * Un grupo de especificaciones tiene cuatro o cinco filas: apilados en
+   * una sola columna sobre una pantalla de 1.400 px dejan dos tercios de la
+   * página en blanco y obligan a bajar por nada. Dos columnas los ponen a
+   * la vista a la vez sin que ninguna compita con la otra, porque están
+   * dentro de la misma sección y no enfrentadas.
+   */
+  columns?: boolean;
+}) {
   if (blocks.length === 0) return null;
 
   return (
-    <div className="grid gap-9">
+    <div
+      className={cn(
+        "grid gap-9",
+        // `items-start` evita que un grupo corto estire su filete hasta la
+        // altura del largo que tiene al lado.
+        columns && "lg:grid-cols-2 lg:items-start lg:gap-x-14",
+      )}
+    >
       {blocks.map((block) => (
         <section key={block.title}>
           <h3 className="eyebrow mb-3 text-ink-muted">{block.title}</h3>

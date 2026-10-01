@@ -12,6 +12,11 @@ import { VEHICLE_IMAGE_BUCKET } from "@/server/auth/config";
 import { deleteStoredImage } from "@/server/storage/images";
 import { uniqueVehicleSlug } from "@/server/vehicles/slug";
 import {
+  cleanupVehicleUploadReservations,
+  pendingCleanupConflict,
+  withVehicleLock,
+} from "@/server/vehicles/upload-reservations";
+import {
   fromDateString,
   fromDbVehicleType,
   toDbAvailability,
@@ -995,6 +1000,14 @@ export async function isEmptyDraft(id: string): Promise<boolean> {
  * a crear alguna imagen antes de fallar, `deleteVehicle` se encarga también
  * de sus objetos en el bucket: el administrador nunca las vio y quedarían
  * como basura.
+ *
+ * Hereda de `deleteVehicle` la protección contra la cascada: si la subida
+ * dejó una reserva cuyo objeto no se pudo retirar, esto falla con un
+ * conflicto y el borrador se queda. Es a propósito, y es justo el caso que
+ * motivó la regla: el borrador nace para poder subir la primera foto, así
+ * que es el vehículo con más probabilidades de tener una reserva viva
+ * cuando alguien decide descartarlo. Un borrador recuperable es mejor que
+ * un objeto en el bucket que ya nadie sabe nombrar.
  */
 export async function discardDraftVehicle(id: string): Promise<void> {
   const record = await prisma.vehicle.findUnique({
@@ -1212,13 +1225,45 @@ export interface VehicleDeletionResult {
  * apuntando a imágenes que ya no existen, que es peor que un archivo de más.
  * Lo que queda si falla el paso 3 es un objeto huérfano, y por eso se informa
  * en vez de tragárselo.
+ *
+ * TODA la decisión se toma con el candado del vehículo puesto, y con el
+ * estado releído ahí dentro. Mirar antes y borrar después parecía inofensivo
+ * porque las dos consultas van seguidas, pero entre medias cabe una
+ * finalización de fotos completa: el plan decía "cero imágenes", la
+ * finalización creaba dos, y el borrado se llevaba las filas sin saber jamás
+ * qué dos objetos habían quedado en el bucket. Un huérfano del que ni
+ * siquiera queda la ruta en un log.
+ *
+ * La limpieza de reservas es lo único que se queda fuera, porque habla con
+ * Storage y no se puede tener un candado de Postgres abierto esperando a la
+ * red. De ahí las dos vueltas: la primera descubre, con el candado puesto,
+ * si hay reservas que retirar; la retirada ocurre con el candado suelto; la
+ * segunda vuelve a decidir sobre el estado ya quieto.
+ *
+ * Esas dos vueltas no son una complicación gratuita. Limpiar antes de saber
+ * si el vehículo se va a borrar destruiría una subida en curso de un
+ * vehículo que, por tener solicitudes, acaba archivándose y sigue vivo.
  */
-export async function deleteVehicle(
+type Resolution =
+  | { kind: "archived" }
+  | { kind: "deleted"; storagePaths: string[] }
+  /** Hay reservas que retirar. Nada se ha tocado todavía. */
+  | { kind: "blocked" };
+
+/**
+ * La decisión y su ejecución, dentro del candado.
+ *
+ * Aquí se relee TODO lo que manda —solicitudes, imágenes y reservas— y de
+ * aquí salen las rutas, capturadas en el mismo instante en que se borran las
+ * filas que las contienen.
+ */
+async function resolveDeletion(
+  tx: Prisma.TransactionClient,
   id: string,
-): Promise<VehicleDeletionResult> {
+): Promise<Resolution> {
   const [inquiries, images] = await Promise.all([
-    prisma.inquiry.count({ where: { vehicleId: id } }),
-    prisma.vehicleImage.findMany({
+    tx.inquiry.count({ where: { vehicleId: id } }),
+    tx.vehicleImage.findMany({
       where: { vehicleId: id },
       select: { source: true, storagePath: true },
     }),
@@ -1227,20 +1272,46 @@ export async function deleteVehicle(
   const plan = planVehicleDeletion(inquiries, images);
 
   if (plan.archived) {
-    await prisma.vehicle.update({
+    // Con solicitudes detrás no se borra nada: ni el vehículo, ni sus
+    // imágenes, ni sus reservas. `onDelete: SetNull` conservaría la
+    // conversación, pero la regla no es conservar la conversación: es
+    // conservar el vehículo al que se refiere.
+    await tx.vehicle.update({
       where: { id },
       data: { publicationStatus: "ARCHIVED" },
     });
-    return { archived: true, removedObjects: 0, failedObjects: [] };
+    return { kind: "archived" };
   }
 
-  await prisma.vehicle.delete({ where: { id } });
+  const pending = await tx.vehicleImageUpload.count({ where: { vehicleId: id } });
+  if (pending > 0) return { kind: "blocked" };
+
+  await tx.vehicle.delete({ where: { id } });
+  return { kind: "deleted", storagePaths: plan.storagePaths };
+}
+
+export async function deleteVehicle(
+  id: string,
+): Promise<VehicleDeletionResult> {
+  let resolution = await withVehicleLock(id, (tx) => resolveDeletion(tx, id));
+
+  if (resolution.kind === "blocked") {
+    // Retirar las reservas habla con Storage, así que ocurre con el candado
+    // suelto. Después se vuelve a decidir desde cero.
+    await cleanupVehicleUploadReservations(id);
+    resolution = await withVehicleLock(id, (tx) => resolveDeletion(tx, id));
+    if (resolution.kind === "blocked") throw pendingCleanupConflict();
+  }
+
+  if (resolution.kind === "archived") {
+    return { archived: true, removedObjects: 0, failedObjects: [] };
+  }
 
   // La base ya no referencia nada: a partir de aquí cualquier archivo que
   // quede es basura, y no borrarlo sería dejarla acumularse en silencio.
   const failedObjects: string[] = [];
   let removedObjects = 0;
-  for (const storagePath of plan.storagePaths) {
+  for (const storagePath of resolution.storagePaths) {
     const removed = await deleteStoredImage(VEHICLE_IMAGE_BUCKET, storagePath);
     if (removed) removedObjects += 1;
     else failedObjects.push(storagePath);

@@ -5,6 +5,7 @@ import {
   draftHasContent,
   draftPublicationCandidate,
   emptyDraft,
+  vehicleAfterAbortedUpload,
   type Draft,
 } from "@/lib/vehicle-draft";
 
@@ -223,5 +224,72 @@ describe("los requisitos se leen sobre lo que hay en pantalla", () => {
       photo,
     );
     assert.deepEqual(publicationBlockers(moto), ["Falta la transmisión final."]);
+  });
+});
+
+/**
+ * Qué queda en el formulario cuando una subida falla.
+ *
+ * El fallo: al fallar la subida se descartaba el borrador que se había
+ * creado para alojarla, pero el formulario seguía apuntando a él. Quedaba
+ * señalando una fila que acababa de dejar de existir, y el siguiente
+ * intento habría subido contra un id borrado.
+ */
+describe("estado del formulario tras una subida fallida", () => {
+  const vehicle = { id: "v1" };
+
+  it("si el borrador era nuestro y se descartó, no queda vehículo", () => {
+    assert.equal(
+      vehicleAfterAbortedUpload({
+        createdDraft: true,
+        draftDiscarded: true,
+        vehicle,
+      }),
+      null,
+    );
+  });
+
+  it("y entonces el siguiente intento parte de cero", () => {
+    // Es la consecuencia que importa: con `null`, `ensureVehicle()` vuelve
+    // a crear un borrador en vez de reutilizar uno borrado.
+    const after = vehicleAfterAbortedUpload({
+      createdDraft: true,
+      draftDiscarded: true,
+      vehicle,
+    });
+    assert.equal(after, null);
+    assert.ok(!after, "con null el formulario pide un borrador nuevo");
+  });
+
+  it("si el descarte falló, el borrador sigue ahí y no se finge lo contrario", () => {
+    assert.equal(
+      vehicleAfterAbortedUpload({
+        createdDraft: true,
+        draftDiscarded: false,
+        vehicle,
+      }),
+      vehicle,
+    );
+  });
+
+  it("un vehículo que ya existía no se pierde por una subida fallida", () => {
+    assert.equal(
+      vehicleAfterAbortedUpload({
+        createdDraft: false,
+        draftDiscarded: false,
+        vehicle,
+      }),
+      vehicle,
+    );
+    // Ni siquiera si por lo que sea llegara marcado como descartado: no era
+    // nuestro borrador, así que no es nuestro para borrarlo.
+    assert.equal(
+      vehicleAfterAbortedUpload({
+        createdDraft: false,
+        draftDiscarded: true,
+        vehicle,
+      }),
+      vehicle,
+    );
   });
 });

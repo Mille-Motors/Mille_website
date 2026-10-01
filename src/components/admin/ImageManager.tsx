@@ -4,12 +4,15 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, Plus, Trash2, Upload } from "lucide-react";
-import { adminJson, adminRequest } from "@/lib/admin-client";
+import { adminJson } from "@/lib/admin-client";
+import { vehicleAfterAbortedUpload } from "@/lib/vehicle-draft";
+import { createSupabaseBrowserClient } from "@/server/auth/supabase-browser";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { cn } from "@/lib/cn";
 import type { Vehicle, VehicleImage } from "@/types/vehicle";
 
 const MAX_IMAGES = 20;
+/** El mismo tope que impone el bucket en Supabase. */
 const MAX_BYTES = 10 * 1024 * 1024;
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 
@@ -43,14 +46,31 @@ export function ImageManager({
    * falta. `null` si no se pudo, con el motivo ya mostrado por quien llama.
    */
   ensureVehicle: () => Promise<Vehicle | null>;
-  /** El vehículo tal como quedó tras la última operación. */
-  onVehicleChange: (vehicle: Vehicle) => void;
+  /**
+   * El vehículo tal como quedó tras la última operación.
+   *
+   * `null` significa que ya no hay fila: pasa cuando una subida falla y el
+   * borrador que se había creado para alojarla se descarta. El formulario
+   * NO puede seguir apuntando a un vehículo que acaba de dejar de existir.
+   */
+  onVehicleChange: (vehicle: Vehicle | null) => void;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * En qué va el lote, para que uno grande no parezca colgado.
+   *
+   * `uploading` es el ÍNDICE del archivo en curso, de 1 a total. Antes se
+   * guardaba cuántos iban hechos y se pintaba `done + 1`, así que al
+   * terminar el último se leía "Subiendo 5 de 4". `registering` es el tramo
+   * final, cuando el servidor ya está comprobando los bytes.
+   */
+  const [progress, setProgress] = useState<
+    { uploading: number; total: number } | { registering: true } | null
+  >(null);
 
   const images =
     vehicle?.images.filter((image) => image.id !== "placeholder") ?? [];
@@ -83,6 +103,23 @@ export function ImageManager({
     router.refresh();
   }
 
+  /**
+   * Subir, en una petición POR ARCHIVO y directo a Supabase Storage.
+   *
+   * Antes el lote entero iba en un solo multipart contra la API de Next:
+   * hasta doce archivos de 10 MB en un único cuerpo, atravesando una
+   * función serverless que corta mucho antes. Como ahora se piden
+   * originales de alta resolución a propósito, eso dejaba de ser teórico.
+   *
+   * El camino es: el servidor reserva las rutas (y de paso autoriza y
+   * cuenta), el navegador escribe cada archivo con su propia sesión —las
+   * políticas del bucket exigen Superadmin, así que esto no abre nada— y
+   * al final la API registra las filas comprobando los bytes que de verdad
+   * llegaron.
+   *
+   * Nada se recomprime ni se redimensiona por el camino: lo que se sube es
+   * el archivo original tal cual.
+   */
   async function upload(files: FileList | null) {
     if (!files || files.length === 0 || busy) return;
 
@@ -98,17 +135,17 @@ export function ImageManager({
     }
 
     if (rejected) {
-      setError("Solo JPG, PNG, WebP o AVIF de máximo 10 MB.");
+      setError("Solo JPG, JPEG, PNG, WebP o AVIF de máximo 10 MB.");
     }
     if (chosen.length === 0) return;
 
     setBusy(true);
     setError(null);
 
-    // En el alta, la fila puede no existir todavía. Se crea aquí y no al
+    // En el alta la fila puede no existir todavía. Se crea aquí y no al
     // abrir la pantalla: abrir /nuevo y marcharse no debe dejar rastro.
     let target = vehicle;
-    const created = target === null;
+    const createdDraft = target === null;
     if (!target) {
       target = await ensureVehicle();
       if (!target) {
@@ -117,30 +154,103 @@ export function ImageManager({
         return;
       }
     }
+    const vehicleId = target.id;
 
-    const form = new FormData();
-    for (const file of chosen) form.append("files", file);
-
-    const result = await adminRequest<{ vehicle: Vehicle }>(
-      `/api/admin/vehicles/${target.id}/images`,
-      { method: "POST", body: form },
-    );
-    setBusy(false);
-
-    if (!result.ok) {
-      // Si el borrador se creó solo para esta subida y la subida falló, se
-      // deshace: un fallo de red no puede ir dejando vehículos vacíos en la
-      // lista, uno por intento. El endpoint solo borra borradores, así que
-      // esto no puede llevarse nada publicado por delante.
-      if (created) {
-        await adminJson(`/api/admin/vehicles/draft?id=${target.id}`, "DELETE");
-        onVehicleChange(target);
+    /**
+     * Salir por error dejando el estado coherente.
+     *
+     * Si el borrador se creó SOLO para esta subida, se descarta. Y entonces
+     * el formulario tiene que quedarse sin vehículo: seguir apuntando a una
+     * fila recién borrada dejaba la pantalla en un estado imposible —el
+     * siguiente intento subiría contra un id que ya no existe—.
+     *
+     * Si el descarte falla, no se afirma que se borró: el borrador sigue
+     * ahí y el estado lo sigue reflejando.
+     */
+    const abort = async (message: string) => {
+      if (createdDraft && target) {
+        const discarded = await adminJson(
+          `/api/admin/vehicles/draft?id=${vehicleId}`,
+          "DELETE",
+        );
+        onVehicleChange(
+          vehicleAfterAbortedUpload({
+            createdDraft,
+            draftDiscarded: discarded.ok,
+            vehicle: target,
+          }),
+        );
       }
-      setError(result.message);
-      return;
+      setBusy(false);
+      setProgress(null);
+      setError(message);
+    };
+
+    const reserved = await adminJson<{
+      bucket: string;
+      uploads: {
+        reservationId: string;
+        storagePath: string;
+        contentType: string;
+      }[];
+    }>(`/api/admin/vehicles/${vehicleId}/images/reserve`, "POST", {
+      contentTypes: chosen.map((file) => file.type),
+    });
+    if (!reserved.ok) return abort(reserved.message);
+
+    const batch = reserved.data.uploads;
+
+    /**
+     * Devolver el lote entero al servidor para que lo retire.
+     *
+     * La limpieza la hace SIEMPRE el servidor, nunca este componente: él es
+     * quien sabe qué reservas son de este vehículo, y borrar desde aquí por
+     * ruta era justo lo que permitía tocar el objeto pendiente de otro.
+     * Además deja una sola autoridad, sin dos limpiezas pisándose.
+     */
+    const cancelBatch = () =>
+      adminJson(`/api/admin/vehicles/${vehicleId}/images/reserve`, "DELETE", {
+        reservationIds: batch.map((slot) => slot.reservationId),
+      });
+
+    const supabase = createSupabaseBrowserClient();
+
+    for (const [index, file] of chosen.entries()) {
+      setProgress({ uploading: index + 1, total: chosen.length });
+      const slot = batch[index];
+      const { error: uploadError } = await supabase.storage
+        .from(reserved.data.bucket)
+        .upload(slot.storagePath, file, {
+          contentType: slot.contentType,
+          // La ruta lleva un UUID recién generado: no puede existir ya, y
+          // sobrescribir solo escondería un error.
+          upsert: false,
+        });
+
+      if (uploadError) {
+        // El cierre no va a ocurrir, así que el servidor no se enteraría:
+        // se le pide que retire el lote —objetos y plazas— antes de salir.
+        await cancelBatch();
+        return abort(`No se pudo subir «${file.name}». ${uploadError.message}`);
+      }
     }
 
-    onVehicleChange(result.data.vehicle);
+    // Solo ahora la API mira los bytes que de verdad llegaron y crea las
+    // filas, todas o ninguna. Si rechaza algo, ella misma retira la tanda:
+    // aquí NO se vuelve a cancelar, o sería una segunda limpieza sobre algo
+    // que ya no existe.
+    setProgress({ registering: true });
+    const registered = await adminJson<{ vehicle: Vehicle }>(
+      `/api/admin/vehicles/${vehicleId}/images`,
+      "POST",
+      { reservationIds: batch.map((slot) => slot.reservationId) },
+    );
+
+    if (!registered.ok) return abort(registered.message);
+
+    setBusy(false);
+    setProgress(null);
+    onVehicleChange(registered.data.vehicle);
     router.refresh();
   }
 
@@ -212,7 +322,13 @@ export function ImageManager({
           className="mx-auto size-7 text-burgundy"
         />
         <p className="mt-4 font-serif text-[0.9375rem] text-ink">
-          {busy ? "Subiendo…" : "Arrastra y suelta tus imágenes aquí"}
+          {progress === null
+            ? busy
+              ? "Subiendo…"
+              : "Arrastra y suelta tus imágenes aquí"
+            : "registering" in progress
+              ? "Procesando imágenes…"
+              : `Subiendo ${progress.uploading} de ${progress.total}…`}
         </p>
         <button
           type="button"
@@ -223,7 +339,15 @@ export function ImageManager({
           o haz clic para seleccionar archivos
         </button>
         <p className="mt-3 text-xs text-ink-muted">
-          JPG, PNG, WebP o AVIF. Máx. 10 MB por imagen.
+          JPG, JPEG, PNG, WebP o AVIF. Máx. 10 MB por imagen. Otros formatos,
+          incluido HEIC, no se admiten todavía.
+        </p>
+        {/* El archivo se guarda sin recomprimir, así que lo que se sube es
+            exactamente lo que se verá: una foto pequeña no se puede
+            arreglar después. */}
+        <p className="mt-1 text-xs text-ink-muted">
+          Sube el original: mínimo 1.000 × 700 px, idealmente 2.000 o más en
+          el lado largo. No se recomprime ni se reduce.
         </p>
         <input
           ref={inputRef}
@@ -331,6 +455,17 @@ export function ImageManager({
 
           <p className="mt-4 text-xs text-ink-muted tabular">
             {images.length} de {MAX_IMAGES} imágenes
+          </p>
+
+          {/* Las fotos subidas antes de que existiera el mínimo de
+              resolución pueden ser demasiado pequeñas. No se tocan ni se
+              borran solas, y aquí no se descargan para medirlas: hacerlo en
+              cada render traería megas por nada. Se avisa y decide quien
+              administra. */}
+          <p className="mt-2 text-xs text-ink-muted">
+            Si alguna foto antigua se ve borrosa en la ficha, su archivo era
+            pequeño de origen: no se puede mejorar desde aquí, hay que
+            sustituirla por el original.
           </p>
         </>
       ) : (

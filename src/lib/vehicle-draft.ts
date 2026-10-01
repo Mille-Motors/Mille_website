@@ -267,3 +267,31 @@ export function draftPublicationCandidate(
     images,
   };
 }
+
+/**
+ * Con qué vehículo se queda el formulario cuando una subida falla.
+ *
+ * Parece trivial y era un fallo real: al fallar la subida se descartaba el
+ * borrador que se había creado para alojarla, pero el formulario seguía
+ * apuntando a él. Quedaba señalando una fila que acababa de dejar de
+ * existir, y el siguiente intento subía contra un id borrado.
+ *
+ * Las tres situaciones, que es lo que esta función encierra:
+ *
+ *   - el borrador era nuestro y se descartó: no queda vehículo, `null`. El
+ *     siguiente intento creará uno nuevo desde cero;
+ *   - el borrador era nuestro pero NO se pudo descartar: sigue existiendo,
+ *     así que el formulario lo conserva. Afirmar que se borró cuando no fue
+ *     así deja la pantalla mintiendo;
+ *   - el vehículo ya existía antes: la subida fallida no lo toca.
+ */
+export function vehicleAfterAbortedUpload<T>(input: {
+  /** El borrador se creó en ESTA subida, solo para poder alojarla. */
+  createdDraft: boolean;
+  /** El descarte del borrador se confirmó. */
+  draftDiscarded: boolean;
+  vehicle: T;
+}): T | null {
+  if (input.createdDraft && input.draftDiscarded) return null;
+  return input.vehicle;
+}

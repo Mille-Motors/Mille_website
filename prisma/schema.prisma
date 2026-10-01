@@ -307,8 +307,9 @@ model Vehicle {
   updatedAt   DateTime  @updatedAt
   publishedAt DateTime?
 
-  images    VehicleImage[]
-  inquiries Inquiry[]
+  images          VehicleImage[]
+  imageUploads    VehicleImageUpload[]
+  inquiries       Inquiry[]
 
   @@index([publicationStatus])
   @@index([vehicleType])
@@ -338,7 +339,10 @@ model VehicleImage {
   vehicleId   String      @db.Uuid
   vehicle     Vehicle     @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   url         String
-  storagePath String?
+  /// Único: un mismo objeto del bucket no puede quedar registrado dos veces.
+  /// Las imágenes LEGACY viven en /public y no tienen ruta, y en Postgres
+  /// varios NULL no chocan entre sí, así que la restricción no las afecta.
+  storagePath String?     @unique
   source      ImageSource @default(STORAGE)
   alt         String
   position    Int         @default(0)
@@ -346,6 +350,31 @@ model VehicleImage {
 
   @@unique([vehicleId, position])
   @@index([vehicleId])
+}
+
+/// Una ruta reservada para que el navegador suba directo a Storage.
+///
+/// Existe para que la finalización pueda DEMOSTRAR que la ruta salió de
+/// nuestra propia reserva. Comprobar solo el prefijo limitaba el daño pero
+/// no probaba nada: cualquiera con la sesión podía inventarse
+/// `vehicles/<id>/loquesea.jpg` y pedir que se registrara.
+///
+/// La fila se borra al consumirla, así que una reserva vale exactamente una
+/// vez. `storagePath` es único y la clave ajena va en cascada: borrar el
+/// vehículo se lleva sus reservas pendientes.
+model VehicleImageUpload {
+  id          String   @id @default(uuid()) @db.Uuid
+  vehicleId   String   @db.Uuid
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  storagePath String   @unique
+  /// Lo que el navegador declaró al reservar. Si los bytes que suben no
+  /// coinciden, se rechaza: un PNG no puede acabar servido como JPEG.
+  contentType String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([vehicleId])
+  @@index([expiresAt])
 }
 
 // ---------------------------------------------------------------------------
