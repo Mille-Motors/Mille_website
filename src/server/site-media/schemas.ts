@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { isKnownSlot } from "@/lib/site-media";
+// El encuadre lo comparten site media y las fotos de vehículos: una sola
+// definición, en `server/media`.
+import { focalSchema } from "@/server/media/focal";
+
+export { focalAxisSchema, focalSchema } from "@/server/media/focal";
 
 /**
  * La clave tiene que ser una de las definidas en el código. No se acepta
@@ -17,26 +22,6 @@ export const siteMediaAltSchema = z
   .trim()
   .min(3, { message: "Escribe un texto alternativo." })
   .max(300);
-
-/**
- * Un eje del encuadre: un porcentaje real entre 0 y 100.
- *
- * `NaN` e `Infinity` se rechazan explícitamente porque `z.number()` los
- * aceptaría —en JavaScript son números— y llegarían a la base como un
- * encuadre que no significa nada. 0 y 100 sí son válidos: son los extremos
- * legítimos de la fotografía.
- */
-export const focalAxisSchema = z
-  .number()
-  .refine(Number.isFinite, { message: "El encuadre debe ser un número." })
-  .refine((value) => value >= 0 && value <= 100, {
-    message: "El encuadre va de 0 a 100.",
-  });
-
-export const focalSchema = z.object({
-  x: focalAxisSchema,
-  y: focalAxisSchema,
-});
 
 /**
  * Lo que se puede cambiar sin volver a subir el archivo: el texto alternativo

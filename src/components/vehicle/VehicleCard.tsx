@@ -1,3 +1,5 @@
+import { objectPosition } from "@/lib/focal-point";
+import { VEHICLE_FRAME_CLASS } from "@/lib/vehicle-frame";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
@@ -60,7 +62,7 @@ export function VehicleCard({
         className,
       )}
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-sand">
+      <div className={cn("relative overflow-hidden bg-sand", VEHICLE_FRAME_CLASS)}>
         <Image
           src={cover.src}
           alt={cover.alt}
@@ -71,6 +73,10 @@ export function VehicleCard({
             "object-cover transition-transform duration-[700ms] ease-out group-hover:scale-[1.015]",
             sold && "opacity-55 saturate-[0.45]",
           )}
+          // El mismo encuadre que la ficha: la tarjeta usa esta misma
+          // VehicleImage, y verla centrada aquí y desplazada allí sería
+          // delatar que el encuadre es decorativo.
+          style={{ objectPosition: objectPosition(cover.focal) }}
         />
         {badge ? (
           <span

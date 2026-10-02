@@ -48,8 +48,8 @@ const vehicle: Vehicle = makeVehicle({
   equipment: ["Techo panorámico"],
   specs: { powerHp: 340, displacementCc: 2998, topSpeedKph: 243, curbWeightKg: 2135 },
   images: [
-    { id: "i1", src: "/images/vehicles/bmw-x5-xdrive40i/01.jpg", alt: "BMW X5", source: "legacy", storagePath: null },
-    { id: "i2", src: "https://cdn.supabase.co/storage/v1/object/public/vehicles/1/02.jpg", alt: "", source: "storage", storagePath: "vehicles/1/02.jpg" },
+    { id: "i1", src: "/images/vehicles/bmw-x5-xdrive40i/01.jpg", alt: "BMW X5", source: "legacy", storagePath: null, focal: { x: 50, y: 50 } },
+    { id: "i2", src: "https://cdn.supabase.co/storage/v1/object/public/vehicles/1/02.jpg", alt: "", source: "storage", storagePath: "vehicles/1/02.jpg", focal: { x: 50, y: 50 } },
   ],
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-02-01T00:00:00.000Z",

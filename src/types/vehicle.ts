@@ -1,3 +1,5 @@
+import type { FocalPoint } from "@/lib/focal-point";
+
 /**
  * El modelo de dominio que consume la interfaz.
  *
@@ -492,6 +494,11 @@ export interface VehicleImage {
   /** LEGACY vive en /public y el admin no puede borrarla del disco. */
   source: "legacy" | "storage";
   storagePath: string | null;
+  /**
+   * Qué parte de la fotografía se ve dentro del marco horizontal del sitio.
+   * El archivo no se toca: esto es solo dónde mirar. Ver `lib/vehicle-frame`.
+   */
+  focal: FocalPoint;
 }
 
 /**

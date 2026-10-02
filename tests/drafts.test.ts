@@ -145,7 +145,7 @@ describe("publicar exige los doce requisitos, uno por uno", () => {
     city: "Bogotá, CO",
     description: "Una unidad muy cuidada.",
     images: [
-      { id: "i1", src: "/a.jpg", alt: "a", source: "storage" as const, storagePath: "vehicles/1/a.jpg" },
+      { id: "i1", src: "/a.jpg", alt: "a", source: "storage" as const, storagePath: "vehicles/1/a.jpg", focal: { x: 50, y: 50 } },
     ],
   };
 
@@ -214,7 +214,7 @@ describe("configuraciones completas de verdad", () => {
     city: "Bogotá, CO",
     description: "Unidad revisada.",
     images: [
-      { id: "i1", src: "/a.jpg", alt: "a", source: "storage" as const, storagePath: "vehicles/1/a.jpg" },
+      { id: "i1", src: "/a.jpg", alt: "a", source: "storage" as const, storagePath: "vehicles/1/a.jpg", focal: { x: 50, y: 50 } },
     ],
   };
 
@@ -271,7 +271,7 @@ describe("configuraciones completas de verdad", () => {
 describe("publicar sigue exigiéndolo todo", () => {
   const conFoto = {
     images: [
-      { id: "i1", src: "/a.jpg", alt: "a", source: "storage" as const, storagePath: "vehicles/1/a.jpg" },
+      { id: "i1", src: "/a.jpg", alt: "a", source: "storage" as const, storagePath: "vehicles/1/a.jpg", focal: { x: 50, y: 50 } },
     ],
   };
 

@@ -3,11 +3,14 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Crop, Plus, Trash2, Upload } from "lucide-react";
 import { adminJson } from "@/lib/admin-client";
 import { vehicleAfterAbortedUpload } from "@/lib/vehicle-draft";
 import { createSupabaseBrowserClient } from "@/server/auth/supabase-browser";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { VehicleImageFramer } from "@/components/admin/VehicleImageFramer";
+import { objectPosition } from "@/lib/focal-point";
+import { VEHICLE_FRAME_CLASS } from "@/lib/vehicle-frame";
 import { cn } from "@/lib/cn";
 import type { Vehicle, VehicleImage } from "@/types/vehicle";
 
@@ -60,6 +63,8 @@ export function ImageManager({
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** La fotografía cuyo encuadre se está ajustando, por id. */
+  const [adjusting, setAdjusting] = useState<string | null>(null);
   /**
    * En qué va el lote, para que uno grande no parezca colgado.
    *
@@ -74,6 +79,11 @@ export function ImageManager({
 
   const images =
     vehicle?.images.filter((image) => image.id !== "placeholder") ?? [];
+  // Se busca por id y no se guarda el objeto: tras guardar llega un vehículo
+  // nuevo y una copia antigua dejaría el editor enseñando el encuadre de
+  // antes. Si la foto desaparece —se borró desde otra pestaña— el editor se
+  // cierra solo en vez de quedarse apuntando a nada.
+  const adjustingImage = images.find((image) => image.id === adjusting) ?? null;
 
   /**
    * Toda operación sigue el mismo camino: una sola a la vez, y la pantalla
@@ -373,13 +383,22 @@ export function ImageManager({
           <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
             {images.map((image, index) => (
               <li key={image.id} className="group relative">
-                <span className="relative block aspect-[4/3] overflow-hidden bg-sand">
+                <span
+                  className={cn(
+                    "relative block overflow-hidden bg-sand",
+                    VEHICLE_FRAME_CLASS,
+                  )}
+                >
+                  {/* La miniatura enseña el MISMO encuadre que la ficha: si
+                      aquí se viera centrada y allí desplazada, ajustar una
+                      foto parecería no hacer nada. */}
                   <Image
                     src={image.src}
                     alt={image.alt}
                     fill
                     sizes="(min-width: 640px) 20vw, 45vw"
                     className="object-cover"
+                    style={{ objectPosition: objectPosition(image.focal) }}
                   />
                   {index === 0 ? (
                     <span className="label-caps absolute top-0 left-0 bg-burgundy px-2 py-1 text-[9px] text-cream">
@@ -417,6 +436,15 @@ export function ImageManager({
                   <div className="flex gap-1">
                     <button
                       type="button"
+                      onClick={() => setAdjusting(image.id)}
+                      disabled={busy}
+                      aria-label={`Ajustar encuadre de la fotografía ${index + 1}`}
+                      className="inline-flex size-7 items-center justify-center rounded-xs border border-stone text-ink-muted transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-35"
+                    >
+                      <Crop aria-hidden className="size-3.5" strokeWidth={1.5} />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => makeCover(index)}
                       disabled={busy || index === 0}
                       aria-label="Marcar como portada"
@@ -452,6 +480,22 @@ export function ImageManager({
               </li>
             ) : null}
           </ul>
+
+          {/* `vehicle` no puede ser null si hay imágenes, pero el tipo no
+              lo sabe y afirmarlo con `!` sería pedirle que se calle. */}
+          {adjustingImage && vehicle ? (
+            <VehicleImageFramer
+              key={adjustingImage.id}
+              vehicleId={vehicle.id}
+              image={adjustingImage}
+              index={images.findIndex((item) => item.id === adjustingImage.id)}
+              onSaved={(updated) => {
+                onVehicleChange(updated);
+                router.refresh();
+              }}
+              onClose={() => setAdjusting(null)}
+            />
+          ) : null}
 
           <p className="mt-4 text-xs text-ink-muted tabular">
             {images.length} de {MAX_IMAGES} imágenes

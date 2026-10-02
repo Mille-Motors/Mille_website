@@ -128,4 +128,29 @@ describe("la ficha sirve todo su contenido, abra quien abra", () => {
       "",
     );
   });
+
+  /**
+   * Al abrir una sección la página salta a su inicio, y el título no puede
+   * acabar debajo de la barra superior, que es sticky. El margen sale de la
+   * misma variable que fija la altura de la barra, así que no hay dos
+   * números que mantener de acuerdo.
+   */
+  it("cada sección reserva el alto del header para el salto", () => {
+    const sectionTags = [...html.matchAll(/<section[^>]*>/g)].map((m) => m[0]);
+    assert.equal(sectionTags.length, 4);
+    for (const tag of sectionTags) {
+      assert.ok(
+        tag.includes("scroll-mt-header"),
+        `una sección no reserva el alto del header: ${tag}`,
+      );
+    }
+  });
+
+  it("aria-expanded distingue la abierta de las cerradas", () => {
+    const expanded = [...html.matchAll(/aria-expanded="(true|false)"/g)].map(
+      (m) => m[1],
+    );
+    assert.equal(expanded.length, 4);
+    assert.equal(expanded.filter((value) => value === "true").length, 1);
+  });
 });

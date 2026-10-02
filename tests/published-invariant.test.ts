@@ -14,7 +14,7 @@ const published: Vehicle = makeVehicle({
   publication: "published",
   publishedAt: "2026-01-01T00:00:00.000Z",
   images: [
-    { id: "i1", src: "/a.jpg", alt: "a", source: "storage", storagePath: "vehicles/1/a.jpg" },
+    { id: "i1", src: "/a.jpg", alt: "a", source: "storage", storagePath: "vehicles/1/a.jpg", focal: { x: 50, y: 50 } },
   ],
 });
 
@@ -31,7 +31,7 @@ describe("estados que la invariante debe rechazar", () => {
   it("quedarse solo con el marcador de respaldo también es inválido", () => {
     const conPlaceholder = {
       ...published,
-      images: [{ id: "placeholder", src: "/images/brand/night.jpg", alt: "", source: "legacy" as const, storagePath: null }],
+      images: [{ id: "placeholder", src: "/images/brand/night.jpg", alt: "", source: "legacy" as const, storagePath: null, focal: { x: 50, y: 50 } }],
     };
     assert.match(publicationBlockers(conPlaceholder)[0], /fotograf/i);
   });

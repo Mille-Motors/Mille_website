@@ -19,6 +19,8 @@ export type AuditAction =
   | "ADD_VEHICLE_IMAGES"
   | "DELETE_VEHICLE_IMAGE"
   | "REORDER_VEHICLE_IMAGES"
+  /** Qué parte de una fotografía se ve. No cambia el archivo ni el orden. */
+  | "UPDATE_VEHICLE_IMAGE_FOCAL"
   | "CREATE_CATEGORY"
   | "UPDATE_CATEGORY"
   | "DELETE_CATEGORY"

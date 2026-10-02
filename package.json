@@ -18,7 +18,8 @@
     "admin:grant": "tsx scripts/grant-admin.ts",
     "test": "tsx --test tests/*.test.ts",
     "test:concurrency": "tsx --conditions=react-server scripts/e2e-image-concurrency.ts",
-    "test:cleanup": "tsx --conditions=react-server scripts/e2e-upload-cleanup.ts"
+    "test:cleanup": "tsx --conditions=react-server scripts/e2e-upload-cleanup.ts",
+    "test:focal": "tsx --conditions=react-server scripts/e2e-image-focal.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

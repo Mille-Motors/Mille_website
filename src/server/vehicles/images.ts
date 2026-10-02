@@ -3,6 +3,7 @@ import "server-only";
 import { prisma } from "@/server/db/prisma";
 import { badRequest, conflict, notFound } from "@/server/http/errors";
 import { vehicleTitle } from "@/lib/format";
+import { normalizeFocal, roundFocal, type FocalPoint } from "@/lib/focal-point";
 import {
   MAX_IMAGES_PER_VEHICLE,
   deleteStoredImage,
@@ -330,6 +331,39 @@ export async function commitVehicleImages(
  * objetos ya son sus imágenes.
  */
 export class AlreadyConsumed extends Error {}
+
+/**
+ * Elegir qué parte de una fotografía se ve dentro del marco horizontal.
+ *
+ * No toca el archivo, ni la URL, ni la ruta de Storage, ni la posición en la
+ * galería, ni el texto alternativo: solo dos números. Encuadrar no es volver
+ * a subir, y por eso tiene su propio endpoint y no pasa por el de subida.
+ *
+ * `reloadVehicle` devuelve la ficha entera porque es lo que el administrador
+ * tiene en pantalla; el cambio real son las dos columnas.
+ */
+export async function setVehicleImageFocal(
+  vehicleId: string,
+  imageId: string,
+  focal: FocalPoint,
+): Promise<Vehicle> {
+  // Por identificador Y vehículo. Un imageId de otra ficha simplemente no
+  // aparece, igual que con las reservas de subida: lo que no es de este
+  // vehículo no se puede modificar desde su pantalla.
+  const image = await prisma.vehicleImage.findFirst({
+    where: { id: imageId, vehicleId },
+    select: { id: true },
+  });
+  if (!image) throw notFound("Esa imagen no existe.");
+
+  const safe = roundFocal(normalizeFocal(focal));
+  await prisma.vehicleImage.update({
+    where: { id: image.id },
+    data: { focalX: safe.x, focalY: safe.y },
+  });
+
+  return reloadVehicle(vehicleId);
+}
 
 /**
  * Quitar una fotografía de un vehículo.

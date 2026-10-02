@@ -39,6 +39,13 @@
   --font-serif: var(--font-eb-garamond), Georgia, serif;
   --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
 
+  /* La altura de la barra superior, que es sticky. Existe como variable
+     porque hay dos sitios que tienen que coincidir: la propia barra y el
+     `scroll-margin-top` de cualquier cosa a la que se salte por programa.
+     Si no coincidieran, el título al que se salta quedaría debajo de la
+     barra, que es exactamente el fallo que esto evita. */
+  --spacing-header: 4.5rem;
+
   --tracking-label: 0.18em;
   --tracking-eyebrow: 0.3em;
 

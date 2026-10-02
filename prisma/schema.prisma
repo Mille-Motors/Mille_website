@@ -346,6 +346,15 @@ model VehicleImage {
   source      ImageSource @default(STORAGE)
   alt         String
   position    Int         @default(0)
+  /// Qué parte de la fotografía permanece visible dentro del marco
+  /// horizontal del sitio, en porcentaje: 0 izquierda/arriba, 50 centro,
+  /// 100 derecha/abajo. No se recorta ningún archivo — el original sigue
+  /// entero en Storage— y el recorte lo hace el navegador con
+  /// `object-fit: cover` más `object-position`, igual que en SiteMedia.
+  /// El centro es como se veía el inventario antes de que esto existiera,
+  /// así que una foto que nadie haya encuadrado no cambia de aspecto.
+  focalX      Float       @default(50)
+  focalY      Float       @default(50)
   createdAt   DateTime    @default(now())
 
   @@unique([vehicleId, position])

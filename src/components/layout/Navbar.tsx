@@ -27,7 +27,7 @@ export function Navbar({
       )}
     >
       <Container width="wide">
-        <div className="flex h-18 items-center justify-between gap-6">
+        <div className="flex h-header items-center justify-between gap-6">
           <Logo tone={dark ? "cream" : "ink"} priority />
 
           <nav aria-label="Principal" className="hidden lg:block">

@@ -4,6 +4,8 @@ import { useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { objectPosition } from "@/lib/focal-point";
+import { VEHICLE_FRAME_CLASS } from "@/lib/vehicle-frame";
 import type { VehicleImage } from "@/types/vehicle";
 
 /**
@@ -20,6 +22,16 @@ import type { VehicleImage } from "@/types/vehicle";
  * dentro de un contenedor de 1.480 px, o sea unos 860 px de CSS, que en una
  * pantalla Retina son 1.720 de verdad. Declarar de menos haría que el
  * navegador bajara una variante pequeña y la estirara.
+ *
+ * El marco es el horizontal del sitio en los dos tamaños. Antes el
+ * escritorio usaba 3:2 y el teléfono 4:3, y esa diferencia hacía imposible
+ * la promesa del editor de encuadre: el mismo punto focal en dos marcos
+ * distintos enseña dos trozos distintos de la misma fotografía, así que lo
+ * elegido en el administrador no podía corresponderse con lo publicado.
+ *
+ * `objectPosition` es lo que hace que ese encuadre se respete. No hay
+ * recorte ni copia nueva: el archivo que se sirve sigue siendo el original
+ * entero y el navegador decide qué parte enseña.
  */
 const HERO_QUALITY = 90;
 
@@ -30,7 +42,7 @@ export function VehicleGallery({ images }: { images: VehicleImage[] }) {
 
   return (
     <div className="grid gap-3 lg:grid-cols-[minmax(0,1.62fr)_minmax(0,1fr)]">
-      <div className="relative aspect-[4/3] overflow-hidden bg-sand lg:aspect-[3/2]">
+      <div className={cn("relative overflow-hidden bg-sand", VEHICLE_FRAME_CLASS)}>
         <Image
           key={images[index].src}
           src={images[index].src}
@@ -40,6 +52,7 @@ export function VehicleGallery({ images }: { images: VehicleImage[] }) {
           quality={HERO_QUALITY}
           sizes="(min-width: 1536px) 900px, (min-width: 1024px) 60vw, 100vw"
           className="object-cover"
+          style={{ objectPosition: objectPosition(images[index].focal) }}
         />
 
         {total > 1 ? (
@@ -93,6 +106,7 @@ export function VehicleGallery({ images }: { images: VehicleImage[] }) {
                   fill
                   sizes="(min-width: 1536px) 280px, (min-width: 1024px) 18vw, 24vw"
                   className="object-cover"
+                  style={{ objectPosition: objectPosition(image.focal) }}
                 />
               </button>
             </li>

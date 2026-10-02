@@ -106,7 +106,7 @@ const base: Vehicle = {
   funFact: { enabled: false, title: null, body: null },
   reviewNote: null,
   images: [
-    { id: "i1", src: "/a.jpg", alt: "a", source: "legacy", storagePath: null },
+    { id: "i1", src: "/a.jpg", alt: "a", source: "legacy", storagePath: null, focal: { x: 50, y: 50 } },
   ],
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",

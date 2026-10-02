@@ -65,7 +65,7 @@ const motoCategory = {
 };
 
 const photo = [
-  { id: "i1", src: "/a.jpg", alt: "a", source: "storage" as const, storagePath: "v/1/a.jpg" },
+  { id: "i1", src: "/a.jpg", alt: "a", source: "storage" as const, storagePath: "v/1/a.jpg", focal: { x: 50, y: 50 } },
 ];
 
 /** Una moto completa, de las que sí se pueden publicar. */

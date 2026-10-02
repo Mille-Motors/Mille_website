@@ -35,7 +35,7 @@ describe("requisitos para publicar", () => {
   it("no acepta la imagen de respaldo como fotografía", () => {
     const withPlaceholder = {
       ...base,
-      images: [{ id: "placeholder", src: "/images/brand/night.jpg", alt: "", source: "legacy" as const, storagePath: null }],
+      images: [{ id: "placeholder", src: "/images/brand/night.jpg", alt: "", source: "legacy" as const, storagePath: null, focal: { x: 50, y: 50 } }],
     };
     assert.match(publicationBlockers(withPlaceholder)[0], /fotograf/i);
   });

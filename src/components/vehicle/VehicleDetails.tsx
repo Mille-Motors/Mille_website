@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { scrollBehaviorFor, toggleSection } from "@/lib/accordion-scroll";
 
 /**
  * Los detalles de la ficha, en una sola pila desplegable.
@@ -36,6 +37,43 @@ export function VehicleDetails({ sections }: { sections: DetailSection[] }) {
   const [open, setOpen] = useState<string | null>(sections[0]?.id ?? null);
   const base = useId();
 
+  const nodes = useRef(new Map<string, HTMLElement>());
+  /**
+   * La sección a la que hay que saltar en cuanto React pinte.
+   *
+   * Es una ref y no estado porque no cambia nada de lo que se ve: si fuera
+   * estado habría que volver a ponerla a null después de usarla, y eso es un
+   * render de más por cada clic.
+   */
+  const pending = useRef<string | null>(null);
+
+  useEffect(() => {
+    const target = pending.current;
+    if (target === null) return;
+    pending.current = null;
+
+    // Un fotograma de margen. El panel acaba de dejar de estar `hidden` y el
+    // navegador todavía no ha rehecho el layout; medir ahora daría la
+    // posición de antes de que la sección creciera.
+    const frame = requestAnimationFrame(() => {
+      const node = nodes.current.get(target);
+      if (!node) return;
+      node.scrollIntoView({
+        block: "start",
+        behavior: scrollBehaviorFor(
+          typeof window !== "undefined" &&
+            window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true,
+        ),
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
+
+  const register = useCallback((id: string, node: HTMLElement | null) => {
+    if (node) nodes.current.set(id, node);
+    else nodes.current.delete(id);
+  }, []);
+
   if (sections.length === 0) return null;
 
   return (
@@ -45,7 +83,14 @@ export function VehicleDetails({ sections }: { sections: DetailSection[] }) {
         const panelId = `${base}-${section.id}`;
 
         return (
-          <section key={section.id} className="border-b border-stone">
+          <section
+            key={section.id}
+            ref={(node) => register(section.id, node)}
+            // Que el título no acabe debajo de la barra superior, que es
+            // sticky. La altura sale de la misma variable que usa la barra,
+            // así que no hay dos números que mantener de acuerdo.
+            className="scroll-mt-header border-b border-stone"
+          >
             <h3>
               <button
                 type="button"
@@ -54,7 +99,16 @@ export function VehicleDetails({ sections }: { sections: DetailSection[] }) {
                 aria-controls={panelId}
                 // Abrir una cierra la anterior: la pantalla no se convierte
                 // en el muro que este componente existe para evitar.
-                onClick={() => setOpen(expanded ? null : section.id)}
+                //
+                // El reposicionamiento se decide aquí y SOLO aquí, porque
+                // solo un clic deliberado lo justifica. Cerrar no mueve
+                // nada, y revelar una sección buscando texto en la página
+                // tampoco: de eso ya se encarga el navegador.
+                onClick={() => {
+                  const next = toggleSection(open, section.id);
+                  pending.current = next.scrollTo;
+                  setOpen(next.open);
+                }}
                 className={cn(
                   "group flex w-full items-baseline justify-between gap-6 py-6 text-left transition-colors lg:py-7",
                   "hover:text-burgundy focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-burgundy",

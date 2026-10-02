@@ -1,3 +1,4 @@
+import { CENTER_FOCAL, normalizeFocal } from "@/lib/focal-point";
 import type {
   AvailabilityStatus as DbAvailability,
   ImageSource as DbImageSource,
@@ -140,6 +141,10 @@ function toImageDto(image: VehicleImageModel): UiImage {
     alt: image.alt,
     source: fromDbImageSource[image.source],
     storagePath: image.storagePath,
+    // `normalizeFocal` y no las columnas en crudo: una fila escrita antes de
+    // que existieran, o un valor imposible que se colara, caen al centro en
+    // vez de pegar la fotografía contra un borde.
+    focal: normalizeFocal({ x: image.focalX, y: image.focalY }),
   };
 }
 
@@ -161,6 +166,7 @@ const PLACEHOLDER_IMAGE: UiImage = {
   alt: "Vehículo de MILLE sin fotografía asignada",
   source: "legacy",
   storagePath: null,
+  focal: { ...CENTER_FOCAL },
 };
 
 export function toVehicleDto(record: VehicleRecord): UiVehicle {
