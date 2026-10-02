@@ -3,6 +3,10 @@ import "./env";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { SITE_MEDIA_SLOTS } from "../src/lib/site-media";
+import {
+  FIXTURE_SEED_BLOCKED_MESSAGE,
+  fixtureSeedAllowed,
+} from "../src/lib/fixture-seed-guard";
 import { fixtureCategories } from "./fixtures/categories";
 import { mockVehicles, type FixtureVehicle } from "./fixtures/vehicles";
 
@@ -21,6 +25,15 @@ import { mockVehicles, type FixtureVehicle } from "./fixtures/vehicles";
  * Usa DIRECT_URL cuando existe: sembrar es una operación puntual desde una
  * máquina, no tráfico de aplicación, y no tiene por qué pasar por el pooler.
  */
+// La barrera va ANTES de todo lo demás: antes de leer la cadena de
+// conexión, antes de construir el cliente y, por supuesto, antes de abrir
+// ninguna conexión. Sin autorización explícita este script no llega a tocar
+// la base.
+if (!fixtureSeedAllowed(process.argv.slice(2), process.env)) {
+  console.error(FIXTURE_SEED_BLOCKED_MESSAGE);
+  process.exit(1);
+}
+
 const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
 if (!connectionString) {
   console.error(

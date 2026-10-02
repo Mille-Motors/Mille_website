@@ -1,8 +1,22 @@
+import {
+  equipmentLinesFromText,
+  equipmentTextFromLines,
+} from "@/lib/equipment";
 import type { PublicationCandidate } from "@/lib/publication";
 import { DEFAULT_VEHICLE_TYPE } from "@/lib/vehicle-defaults";
+import {
+  hasCombustionEngine,
+  hasElectricDrive,
+  hasPlugCharging,
+  hasTractionBattery,
+  usesDrivetrain,
+  usesFinalDrive,
+  usesInteriorColor,
+} from "@/types/vehicle";
 import type {
   AvailabilityStatus,
   SpecialEquipmentItem,
+  Vehicle,
   VehicleType,
 } from "@/types/vehicle";
 
@@ -294,4 +308,257 @@ export function vehicleAfterAbortedUpload<T>(input: {
 }): T | null {
   if (input.createdDraft && input.draftDiscarded) return null;
   return input.vehicle;
+}
+
+// ---------------------------------------------------------------------------
+// Vehículo ⇄ borrador ⇄ payload
+// ---------------------------------------------------------------------------
+
+/** `null` se convierte en el vacío que el control sabe mostrar. */
+const str = (value: string | null): string => value ?? "";
+const num = (value: number | null): string =>
+  value === null ? "" : String(value);
+
+/** Una cadena vacía es ausencia de dato; un decimal escrito con coma vale. */
+export function decimalFromInput(value: string): number | null {
+  const clean = value.replace(",", ".").trim();
+  if (clean === "") return null;
+  const parsed = Number(clean);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
+ * Cargar un vehículo para editarlo.
+ *
+ * Es el reverso exacto de `vehiclePayload`: cada campo que se puede crear se
+ * puede editar, y se carga con el valor que tiene. Las dos funciones viven
+ * juntas a propósito — si una gana un campo y la otra no, el dato se escribe
+ * y se pierde al volver a guardar.
+ *
+ * Vivían dentro del componente. Están aquí porque además de convertir son
+ * ahora lo que decide si el formulario tiene cambios sin guardar, y esa
+ * decisión merece probarse sin montar React.
+ */
+export function draftFromVehicle(vehicle: Vehicle): Draft {
+  const { specs, electrification: e, documentation: d, funFact } = vehicle;
+  return {
+    vehicleType: vehicle.vehicleType,
+    make: vehicle.make,
+    model: vehicle.model,
+    version: vehicle.version,
+    year: vehicle.year,
+    price: vehicle.price,
+    mileage: vehicle.mileage,
+    categoryId: vehicle.category?.id ?? "",
+    fuelType: str(vehicle.fuelType),
+    transmission: str(vehicle.transmission),
+    gearCount: vehicle.gearCount,
+    drivetrain: str(vehicle.drivetrain),
+    finalDrive: str(vehicle.finalDrive),
+    engine: vehicle.engine,
+    exteriorColor: vehicle.exteriorColor,
+    interiorColor: vehicle.interiorColor,
+    city: str(vehicle.city),
+    availability: vehicle.availability,
+    featured: vehicle.featured,
+    description: vehicle.description,
+
+    engineLayout: str(specs.engineLayout),
+    cylinders: specs.cylinders,
+    displacementCc: specs.displacementCc,
+    aspiration: str(specs.aspiration),
+    powerHp: specs.powerHp,
+    torqueNm: specs.torqueNm,
+    accel0100: num(specs.accel0100),
+    topSpeedKph: specs.topSpeedKph,
+    topSpeedLimited: specs.topSpeedLimited,
+    topSpeedLimitedKph: specs.topSpeedLimitedKph,
+    curbWeightKg: specs.curbWeightKg,
+
+    icePowerHp: e.icePowerHp,
+    iceTorqueNm: e.iceTorqueNm,
+    electricMotorCount: e.electricMotorCount,
+    electricPowerHp: e.electricPowerHp,
+    electricTorqueNm: e.electricTorqueNm,
+    electricMotorLayout: str(e.electricMotorLayout),
+    hybridSystem: str(e.hybridSystem),
+    batteryGrossKwh: num(e.batteryGrossKwh),
+    batteryNetKwh: num(e.batteryNetKwh),
+    electricRangeKm: e.electricRangeKm,
+    rangeStandard: str(e.rangeStandard),
+    chargeAcKw: num(e.chargeAcKw),
+    chargeDcKw: num(e.chargeDcKw),
+    chargeConnector: str(e.chargeConnector),
+    chargeTimeNote: str(e.chargeTimeNote),
+
+    registrationCity: str(d.registrationCity),
+    plateEnding: str(d.plateEnding),
+    soatValid: d.soatValid,
+    soatExpiresOn: str(d.soatExpiresOn),
+    techInspectionApplies: d.techInspectionApplies,
+    techInspectionExpiresOn: str(d.techInspectionExpiresOn),
+    taxStatus: str(d.taxStatus),
+    taxesPaidThroughYear: d.taxesPaidThroughYear,
+    documentationCheckedOn: str(d.documentationCheckedOn),
+    documentationNotes: str(d.documentationNotes),
+
+    funFactEnabled: funFact.enabled,
+    funFactTitle: str(funFact.title),
+    funFactBody: str(funFact.body),
+
+    specialEquipment: vehicle.specialEquipment,
+    tags: vehicle.tags,
+  };
+}
+
+/**
+ * El borrador, en la forma que espera el servidor.
+ *
+ * Los campos que no aplican a esta propulsión se mandan en `null` en vez de
+ * omitirse: cambiar un PHEV a gasolina tiene que BORRAR su batería, no
+ * dejarla escondida en la base esperando a que alguien la vuelva a ver.
+ */
+export function vehiclePayload(
+  draft: Draft,
+  equipmentText: string,
+  reviewNote: string | null,
+) {
+  const text = (value: string) => value.trim() || null;
+  const showIce = hasCombustionEngine(text(draft.fuelType));
+  const electric = hasElectricDrive(text(draft.fuelType));
+  const showBattery = hasTractionBattery(text(draft.fuelType));
+  const showCharging = hasPlugCharging(text(draft.fuelType));
+
+  return {
+    vehicleType: draft.vehicleType,
+    make: draft.make,
+    model: draft.model,
+    version: draft.version,
+    year: draft.year,
+    // `null` viaja tal cual: es "todavía no se sabe", y convertirlo en 0
+    // haría que un borrador sin precio pareciera valer cero pesos.
+    price: draft.price,
+    mileage: draft.mileage,
+    // El "Seleccionar…" de cada desplegable es la cadena vacía, y se manda
+    // como ausencia. Así el borrador guarda lo que la pantalla enseña: un
+    // hueco, no la primera opción de la lista.
+    categoryId: text(draft.categoryId),
+    fuelType: text(draft.fuelType),
+    transmission: text(draft.transmission),
+    gearCount: draft.gearCount,
+    // Cada universo manda el suyo y NULL el del otro: así cambiar de tipo
+    // no deja escondido debajo un dato que ya no aplica.
+    drivetrain: usesDrivetrain(draft.vehicleType) ? text(draft.drivetrain) : null,
+    finalDrive: usesFinalDrive(draft.vehicleType) ? text(draft.finalDrive) : null,
+    engine: draft.engine,
+    exteriorColor: draft.exteriorColor,
+    interiorColor: usesInteriorColor(draft.vehicleType) ? draft.interiorColor : "",
+    city: text(draft.city),
+    availability: draft.availability,
+    featured: draft.featured,
+    description: draft.description,
+
+    engineLayout: showIce ? text(draft.engineLayout) : null,
+    cylinders: showIce ? draft.cylinders : null,
+    displacementCc: showIce ? draft.displacementCc : null,
+    aspiration: showIce ? text(draft.aspiration) : null,
+    powerHp: draft.powerHp,
+    torqueNm: draft.torqueNm,
+    accel0100: decimalFromInput(draft.accel0100),
+    topSpeedKph: draft.topSpeedKph,
+    topSpeedLimited: draft.topSpeedLimited,
+    topSpeedLimitedKph: draft.topSpeedLimited ? draft.topSpeedLimitedKph : null,
+    curbWeightKg: draft.curbWeightKg,
+
+    icePowerHp: electric && showIce ? draft.icePowerHp : null,
+    iceTorqueNm: electric && showIce ? draft.iceTorqueNm : null,
+    electricMotorCount: electric ? draft.electricMotorCount : null,
+    electricPowerHp: electric ? draft.electricPowerHp : null,
+    electricTorqueNm: electric ? draft.electricTorqueNm : null,
+    electricMotorLayout: electric ? text(draft.electricMotorLayout) : null,
+    hybridSystem: electric ? text(draft.hybridSystem) : null,
+    batteryGrossKwh: showBattery ? decimalFromInput(draft.batteryGrossKwh) : null,
+    batteryNetKwh: showBattery ? decimalFromInput(draft.batteryNetKwh) : null,
+    electricRangeKm: showBattery ? draft.electricRangeKm : null,
+    rangeStandard: showBattery ? text(draft.rangeStandard) : null,
+    chargeAcKw: showCharging ? decimalFromInput(draft.chargeAcKw) : null,
+    chargeDcKw: showCharging ? decimalFromInput(draft.chargeDcKw) : null,
+    chargeConnector: showCharging ? text(draft.chargeConnector) : null,
+    chargeTimeNote: showCharging ? text(draft.chargeTimeNote) : null,
+
+    registrationCity: text(draft.registrationCity),
+    plateEnding: text(draft.plateEnding),
+    soatValid: draft.soatValid,
+    soatExpiresOn: text(draft.soatExpiresOn),
+    techInspectionApplies: draft.techInspectionApplies,
+    // Si la tecnomecánica no aplica, una fecha de vencimiento no significa
+    // nada: se borra en vez de quedarse contradiciendo al campo de al lado.
+    techInspectionExpiresOn:
+      draft.techInspectionApplies === false
+        ? null
+        : text(draft.techInspectionExpiresOn),
+    taxStatus: text(draft.taxStatus),
+    taxesPaidThroughYear: draft.taxesPaidThroughYear,
+    documentationCheckedOn: text(draft.documentationCheckedOn),
+    documentationNotes: text(draft.documentationNotes),
+
+    funFactEnabled: draft.funFactEnabled,
+    funFactTitle: draft.funFactEnabled ? text(draft.funFactTitle) : null,
+    funFactBody: draft.funFactEnabled ? text(draft.funFactBody) : null,
+
+    // El texto se convierte en líneas aquí: se tiran las vacías y los
+    // huecos de la plantilla que nadie rellenó ("ABS:" a secas).
+    equipment: equipmentLinesFromText(equipmentText),
+    specialEquipment: draft.specialEquipment
+      .filter((item) => item.name.trim())
+      .map((item) => ({
+        name: item.name.trim(),
+        description: item.description?.trim() || null,
+      })),
+    tags: draft.tags,
+    ...(reviewNote === null ? { reviewNote: null } : {}),
+  };
+}
+
+/**
+ * ¿Hay cambios que se perderían al salir?
+ *
+ * Se compara el PAYLOAD, no el estado de los controles. Es la única forma
+ * honesta: el borrador guarda texto a medio escribir —"3,5" antes de ser
+ * 3.5, un espacio de más, una línea de plantilla sin rellenar— y nada de
+ * eso llega a la base. Comparar `draft` en crudo marcaría como pendiente un
+ * formulario que ya está guardado.
+ *
+ * Y se compara contra el payload DERIVADO de lo último persistido, pasando
+ * por la misma transformación, de modo que las dos orillas se normalizan
+ * igual.
+ *
+ * Lo que NO cuenta: ajustar el encuadre de una foto, reordenarlas o
+ * borrarlas. Esas operaciones se guardan solas contra el servidor y
+ * devuelven un vehículo nuevo; sus campos no están en este payload, así que
+ * no pueden encender ni apagar el aviso.
+ *
+ * Sin fila todavía, "sucio" es "ha escrito algo", que es la misma pregunta
+ * que decide si guardar debe crear el borrador.
+ */
+export function draftIsDirty(input: {
+  persisted: Vehicle | null;
+  draft: Draft;
+  equipmentText: string;
+  reviewNote: string | null;
+}): boolean {
+  const current = vehiclePayload(input.draft, input.equipmentText, input.reviewNote);
+
+  if (!input.persisted) return draftHasContent(input.draft, input.equipmentText);
+
+  const saved = vehiclePayload(
+    draftFromVehicle(input.persisted),
+    equipmentTextFromLines(input.persisted.equipment),
+    input.persisted.reviewNote,
+  );
+
+  // Las claves se escriben en el mismo orden en los dos lados —salen del
+  // mismo literal— y el orden de `tags`, `equipment` y `specialEquipment` es
+  // significativo, así que comparar el texto serializado es exacto aquí.
+  return JSON.stringify(current) !== JSON.stringify(saved);
 }

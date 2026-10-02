@@ -9,6 +9,9 @@ import {
   reserveVehicleImageUploads,
 } from "@/server/vehicles/images";
 import { MAX_IMAGES_PER_VEHICLE } from "@/server/storage/images";
+import { withVehicleLock } from "@/server/vehicles/upload-reservations";
+import { deleteVehicleImage } from "@/server/vehicles/images";
+import { setPublication } from "@/server/vehicles/service";
 
 /**
  * Concurrencia real contra la base de datos de verdad.
@@ -308,6 +311,163 @@ async function case7(): Promise<void> {
   );
 }
 
+/**
+ * Un vehículo listo para publicar: todo lo que `publicationBlockers` exige,
+ * con una sola fotografía. Es el escenario del fallo — la última foto es lo
+ * que la otra pestaña puede quitarle debajo.
+ */
+async function makePublishableVehicle(label: string) {
+  const vehicleId = await makeVehicle(label);
+  const category = await prisma.category.findFirstOrThrow({
+    where: { vehicleType: "AUTO", active: true },
+    select: { id: true },
+  });
+  await prisma.vehicle.update({
+    where: { id: vehicleId },
+    data: {
+      make: "Temporal",
+      model: label,
+      year: 2024,
+      price: BigInt(100_000_000),
+      mileage: 1000,
+      categoryId: category.id,
+      fuelType: "Gasolina",
+      transmission: "Automática",
+      drivetrain: "Trasera (RWD)",
+      city: "Bogotá, CO",
+      description: "Unidad temporal de prueba.",
+    },
+  });
+  const storagePath = `vehicles/${vehicleId}/unica.jpg`;
+  const image = await prisma.vehicleImage.create({
+    data: {
+      vehicleId,
+      url: `https://ejemplo.invalido/${storagePath}`,
+      storagePath,
+      source: "STORAGE",
+      alt: "Temporal",
+      position: 0,
+    },
+    select: { id: true },
+  });
+  return { vehicleId, imageId: image.id };
+}
+
+const publicationOf = async (vehicleId: string) =>
+  (
+    await prisma.vehicle.findUniqueOrThrow({
+      where: { id: vehicleId },
+      select: { publicationStatus: true },
+    })
+  ).publicationStatus;
+
+async function case8(): Promise<void> {
+  console.log("\nCASO 8 — borrar la última foto gana la carrera a publicar");
+  const { vehicleId, imageId } = await makePublishableVehicle("c8");
+
+  // El candado lo toma el test. `setPublication` se lanza con él ocupado, así
+  // que si leyera el estado ANTES de pedirlo lo leería ahora: con su foto y
+  // sin nada que le falte.
+  let publishing: Promise<unknown> | null = null;
+  let failure = "";
+  await withVehicleLock(vehicleId, async (tx) => {
+    publishing = setPublication(vehicleId, "published").catch((error: Error) => {
+      failure = error.message;
+    });
+    await sleep(600);
+    await tx.vehicleImage.delete({ where: { id: imageId } });
+  });
+  await publishing;
+
+  check(
+    failure.includes("No se puede publicar"),
+    `la publicación se rechaza (${failure || "no falló"})`,
+  );
+  check(failure.includes("fotografía"), "y dice que falta la fotografía");
+  check((await publicationOf(vehicleId)) === "DRAFT", "el Vehicle sigue en DRAFT");
+  check(
+    (await prisma.vehicleImage.count({ where: { vehicleId } })) === 0,
+    "y se quedó sin fotos, como pedía la otra operación",
+  );
+}
+
+async function case9(): Promise<void> {
+  console.log("\nCASO 9 — publicar gana, y entonces no se puede borrar la última foto");
+  const { vehicleId, imageId } = await makePublishableVehicle("c9");
+
+  await setPublication(vehicleId, "published");
+  check((await publicationOf(vehicleId)) === "PUBLISHED", "publica correctamente");
+
+  let failure = "";
+  try {
+    await deleteVehicleImage(vehicleId, imageId);
+  } catch (error) {
+    failure = (error as Error).message;
+  }
+
+  check(failure !== "", `borrar la única foto se rechaza (${failure || "no falló"})`);
+  check(
+    (await prisma.vehicleImage.count({ where: { vehicleId } })) === 1,
+    "la fotografía sigue ahí: la transacción revirtió",
+  );
+  check(
+    (await publicationOf(vehicleId)) === "PUBLISHED",
+    "y la ficha sigue publicada y válida",
+  );
+}
+
+async function case10(): Promise<void> {
+  console.log("\nCASO 10 — nunca queda PUBLISHED sin fotografías");
+  const { vehicleId, imageId } = await makePublishableVehicle("c10");
+
+  for (let round = 1; round <= 4; round += 1) {
+    const results = await Promise.allSettled([
+      setPublication(vehicleId, "published"),
+      deleteVehicleImage(vehicleId, imageId),
+    ]);
+
+    const status = await publicationOf(vehicleId);
+    const photos = await prisma.vehicleImage.count({ where: { vehicleId } });
+    check(
+      !(status === "PUBLISHED" && photos === 0),
+      `ronda ${round}: ${status} con ${photos} fotos — el estado prohibido no ocurre`,
+    );
+    void results;
+    if (photos === 0) break;
+    // Devolver el vehículo a borrador para volver a correr la carrera.
+    await setPublication(vehicleId, "draft");
+  }
+}
+
+async function case11(): Promise<void> {
+  console.log("\nCASO 11 — publishedAt marca la PRIMERA publicación");
+  const { vehicleId } = await makePublishableVehicle("c11");
+
+  await setPublication(vehicleId, "published");
+  const first = (
+    await prisma.vehicle.findUniqueOrThrow({
+      where: { id: vehicleId },
+      select: { publishedAt: true },
+    })
+  ).publishedAt;
+  check(first !== null, "se anota al publicar");
+
+  await sleep(50);
+  await setPublication(vehicleId, "draft");
+  await setPublication(vehicleId, "published");
+  const again = (
+    await prisma.vehicle.findUniqueOrThrow({
+      where: { id: vehicleId },
+      select: { publishedAt: true },
+    })
+  ).publishedAt;
+
+  check(
+    again?.getTime() === first?.getTime(),
+    "y no se reescribe al volver a publicar",
+  );
+}
+
 async function main(): Promise<void> {
   try {
     await case1();
@@ -317,6 +477,10 @@ async function main(): Promise<void> {
     await case5();
     await case6();
     await case7();
+    await case8();
+    await case9();
+    await case10();
+    await case11();
   } finally {
     const removed = await prisma.vehicle.deleteMany({
       where: { slug: { startsWith: "tmp-conc-" } },

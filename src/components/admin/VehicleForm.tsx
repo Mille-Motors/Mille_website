@@ -13,6 +13,7 @@ import {
 import { AdminPageHeader } from "@/components/admin/AdminShell";
 import { FormSection } from "@/components/admin/FormSection";
 import { ImageManager } from "@/components/admin/ImageManager";
+import { useUnsavedChangesGuard } from "@/components/admin/useUnsavedChangesGuard";
 import { SpecialEquipmentEditor } from "@/components/admin/SpecialEquipmentEditor";
 import { Button } from "@/components/ui/Button";
 import { DateField } from "@/components/ui/DateField";
@@ -31,9 +32,13 @@ import { vehicleLabel } from "@/lib/format";
 import { publicationBlockers } from "@/lib/publication";
 import {
   DECIMAL_KEYS,
+  decimalFromInput,
+  draftFromVehicle,
   draftHasContent,
+  draftIsDirty,
   draftPublicationCandidate,
   emptyDraft,
+  vehiclePayload,
   type Draft,
 } from "@/lib/vehicle-draft";
 import { statusMeta } from "@/lib/vehicle-status";
@@ -73,98 +78,6 @@ import type {
 const DESCRIPTION_LIMIT = 4000;
 const FUN_FACT_LIMIT = 900;
 const MAX_YEAR = new Date().getFullYear() + 2;
-
-/** `null` se convierte en el vacío que el control sabe mostrar. */
-const str = (value: string | null): string => value ?? "";
-const num = (value: number | null): string => (value === null ? "" : String(value));
-
-/**
- * Cargar un vehículo para editarlo.
- *
- * Es el reverso exacto de `toPayload`: cada campo que se puede crear se
- * puede editar, y se carga con el valor que tiene. Las dos funciones viven
- * juntas a propósito — si una gana un campo y la otra no, el dato se
- * escribe y se pierde al volver a guardar.
- */
-function toDraft(vehicle: Vehicle): Draft {
-  const { specs, electrification: e, documentation: d, funFact } = vehicle;
-  return {
-    vehicleType: vehicle.vehicleType,
-    make: vehicle.make,
-    model: vehicle.model,
-    version: vehicle.version,
-    year: vehicle.year,
-    price: vehicle.price,
-    mileage: vehicle.mileage,
-    categoryId: vehicle.category?.id ?? "",
-    fuelType: str(vehicle.fuelType),
-    transmission: str(vehicle.transmission),
-    gearCount: vehicle.gearCount,
-    drivetrain: str(vehicle.drivetrain),
-    finalDrive: str(vehicle.finalDrive),
-    engine: vehicle.engine,
-    exteriorColor: vehicle.exteriorColor,
-    interiorColor: vehicle.interiorColor,
-    city: str(vehicle.city),
-    availability: vehicle.availability,
-    featured: vehicle.featured,
-    description: vehicle.description,
-
-    engineLayout: str(specs.engineLayout),
-    cylinders: specs.cylinders,
-    displacementCc: specs.displacementCc,
-    aspiration: str(specs.aspiration),
-    powerHp: specs.powerHp,
-    torqueNm: specs.torqueNm,
-    accel0100: num(specs.accel0100),
-    topSpeedKph: specs.topSpeedKph,
-    topSpeedLimited: specs.topSpeedLimited,
-    topSpeedLimitedKph: specs.topSpeedLimitedKph,
-    curbWeightKg: specs.curbWeightKg,
-
-    icePowerHp: e.icePowerHp,
-    iceTorqueNm: e.iceTorqueNm,
-    electricMotorCount: e.electricMotorCount,
-    electricPowerHp: e.electricPowerHp,
-    electricTorqueNm: e.electricTorqueNm,
-    electricMotorLayout: str(e.electricMotorLayout),
-    hybridSystem: str(e.hybridSystem),
-    batteryGrossKwh: num(e.batteryGrossKwh),
-    batteryNetKwh: num(e.batteryNetKwh),
-    electricRangeKm: e.electricRangeKm,
-    rangeStandard: str(e.rangeStandard),
-    chargeAcKw: num(e.chargeAcKw),
-    chargeDcKw: num(e.chargeDcKw),
-    chargeConnector: str(e.chargeConnector),
-    chargeTimeNote: str(e.chargeTimeNote),
-
-    registrationCity: str(d.registrationCity),
-    plateEnding: str(d.plateEnding),
-    soatValid: d.soatValid,
-    soatExpiresOn: str(d.soatExpiresOn),
-    techInspectionApplies: d.techInspectionApplies,
-    techInspectionExpiresOn: str(d.techInspectionExpiresOn),
-    taxStatus: str(d.taxStatus),
-    taxesPaidThroughYear: d.taxesPaidThroughYear,
-    documentationCheckedOn: str(d.documentationCheckedOn),
-    documentationNotes: str(d.documentationNotes),
-
-    funFactEnabled: funFact.enabled,
-    funFactTitle: str(funFact.title),
-    funFactBody: str(funFact.body),
-
-    specialEquipment: vehicle.specialEquipment,
-    tags: vehicle.tags,
-  };
-}
-
-/** Una cadena vacía es ausencia de dato; un decimal escrito con coma vale. */
-function decimal(value: string): number | null {
-  const clean = value.replace(",", ".").trim();
-  if (clean === "") return null;
-  const parsed = Number(clean);
-  return Number.isFinite(parsed) ? parsed : null;
-}
 
 /** Tres estados de verdad: sí, no, y todavía no lo sabemos. */
 function TriState({
@@ -240,7 +153,7 @@ export function VehicleForm({
   const [persisted, setPersisted] = useState<Vehicle | null>(vehicle ?? null);
 
   const [draft, setDraft] = useState<Draft>(
-    vehicle ? toDraft(vehicle) : emptyDraft(),
+    vehicle ? draftFromVehicle(vehicle) : emptyDraft(),
   );
   const [equipmentText, setEquipmentText] = useState(() =>
     equipmentTextFromLines(vehicle?.equipment ?? []),
@@ -273,6 +186,22 @@ export function VehicleForm({
   const showBattery = hasTractionBattery(draft.fuelType);
   const showCharging = hasPlugCharging(draft.fuelType);
   const fullyElectric = isFullyElectric(draft.fuelType);
+
+  /**
+   * ¿Se perdería algo al salir de aquí?
+   *
+   * Se compara el payload que se guardaría contra el derivado de lo último
+   * persistido, así que no cuenta como pendiente ni un decimal a medio
+   * escribir ni una línea de plantilla vacía. Ajustar el encuadre de una
+   * foto o reordenarlas tampoco: eso ya se guardó solo y no está en este
+   * payload.
+   */
+  const dirty = draftIsDirty({ persisted, draft, equipmentText, reviewNote });
+
+  useUnsavedChangesGuard(
+    dirty,
+    "Tienes cambios sin guardar. ¿Quieres salir sin guardarlos?",
+  );
 
   /**
    * El vehículo al que colgar una fotografía, creándolo si aún no existe.
@@ -325,9 +254,9 @@ export function VehicleForm({
 
     for (const key of DECIMAL_KEYS) {
       const raw = draft[key];
-      if (raw !== "" && decimal(raw) === null) next[key] = "No es un número.";
+      if (raw !== "" && decimalFromInput(raw) === null) next[key] = "No es un número.";
     }
-    const accel = decimal(draft.accel0100);
+    const accel = decimalFromInput(draft.accel0100);
     if (accel !== null && accel <= 0) next.accel0100 = "Debe ser mayor que cero.";
 
     // En carro la terminación de placa es el dígito del pico y placa; en
@@ -358,103 +287,6 @@ export function VehicleForm({
    * de omitirse: cambiar un PHEV a gasolina tiene que BORRAR su batería, no
    * dejarla escondida en la base esperando a que alguien la vuelva a ver.
    */
-  function toPayload() {
-    const text = (value: string) => value.trim() || null;
-    const electric = showElectric;
-
-    return {
-      vehicleType: draft.vehicleType,
-      make: draft.make,
-      model: draft.model,
-      version: draft.version,
-      year: draft.year,
-      // `null` viaja tal cual: es "todavía no se sabe", y convertirlo en 0
-      // haría que un borrador sin precio pareciera valer cero pesos.
-      price: draft.price,
-      mileage: draft.mileage,
-      // El "Seleccionar…" de cada desplegable es la cadena vacía, y se manda
-      // como ausencia. Así el borrador guarda lo que la pantalla enseña: un
-      // hueco, no la primera opción de la lista.
-      categoryId: text(draft.categoryId),
-      fuelType: text(draft.fuelType),
-      transmission: text(draft.transmission),
-      gearCount: draft.gearCount,
-      // Cada universo manda el suyo y NULL el del otro: así cambiar de tipo
-      // no deja escondido debajo un dato que ya no aplica.
-      drivetrain: usesDrivetrain(draft.vehicleType) ? text(draft.drivetrain) : null,
-      finalDrive: usesFinalDrive(draft.vehicleType) ? text(draft.finalDrive) : null,
-      engine: draft.engine,
-      exteriorColor: draft.exteriorColor,
-      interiorColor: usesInteriorColor(draft.vehicleType)
-        ? draft.interiorColor
-        : "",
-      city: text(draft.city),
-      availability: draft.availability,
-      featured: draft.featured,
-      description: draft.description,
-
-      engineLayout: showIce ? text(draft.engineLayout) : null,
-      cylinders: showIce ? draft.cylinders : null,
-      displacementCc: showIce ? draft.displacementCc : null,
-      aspiration: showIce ? text(draft.aspiration) : null,
-      powerHp: draft.powerHp,
-      torqueNm: draft.torqueNm,
-      accel0100: decimal(draft.accel0100),
-      topSpeedKph: draft.topSpeedKph,
-      topSpeedLimited: draft.topSpeedLimited,
-      topSpeedLimitedKph: draft.topSpeedLimited ? draft.topSpeedLimitedKph : null,
-      curbWeightKg: draft.curbWeightKg,
-
-      icePowerHp: electric && showIce ? draft.icePowerHp : null,
-      iceTorqueNm: electric && showIce ? draft.iceTorqueNm : null,
-      electricMotorCount: electric ? draft.electricMotorCount : null,
-      electricPowerHp: electric ? draft.electricPowerHp : null,
-      electricTorqueNm: electric ? draft.electricTorqueNm : null,
-      electricMotorLayout: electric ? text(draft.electricMotorLayout) : null,
-      hybridSystem: electric ? text(draft.hybridSystem) : null,
-      batteryGrossKwh: showBattery ? decimal(draft.batteryGrossKwh) : null,
-      batteryNetKwh: showBattery ? decimal(draft.batteryNetKwh) : null,
-      electricRangeKm: showBattery ? draft.electricRangeKm : null,
-      rangeStandard: showBattery ? text(draft.rangeStandard) : null,
-      chargeAcKw: showCharging ? decimal(draft.chargeAcKw) : null,
-      chargeDcKw: showCharging ? decimal(draft.chargeDcKw) : null,
-      chargeConnector: showCharging ? text(draft.chargeConnector) : null,
-      chargeTimeNote: showCharging ? text(draft.chargeTimeNote) : null,
-
-      registrationCity: text(draft.registrationCity),
-      plateEnding: text(draft.plateEnding),
-      soatValid: draft.soatValid,
-      soatExpiresOn: text(draft.soatExpiresOn),
-      techInspectionApplies: draft.techInspectionApplies,
-      // Si la tecnomecánica no aplica, una fecha de vencimiento no significa
-      // nada: se borra en vez de quedarse contradiciendo al campo de al lado.
-      techInspectionExpiresOn:
-        draft.techInspectionApplies === false
-          ? null
-          : text(draft.techInspectionExpiresOn),
-      taxStatus: text(draft.taxStatus),
-      taxesPaidThroughYear: draft.taxesPaidThroughYear,
-      documentationCheckedOn: text(draft.documentationCheckedOn),
-      documentationNotes: text(draft.documentationNotes),
-
-      funFactEnabled: draft.funFactEnabled,
-      funFactTitle: draft.funFactEnabled ? text(draft.funFactTitle) : null,
-      funFactBody: draft.funFactEnabled ? text(draft.funFactBody) : null,
-
-      // El texto se convierte en líneas aquí: se tiran las vacías y los
-      // huecos de la plantilla que nadie rellenó ("ABS:" a secas).
-      equipment: equipmentLinesFromText(equipmentText),
-      specialEquipment: draft.specialEquipment
-        .filter((item) => item.name.trim())
-        .map((item) => ({
-          name: item.name.trim(),
-          description: item.description?.trim() || null,
-        })),
-      tags: draft.tags,
-      ...(reviewNote === null ? { reviewNote: null } : {}),
-    };
-  }
-
   async function save() {
     if (saving) return;
     if (!validate()) return;
@@ -472,7 +304,7 @@ export function VehicleForm({
     setSaving(true);
     setFormError(null);
 
-    const payload = toPayload();
+    const payload = vehiclePayload(draft, equipmentText, reviewNote);
 
     // Si ya hay fila —porque se subió una foto primero, o porque estamos
     // editando— se actualiza. El alta desde cero es lo único que crea.
@@ -498,7 +330,14 @@ export function VehicleForm({
       return;
     }
 
+    // Se adopta lo que el servidor devolvió, no lo que había en pantalla.
+    // El servidor recorta espacios y normaliza, así que sin esto el
+    // formulario se quedaría marcado como pendiente justo después de
+    // guardar, por una diferencia que ya no existe en la base.
     setPersisted(result.data.vehicle);
+    setDraft(draftFromVehicle(result.data.vehicle));
+    setEquipmentText(equipmentTextFromLines(result.data.vehicle.equipment));
+    setReviewNote(result.data.vehicle.reviewNote);
 
     if (creating) {
       // El borrador ya tiene URL propia. Se sustituye la del alta en vez de
@@ -1561,7 +1400,7 @@ export function VehicleForm({
                 <>
                   <h2 className="eyebrow text-burgundy">Listo para publicar</h2>
                   <p className="mt-3 font-serif text-[0.9375rem] leading-relaxed text-ink-soft">
-                    {savedBlockers.length > 0
+                    {savedBlockers.length > 0 || dirty
                       ? "Guarda los cambios y el botón de publicar se activa."
                       : "Ya cumple todo lo que se le exige a una ficha pública."}
                   </p>
@@ -1605,16 +1444,32 @@ export function VehicleForm({
               // y ofrecer publicar cambios sin guardar sería prometer un
               // 409. El panel de arriba sí mira la pantalla, y por eso dice
               // "guarda los cambios" cuando solo falta eso.
-              disabled={saving || (!published && savedBlockers.length > 0)}
+              // Con cambios sin guardar no se cambia de estado, en ninguna
+              // de las dos direcciones. El servidor decide sobre la fila, no
+              // sobre la pantalla: publicar aquí publicaría una versión que
+              // quien administra ya no tiene delante.
+              disabled={
+                saving || dirty || (!published && savedBlockers.length > 0)
+              }
               title={
-                !published && savedBlockers.length > 0
-                  ? `Falta: ${savedBlockers.join(" ")}`
-                  : undefined
+                dirty
+                  ? "Guarda los cambios antes de publicar."
+                  : !published && savedBlockers.length > 0
+                    ? `Falta: ${savedBlockers.join(" ")}`
+                    : undefined
               }
               onClick={() => void togglePublication()}
             >
               {published ? "Despublicar" : "Publicar"}
             </Button>
+          ) : null}
+
+          {/* Discreto y en el sitio donde se decide: junto a Guardar y
+              Publicar, que es lo que hay que hacer con ello. */}
+          {dirty && !saving ? (
+            <span className="label-caps rounded-xs border border-burgundy/30 bg-burgundy/5 px-3 py-2 text-[10px] text-burgundy">
+              Cambios sin guardar
+            </span>
           ) : null}
 
           <Button type="submit" size="lg" disabled={saving}>

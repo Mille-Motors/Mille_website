@@ -1,5 +1,6 @@
 "use client";
 
+import { objectPosition } from "@/lib/focal-point";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -197,7 +198,21 @@ function RowActions({ vehicle }: { vehicle: Vehicle }) {
   );
 }
 
-function Thumb({ vehicle, className }: { vehicle: Vehicle; className: string }) {
+/**
+ * La miniatura de una fila.
+ *
+ * Exportada porque es lo que se puede probar sin montar la tabla entera,
+ * que necesita el router. Lo que hay que fijar aquí es que el encuadre
+ * llegue al `object-position`: era la única superficie del proyecto que
+ * recortaba siempre por el centro.
+ */
+export function Thumb({
+  vehicle,
+  className,
+}: {
+  vehicle: Vehicle;
+  className: string;
+}) {
   const cover = vehicle.images[0];
   return (
     <span className={cn("relative block overflow-hidden bg-sand", className)}>
@@ -207,6 +222,10 @@ function Thumb({ vehicle, className }: { vehicle: Vehicle; className: string }) 
         fill
         sizes="96px"
         className="object-cover"
+        // El mismo encuadre que la ficha, la tarjeta y la rejilla de fotos.
+        // Era la única superficie que recortaba por el centro pasara lo que
+        // pasara, así que una portada desplazada se veía aquí de otra forma.
+        style={{ objectPosition: objectPosition(cover.focal) }}
       />
     </span>
   );

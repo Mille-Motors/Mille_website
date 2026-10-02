@@ -3,6 +3,8 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { ApiError, badRequest } from "@/server/http/errors";
 import {
+  MAX_VEHICLE_IMAGE_BYTES,
+  MAX_VEHICLE_IMAGE_LABEL,
   imageTooSmall,
   readImageDimensions,
   type ImageDimensions,
@@ -35,6 +37,13 @@ import {
  * servir, que es quien sabe a qué ancho se va a ver cada una.
  */
 
+/**
+ * El tope de las fotografías del SITIO, que suben por aquí en una petición
+ * multipart. Las de vehículo no pasan por este módulo —el navegador las
+ * escribe directo en el bucket— y tienen el suyo, más alto, en
+ * `lib/image-dimensions`: son originales de cámara y diez mebibytes se les
+ * quedaban cortos.
+ */
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_IMAGES_PER_VEHICLE = 20;
 
@@ -340,6 +349,20 @@ export async function inspectStoredImage(
     throw badRequest("La imagen no llegó a subirse. Vuelve a intentarlo.");
   }
 
+  // Cuánto pesa de verdad lo que se subió. Sale de la misma petición que ya
+  // se estaba haciendo: `Content-Range: bytes 0-65535/TOTAL` en una
+  // respuesta parcial, o `Content-Length` cuando el archivo entero cabía en
+  // el rango pedido. Es la comprobación de tamaño del lado del servidor —el
+  // navegador descarta antes, pero su palabra no es autoridad— y la segunda
+  // es el propio bucket, que la impone sin preguntarnos.
+  const total = totalBytes(response);
+  if (total !== null && total > MAX_VEHICLE_IMAGE_BYTES) {
+    throw new ApiError(
+      "PAYLOAD_TOO_LARGE",
+      `Cada imagen debe pesar menos de ${MAX_VEHICLE_IMAGE_LABEL}.`,
+    );
+  }
+
   const head = new Uint8Array(await response.arrayBuffer());
   const contentType = sniffImageType(head.subarray(0, 16));
   if (!contentType) {
@@ -356,4 +379,24 @@ export async function inspectStoredImage(
   }
 
   return { url: publicUrl, contentType, dimensions };
+}
+
+/**
+ * El tamaño total del objeto, según la respuesta.
+ *
+ * `Content-Range` lo trae cuando Storage devuelve un trozo; si el archivo
+ * entero cabía en el rango pedido no hay respuesta parcial y lo dice
+ * `Content-Length`. `null` significa que no se pudo saber, y entonces no se
+ * rechaza nada: el bucket sigue teniendo la última palabra.
+ */
+function totalBytes(response: Response): number | null {
+  const range = response.headers.get("content-range");
+  const fromRange = range?.match(/\/(\d+)\s*$/)?.[1];
+  if (fromRange) return Number(fromRange);
+
+  if (response.status === 200) {
+    const length = response.headers.get("content-length");
+    if (length && /^\d+$/.test(length)) return Number(length);
+  }
+  return null;
 }

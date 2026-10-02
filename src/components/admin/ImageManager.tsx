@@ -12,11 +12,13 @@ import { VehicleImageFramer } from "@/components/admin/VehicleImageFramer";
 import { objectPosition } from "@/lib/focal-point";
 import { VEHICLE_FRAME_CLASS } from "@/lib/vehicle-frame";
 import { cn } from "@/lib/cn";
+import {
+  MAX_VEHICLE_IMAGE_BYTES,
+  MAX_VEHICLE_IMAGE_LABEL,
+} from "@/lib/image-dimensions";
 import type { Vehicle, VehicleImage } from "@/types/vehicle";
 
 const MAX_IMAGES = 20;
-/** El mismo tope que impone el bucket en Supabase. */
-const MAX_BYTES = 10 * 1024 * 1024;
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 
 /**
@@ -117,7 +119,7 @@ export function ImageManager({
    * Subir, en una petición POR ARCHIVO y directo a Supabase Storage.
    *
    * Antes el lote entero iba en un solo multipart contra la API de Next:
-   * hasta doce archivos de 10 MB en un único cuerpo, atravesando una
+   * hasta doce archivos pesados en un único cuerpo, atravesando una
    * función serverless que corta mucho antes. Como ahora se piden
    * originales de alta resolución a propósito, eso dejaba de ser teórico.
    *
@@ -136,7 +138,7 @@ export function ImageManager({
     const chosen: File[] = [];
     let rejected = false;
     for (const file of Array.from(files)) {
-      if (!ACCEPTED.includes(file.type) || file.size > MAX_BYTES) {
+      if (!ACCEPTED.includes(file.type) || file.size > MAX_VEHICLE_IMAGE_BYTES) {
         rejected = true;
         continue;
       }
@@ -145,7 +147,9 @@ export function ImageManager({
     }
 
     if (rejected) {
-      setError("Solo JPG, JPEG, PNG, WebP o AVIF de máximo 10 MB.");
+      setError(
+        `Solo JPG, JPEG, PNG, WebP o AVIF de máximo ${MAX_VEHICLE_IMAGE_LABEL}.`,
+      );
     }
     if (chosen.length === 0) return;
 
@@ -349,8 +353,8 @@ export function ImageManager({
           o haz clic para seleccionar archivos
         </button>
         <p className="mt-3 text-xs text-ink-muted">
-          JPG, JPEG, PNG, WebP o AVIF. Máx. 10 MB por imagen. Otros formatos,
-          incluido HEIC, no se admiten todavía.
+          JPG, JPEG, PNG, WebP o AVIF. Máx. {MAX_VEHICLE_IMAGE_LABEL} por
+          imagen. Otros formatos, incluido HEIC, no se admiten todavía.
         </p>
         {/* El archivo se guarda sin recomprimir, así que lo que se sube es
             exactamente lo que se verá: una foto pequeña no se puede

@@ -156,6 +156,25 @@ export const MIN_IMAGE_WIDTH = 1000;
 export const MIN_IMAGE_HEIGHT = 700;
 export const RECOMMENDED_IMAGE_LONG_EDGE = 2000;
 
+/**
+ * Lo máximo que puede pesar la fotografía de un vehículo.
+ *
+ * Vive aquí, junto al resto de reglas de una foto de vehículo, porque este
+ * módulo es puro: lo importan el navegador —que descarta el archivo antes
+ * de empezar a subirlo— y el servidor, sin que ninguno tenga que repetir el
+ * número. La tercera capa es el bucket, que lo impone por su cuenta y es la
+ * única que el cliente no puede saltarse.
+ *
+ * Eran diez mebibytes y rechazaban justo lo que el sistema pide subir: un
+ * teléfono reciente produce originales de doce a veinte. Veinticinco cabe
+ * holgadamente y sigue siendo un tope — no se recomprime nada en ninguna
+ * parte del camino, así que lo que entra es lo que se guarda.
+ */
+export const MAX_VEHICLE_IMAGE_BYTES = 25 * 1024 * 1024;
+
+/** El mismo número, para los textos de la interfaz. */
+export const MAX_VEHICLE_IMAGE_LABEL = "25 MB";
+
 /** El motivo por el que una imagen no sirve, o `null` si sirve. */
 export function imageTooSmall(dimensions: ImageDimensions): string | null {
   if (

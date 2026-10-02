@@ -1151,6 +1151,24 @@ export async function updateVehicle(
     if (derived !== current.slug) data.slug = derived;
   }
 
+  /**
+   * Esto NO toma `withVehicleLock`, y no es un olvido.
+   *
+   * El candado de publicar es un `SELECT ... FOR UPDATE` sobre la fila del
+   * vehículo. Este `UPDATE` toma esa MISMA cerradura de fila por su cuenta
+   * —cualquier UPDATE lo hace—, así que Postgres ya pone en fila a los dos
+   * sin que haya que pedírselo:
+   *
+   *   · si este `UPDATE` entra primero, publicar se queda esperando y, al
+   *     entrar, lee los campos ya cambiados;
+   *   · si publicar entra primero, este `UPDATE` espera y después
+   *     `assertPublishedInvariant` —dentro de esta misma transacción y por
+   *     tanto viendo ya el PUBLISHED recién escrito— revierte el cambio si
+   *     dejaría la ficha incompleta.
+   *
+   * Añadir aquí un `FOR UPDATE` explícito no cerraría ninguna ventana que
+   * no esté cerrada; solo tomaría la misma cerradura un instante antes.
+   */
   return prisma.$transaction(async (tx) => {
     await tx.vehicle.update({ where: { id }, data });
     // Si el cambio deja publicado algo que no podría publicarse, esto lanza y
@@ -1159,34 +1177,68 @@ export async function updateVehicle(
   });
 }
 
+/**
+ * Publicar y despublicar, bajo el candado del vehículo.
+ *
+ * Mirar y después escribir no era atómico. Entre la lectura que decía "no
+ * le falta nada" y el `UPDATE` cabía entera otra operación, y la peor era
+ * la más fácil de provocar:
+ *
+ *   A1  publicar: lee el borrador, una foto, todo completo → sin bloqueos
+ *   B1  otra pestaña: borra esa única foto. Su propia invariante lo
+ *       permite, porque en ese instante el vehículo TODAVÍA es borrador
+ *   A2  publicar: escribe PUBLISHED
+ *   →   ficha pública sin ninguna fotografía, enseñando la imagen de marca
+ *       como si fuera el carro
+ *
+ * Ahora la decisión se toma dentro del mismo candado que usan finalizar
+ * fotos, reordenar, borrar una imagen y borrar el vehículo, y sobre el
+ * estado releído ahí dentro. El borrado de B se pone en fila: si llega
+ * antes, publicar ve cero fotos y se niega; si llega después, se encuentra
+ * un vehículo ya publicado y es `assertPublishedInvariant` quien lo
+ * revierte. Las dos puertas quedan cerradas.
+ *
+ * Despublicar pasa por el mismo sitio aunque no necesite comprobar nada:
+ * que las dos transiciones compartan protocolo es lo que hace que no haya
+ * que razonar cada una por separado.
+ */
 export async function setPublication(
   id: string,
   publication: PublicationStatus,
 ): Promise<Vehicle> {
-  const vehicle = await requireVehicle(id);
+  return withVehicleLock(id, async (tx) => {
+    const record = await tx.vehicle.findUnique({
+      where: { id },
+      include: vehicleInclude,
+    });
+    if (!record) throw notFound("Ese vehículo no existe.");
+    const current = toVehicleDto(record as VehicleRecord);
 
-  if (publication === "published") {
-    const blockers = publicationBlockers(vehicle);
-    if (blockers.length > 0) {
-      throw conflict(`No se puede publicar. ${blockers.join(" ")}`);
+    if (publication === "published") {
+      // Sobre lo que la base tiene AHORA, no sobre lo que tenía cuando
+      // empezó la petición.
+      const blockers = publicationBlockers(current);
+      if (blockers.length > 0) {
+        throw conflict(`No se puede publicar. ${blockers.join(" ")}`);
+      }
     }
-  }
 
-  const record = await prisma.vehicle.update({
-    where: { id },
-    data: {
-      publicationStatus: toDbPublication[publication],
-      // publishedAt marca la primera publicación y no se reescribe: es un
-      // dato histórico, no un reflejo del estado actual.
-      publishedAt:
-        publication === "published" && !vehicle.publishedAt
-          ? new Date()
-          : undefined,
-    },
-    include: vehicleInclude,
+    const updated = await tx.vehicle.update({
+      where: { id },
+      data: {
+        publicationStatus: toDbPublication[publication],
+        // publishedAt marca la primera publicación y no se reescribe: es un
+        // dato histórico, no un reflejo del estado actual.
+        publishedAt:
+          publication === "published" && !current.publishedAt
+            ? new Date()
+            : undefined,
+      },
+      include: vehicleInclude,
+    });
+
+    return toVehicleDto(updated as VehicleRecord);
   });
-
-  return toVehicleDto(record as VehicleRecord);
 }
 
 export async function setAvailability(

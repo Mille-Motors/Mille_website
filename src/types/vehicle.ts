@@ -176,9 +176,13 @@ export function transmissionsFor(
  * relaciones es tan descriptiva en un X5 como las seis de una Multistrada.
  * No hay valor por defecto — "6" es lo habitual en moto, pero habitual no es
  * sabido.
+ *
+ * El techo era ocho y rechazaba datos ciertos: la 9G-Tronic de Mercedes
+ * tiene nueve y la 10R80 de Ford y GM, diez. Doce deja margen para lo que
+ * venga sin dejar de ser un número que descarta un error de tecleo.
  */
 export const MIN_GEAR_COUNT = 1;
-export const MAX_GEAR_COUNT = 8;
+export const MAX_GEAR_COUNT = 12;
 
 /**
  * Transmisión final: cómo llega el par a la rueda. Es un dato que toda ficha
