@@ -59,6 +59,8 @@ export function Footer() {
                     href={whatsappHref}
                     target="_blank"
                     rel="noreferrer noopener"
+                    data-wa-source="footer"
+                    data-wa-intent="general"
                     className="inline-flex items-center gap-2 font-serif text-[0.9375rem] text-ink-soft transition-colors hover:text-burgundy"
                   >
                     <WhatsappIcon className="size-4" />
@@ -75,10 +77,18 @@ export function Footer() {
         </div>
 
         <div className="flex flex-col gap-4 border-t border-stone py-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-ink-muted">
-            © {year} MILLE. Todos los derechos reservados.
+          <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
+            <span>© {year} MILLE. Todos los derechos reservados.</span>
+            <Link
+              href="/privacidad"
+              className="underline decoration-stone-strong underline-offset-4 transition-colors hover:text-burgundy hover:decoration-burgundy"
+            >
+              Política de datos
+            </Link>
           </p>
-          <p className="eyebrow flex items-center gap-4 text-ink-muted">
+          {/* El margen derecho libra el botón flotante de WhatsApp, que se
+              queda fijo sobre esta esquina al llegar al final de la página. */}
+          <p className="eyebrow flex items-center gap-4 text-ink-muted sm:pr-20 lg:pr-44">
             <span aria-hidden className="h-px w-10 bg-burgundy/50" />
             {site.signature}
           </p>

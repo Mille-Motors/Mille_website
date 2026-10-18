@@ -7,6 +7,7 @@ import { Container } from "@/components/ui/Container";
 import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
 import { InventoryCTALink } from "@/components/vehicle/InventoryCTALink";
+import { WhatsappClickTracker } from "@/components/whatsapp/WhatsappClickTracker";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
 import { site } from "@/data/site";
 import { objectPosition } from "@/lib/focal-point";
@@ -88,6 +89,8 @@ export default async function NotFound() {
                     href={generalWhatsappUrl()}
                     variant="outline"
                     size="lg"
+                    data-wa-source="not-found"
+                    data-wa-intent="general"
                   >
                     <WhatsappIcon className="size-4" />
                     WhatsApp
@@ -126,6 +129,7 @@ export default async function NotFound() {
         </Container>
       </main>
       <Footer />
+      <WhatsappClickTracker />
     </div>
   );
 }

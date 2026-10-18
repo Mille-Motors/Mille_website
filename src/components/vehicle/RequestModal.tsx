@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Check, X } from "lucide-react";
+import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
 import { Button } from "@/components/ui/Button";
 import { useDialog } from "@/components/ui/use-dialog";
 import { Input, Textarea } from "@/components/ui/Field";
@@ -180,6 +181,8 @@ export function RequestModal({
             <Button type="submit" size="lg" disabled={sending}>
               {sending ? "Enviando…" : text.cta}
             </Button>
+
+            <PrivacyNotice className="text-center" />
 
             {error ? (
               <p role="alert" className="text-center text-xs text-burgundy">

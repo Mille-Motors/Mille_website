@@ -3,10 +3,12 @@ import { ArrowRight, Plus } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
 import { StatCards } from "@/components/admin/StatCards";
 import { VehicleTable } from "@/components/admin/VehicleTable";
+import { WhatsappStats } from "@/components/admin/WhatsappStats";
 import { ButtonLink } from "@/components/ui/Button";
 import { formatDate } from "@/lib/format";
 import { adminVehicleQuerySchema } from "@/server/vehicles/schemas";
 import { getInventoryStats, listAdminVehicles } from "@/server/vehicles/service";
+import { getWhatsappClickStats } from "@/server/whatsapp/service";
 
 export const metadata = { title: "Dashboard" };
 
@@ -15,9 +17,10 @@ export const metadata = { title: "Dashboard" };
  * estado real del inventario, no una copia en memoria del navegador.
  */
 export default async function AdminDashboardPage() {
-  const [stats, recent] = await Promise.all([
+  const [stats, recent, whatsapp] = await Promise.all([
     getInventoryStats(),
     listAdminVehicles(adminVehicleQuerySchema.parse({ limit: 5, page: 1 })),
+    getWhatsappClickStats(),
   ]);
 
   return (
@@ -39,6 +42,10 @@ export default async function AdminDashboardPage() {
       />
 
       <StatCards stats={stats} />
+
+      {/* `null` si el conteo no se puede leer (p. ej. la migración todavía no
+          se aplicó): la sección se esconde, el resumen del inventario no. */}
+      {whatsapp ? <WhatsappStats stats={whatsapp} /> : null}
 
       <div className="mt-12">
         <div className="mb-5 flex items-center justify-between gap-4">

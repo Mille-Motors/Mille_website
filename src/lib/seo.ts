@@ -404,6 +404,7 @@ export function buildSitemap(
     { url: absoluteUrl("/"), ...inventoryChanged },
     { url: absoluteUrl("/vehiculos"), ...inventoryChanged },
     { url: absoluteUrl("/contacto") },
+    { url: absoluteUrl("/privacidad") },
     ...vehicles.map((vehicle) => ({
       url: absoluteUrl(vehiclePath(vehicle.slug)),
       lastModified: vehicle.updatedAt,

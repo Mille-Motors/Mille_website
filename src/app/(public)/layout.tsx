@@ -1,6 +1,8 @@
 import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { WhatsappClickTracker } from "@/components/whatsapp/WhatsappClickTracker";
+import { WhatsappFloat } from "@/components/whatsapp/WhatsappFloat";
 import { organizationJsonLd, websiteJsonLd } from "@/lib/seo";
 
 /**
@@ -20,6 +22,8 @@ export default function PublicLayout({
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />
+      <WhatsappFloat />
+      <WhatsappClickTracker />
     </div>
   );
 }

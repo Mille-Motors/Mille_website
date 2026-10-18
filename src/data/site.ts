@@ -10,11 +10,25 @@
  * Graph, robots, sitemap, JSON-LD— se construye a partir de aquí en
  * `src/lib/seo.ts`. La URL de Vercel sigue funcionando, pero no es canónica.
  *
- * `phone` y `email` siguen en `null` hasta que MILLE tenga línea de WhatsApp
- * y buzón reales: no se muestra ningún número ni dirección de mentira como
- * si fuera un canal. Los componentes solo pintan un canal cuando su valor
- * aquí no es nulo, así que activar uno es cambiar este archivo y nada más.
+ * `phone` es la línea de WhatsApp Business de MILLE (la misma que atiende el
+ * equipo desde la app) y `email` sigue en `null` hasta que exista un buzón
+ * real: no se muestra ninguna dirección de mentira como si fuera un canal.
+ * Los componentes solo pintan un canal cuando su valor aquí no es nulo, así
+ * que activar uno es cambiar este archivo y nada más.
+ *
+ * `number` va en formato internacional, solo dígitos —sin `+`, espacios ni
+ * guiones—: es lo que exige `wa.me`. `display` es lo que lee una persona.
+ * `hours` es el horario real de atención por esa línea, en hora de Bogotá.
  */
+export interface WhatsappHours {
+  /** Hora local de Bogotá en que empieza la atención (0–23). */
+  openHour: number;
+  /** Hora local de Bogotá en que termina la atención (0–23). */
+  closeHour: number;
+  /** Como se escribe en pantalla. */
+  label: string;
+}
+
 export const site: {
   name: string;
   url: string;
@@ -26,7 +40,7 @@ export const site: {
   cityShort: string;
   email: string | null;
   instagram: { handle: string; url: string } | null;
-  phone: { number: string; display: string } | null;
+  phone: { number: string; display: string; hours: WhatsappHours } | null;
 } = {
   name: "MILLE",
   url: "https://millemotorculture.com",
@@ -41,7 +55,15 @@ export const site: {
     handle: "@millemotorculture",
     url: "https://www.instagram.com/millemotorculture/",
   },
-  phone: null,
+  phone: {
+    number: "573126385028",
+    display: "+57 312 638 5028",
+    hours: {
+      openHour: 9,
+      closeHour: 18,
+      label: "Todos los días, de 9 a. m. a 6 p. m.",
+    },
+  },
 };
 
 export const mainNav = [

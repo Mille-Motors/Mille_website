@@ -30,6 +30,9 @@ export function StickyWhatsapp({ vehicle }: { vehicle: Vehicle }) {
             href={vehicleWhatsappUrl(vehicle)}
             size="md"
             className="ml-auto flex-1 justify-center"
+            data-wa-source="vehicle-bar"
+            data-wa-intent="vehiculo"
+            data-wa-slug={vehicle.slug}
           >
             <WhatsappIcon className="size-4" />
             WhatsApp

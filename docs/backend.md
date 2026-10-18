@@ -790,9 +790,9 @@ publique una versión con `@prisma/config` sobre `deepmerge-ts >= 8` y un
 
 ## Pendiente, a propósito
 
-- **Canales de contacto.** MILLE no tiene todavía dominio propio, correo
-  corporativo, WhatsApp ni Instagram. El sitio no muestra ninguno inventado
-  y `/admin/configuracion` no permite escribir uno. Tendrá su propia fase.
+- **Canales de contacto.** WhatsApp ya está activo (`site.phone`, ver
+  `docs/whatsapp.md`). Sigue sin haber correo corporativo: el sitio no
+  muestra ninguno inventado y `/admin/configuracion` no permite escribir uno.
 - **Google Search Console.** El sitio ya es indexable y publica
   `/robots.txt` y `/sitemap.xml`; falta verificar la propiedad de dominio
   (TXT en el DNS) y enviar el sitemap. Es trabajo manual, no de código.

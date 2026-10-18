@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
 import { Input, Select, Textarea } from "@/components/ui/Field";
 import { honeypotProps, submitInquiry } from "@/lib/inquiry-client";
 import { vehicleTitle } from "@/lib/format";
@@ -142,6 +143,8 @@ export function ContactForm({ vehicles }: { vehicles: Vehicle[] }) {
             <ArrowRight aria-hidden className="size-4" strokeWidth={1.5} />
           )}
         </Button>
+
+        <PrivacyNotice />
 
         {error ? (
           <p role="alert" className="text-xs text-burgundy">

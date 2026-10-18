@@ -145,11 +145,12 @@ describe("sitemap", () => {
   ]);
   const urls = entries.map((entry) => entry.url);
 
-  it("incluye las tres páginas públicas fijas y cada vehículo publicado", () => {
+  it("incluye las cuatro páginas públicas fijas y cada vehículo publicado", () => {
     assert.deepEqual(urls, [
       `${CANONICAL}/`,
       `${CANONICAL}/vehiculos`,
       `${CANONICAL}/contacto`,
+      `${CANONICAL}/privacidad`,
       `${CANONICAL}/vehiculos/bmw-x5-xdrive40i`,
       `${CANONICAL}/vehiculos/ducati-monster-937`,
     ]);
@@ -165,14 +166,15 @@ describe("sitemap", () => {
   });
 
   it("un inventario sin publicados deja solo las páginas fijas", () => {
-    assert.equal(buildSitemap([]).length, 3);
+    assert.equal(buildSitemap([]).length, 4);
   });
 
   it("la home y el inventario datan del vehículo más reciente", () => {
     assert.equal(entries[0].lastModified, "2026-03-01T00:00:00.000Z");
     assert.equal(entries[1].lastModified, "2026-03-01T00:00:00.000Z");
     assert.equal(entries[2].lastModified, undefined);
-    assert.equal(entries[3].lastModified, "2026-02-01T00:00:00.000Z");
+    assert.equal(entries[3].lastModified, undefined);
+    assert.equal(entries[4].lastModified, "2026-02-01T00:00:00.000Z");
   });
 });
 

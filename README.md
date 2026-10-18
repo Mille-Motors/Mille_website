@@ -82,8 +82,8 @@ texto editorial, DM Sans para interfaz, etiquetas y formularios.
 ## Lo que falta para producción
 
 - Fotografía propia — ver `public/images/README.md`.
-- Dominio, correo corporativo, WhatsApp e Instagram: todavía no existen, y
-  el sitio no muestra ninguno inventado. Tendrán su propia fase.
+- Correo corporativo: todavía no existe, y el sitio no muestra ninguno
+  inventado. WhatsApp ya está activo (ver `docs/whatsapp.md`).
 - Google Search Console: verificar la propiedad de dominio y enviar el
   sitemap. El sitio ya se indexa (`/robots.txt` y `/sitemap.xml` publicados).
 - Notificación por correo de las solicitudes. Hoy se leen en

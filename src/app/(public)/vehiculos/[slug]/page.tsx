@@ -23,6 +23,7 @@ import { VehicleQuickFacts } from "@/components/vehicle/VehicleQuickFacts";
 import { SpecTable, VehicleSpecs } from "@/components/vehicle/VehicleSpecs";
 import { VehicleTags } from "@/components/vehicle/VehicleTags";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { WhatsappFloat } from "@/components/whatsapp/WhatsappFloat";
 import { site } from "@/data/site";
 import { formatCOP, formatMileage, vehicleTitle } from "@/lib/format";
 import {
@@ -45,6 +46,7 @@ import {
 import { equipmentSections } from "@/lib/equipment";
 import { isFullyElectric } from "@/types/vehicle";
 import { getRelatedVehicles, getVehicleBySlug } from "@/lib/vehicles";
+import { vehicleWhatsappUrl } from "@/lib/whatsapp";
 
 /**
  * No hay `generateStaticParams`: la base es la fuente de verdad y publicar
@@ -394,6 +396,18 @@ export default async function VehicleDetailPage(
       <div aria-hidden className="h-20 lg:hidden" />
 
       <StickyWhatsapp vehicle={vehicle} />
+
+      {/* En escritorio, el botón flotante de la ficha lleva directo al chat de
+          ESTE vehículo: el mensaje ya dice cuál es. En móvil lo hace la barra. */}
+      {vehicleWhatsappUrl(vehicle) ? (
+        <WhatsappFloat
+          direct={{
+            href: vehicleWhatsappUrl(vehicle)!,
+            label: `Escribir a MILLE por WhatsApp sobre el ${vehicleTitle(vehicle)}`,
+            slug: vehicle.slug,
+          }}
+        />
+      ) : null}
     </>
   );
 }

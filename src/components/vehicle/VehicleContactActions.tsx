@@ -34,7 +34,13 @@ export function VehicleContactActions({
         )}
       >
         {site.phone ? (
-          <WhatsappButtonLink href={vehicleWhatsappUrl(vehicle)} size="lg">
+          <WhatsappButtonLink
+            href={vehicleWhatsappUrl(vehicle)}
+            size="lg"
+            data-wa-source="vehicle-page"
+            data-wa-intent="vehiculo"
+            data-wa-slug={vehicle.slug}
+          >
             <WhatsappIcon className="size-4" />
             Escribir por WhatsApp
           </WhatsappButtonLink>

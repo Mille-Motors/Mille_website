@@ -447,6 +447,36 @@ model SiteMedia {
 }
 
 // ---------------------------------------------------------------------------
+// Medición
+// ---------------------------------------------------------------------------
+
+/// Un clic al botón de WhatsApp del sitio. Sirve para saber si el botón se
+/// usa, desde dónde y qué vehículos mueven más preguntas; no para seguir a
+/// nadie, y por eso la fila NO guarda IP, agente de usuario ni identificador
+/// de persona: solo qué se tocó y en qué página.
+///
+/// `vehicleSlug` es texto y no una clave ajena a propósito: el conteo tiene
+/// que sobrevivir a que el vehículo se archive o se borre, y un vehículo que
+/// ya no existe sigue habiendo recibido esas preguntas.
+///
+/// La escribe EXCLUSIVAMENTE el backend (POST /api/whatsapp-click) y la lee el
+/// dashboard del admin; ver la migración para el endurecimiento de la Data API.
+model WhatsappClick {
+  id          String   @id @default(uuid()) @db.Uuid
+  /// De qué enlace salió: ver WHATSAPP_CLICK_SOURCES en src/lib/whatsapp-click.ts.
+  source      String
+  /// Qué quería la persona: general, buscar, vender, cita o vehículo.
+  intent      String?
+  vehicleSlug String?
+  /// Página donde estaba, sin parámetros.
+  path        String
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([vehicleSlug, createdAt])
+}
+
+// ---------------------------------------------------------------------------
 // Auditoría
 // ---------------------------------------------------------------------------
 

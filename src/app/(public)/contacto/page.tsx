@@ -34,9 +34,12 @@ const channels = [
   {
     icon: WhatsappIcon,
     label: "WhatsApp",
-    detail: site.phone ? "Respuesta inmediata" : "Disponible al lanzamiento",
+    // El horario real de la línea: "respuesta inmediata" sería prometer lo
+    // que nadie puede cumplir a las 11 de la noche.
+    detail: site.phone ? site.phone.hours.label : "Disponible al lanzamiento",
     href: generalWhatsappUrl(),
     external: true,
+    whatsapp: true,
   },
   {
     icon: InstagramIcon,
@@ -44,6 +47,7 @@ const channels = [
     detail: site.instagram ? "Síguenos" : "Disponible al lanzamiento",
     href: site.instagram?.url ?? null,
     external: true,
+    whatsapp: false,
   },
   {
     icon: Mail,
@@ -51,6 +55,7 @@ const channels = [
     detail: site.email ?? "Disponible al lanzamiento",
     href: site.email ? `mailto:${site.email}` : null,
     external: false,
+    whatsapp: false,
   },
   {
     icon: MapPin,
@@ -58,6 +63,7 @@ const channels = [
     detail: "Solo con cita previa",
     href: null,
     external: false,
+    whatsapp: false,
   },
 ] as const;
 
@@ -88,7 +94,7 @@ export default async function ContactPage() {
               </p>
 
               <ul className="mt-12 grid grid-cols-2 gap-x-6 gap-y-9 sm:grid-cols-4">
-                {channels.map(({ icon: Icon, label, detail, href, external }) => {
+                {channels.map(({ icon: Icon, label, detail, href, external, whatsapp }) => {
                   const inner = (
                     <>
                       <span className="inline-flex size-12 items-center justify-center rounded-full bg-sand text-burgundy transition-colors group-hover:bg-burgundy group-hover:text-cream">
@@ -109,6 +115,9 @@ export default async function ContactPage() {
                           href={href}
                           {...(external
                             ? { target: "_blank", rel: "noreferrer noopener" }
+                            : {})}
+                          {...(whatsapp
+                            ? { "data-wa-source": "contact", "data-wa-intent": "general" }
                             : {})}
                           className="group inline-block"
                         >
@@ -183,6 +192,8 @@ export default async function ContactPage() {
                 variant="onDark"
                 size="lg"
                 className="shrink-0"
+                data-wa-source="contact"
+                data-wa-intent="general"
               >
                 <WhatsappIcon className="size-4" />
                 Hablar por WhatsApp
