@@ -1,26 +1,43 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-type Variant = "primary" | "outline" | "ghost" | "onDark" | "whatsapp";
+/**
+ * Botones del sitio: esquinas de 4 px, texto en minúscula legible y, cuando
+ * llevan flecha, la flecha al extremo. Responden a la mano: se hunden al
+ * pulsar y la flecha avanza al pasar el puntero.
+ *
+ * `cream` es el botón de los campos vinotinto y oscuros: relleno crema, texto
+ * vinotinto, que se invierte al pasar el puntero.
+ */
+type Variant =
+  | "primary"
+  | "outline"
+  | "ghost"
+  | "onDark"
+  | "cream"
+  | "whatsapp";
 type Size = "sm" | "md" | "lg";
 
 const base =
-  "inline-flex items-center justify-center gap-2.5 rounded-xs label-caps whitespace-nowrap transition-colors duration-200 disabled:pointer-events-none disabled:opacity-50";
+  "group press inline-flex items-center justify-center gap-3 rounded-md whitespace-nowrap text-base leading-6 font-medium disabled:pointer-events-none disabled:opacity-50";
 
 const variants: Record<Variant, string> = {
   primary: "bg-burgundy text-cream hover:bg-burgundy-dark",
   outline:
-    "border border-burgundy/35 text-burgundy bg-transparent hover:border-burgundy hover:bg-burgundy/5",
-  ghost: "border border-stone text-ink bg-transparent hover:border-ink/40",
+    "border border-burgundy/40 text-burgundy bg-transparent hover:border-burgundy hover:bg-burgundy/5",
+  ghost: "border border-ink/25 text-ink bg-transparent hover:border-ink/60",
   onDark:
-    "border border-cream/30 text-cream bg-transparent hover:border-cream hover:bg-cream/10",
+    "border border-cream/45 text-cream bg-dark/30 hover:bg-cream hover:text-ink hover:border-cream",
+  cream:
+    "border border-cream bg-cream text-burgundy hover:bg-transparent hover:text-cream",
   whatsapp: "bg-burgundy text-cream hover:bg-burgundy-dark",
 };
 
 const sizes: Record<Size, string> = {
-  sm: "h-9 px-4 text-[10px]",
-  md: "h-11 px-6",
-  lg: "h-13 px-8",
+  sm: "h-10 px-4 text-[0.9375rem]",
+  md: "h-12 px-6",
+  lg: "h-14 px-6 sm:px-7",
 };
 
 interface CommonProps {
@@ -32,6 +49,17 @@ interface CommonProps {
 
 type ButtonProps = CommonProps &
   Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "children" | "className">;
+
+/** La flecha de un botón: se mueve sola cuando el botón recibe el puntero. */
+export function ButtonArrow({ className }: { className?: string }) {
+  return (
+    <ArrowRight
+      aria-hidden
+      strokeWidth={1.4}
+      className={cn("arrow-slide-icon size-5 shrink-0", className)}
+    />
+  );
+}
 
 export function Button({
   variant = "primary",

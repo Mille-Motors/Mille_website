@@ -1,252 +1,66 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Container } from "@/components/ui/Container";
-import { Eyebrow } from "@/components/ui/Eyebrow";
-import { Rule } from "@/components/ui/Rule";
+import { LegalDocument, LegalSection } from "@/components/legal/LegalDocument";
 import { site } from "@/data/site";
 import { canonical, socialMetadata } from "@/lib/seo";
+import { PRIVACY_POLICY_VERSION } from "@/lib/legal-versions";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
 
-const TITLE = "Política de tratamiento de datos";
-const DESCRIPTION =
-  "Cómo MILLE recoge, usa y protege tus datos personales cuando nos escribes por el sitio o por WhatsApp, y cómo ejercer tus derechos.";
+const TITLE = "Política de Privacidad y Tratamiento de Datos";
+const DESCRIPTION = "Conoce qué datos trata MILLE Motor Culture, para qué los usa y cómo ejercer tus derechos en Colombia.";
+const UPDATED = "17 de octubre de 2026";
 
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   alternates: canonical("/privacidad"),
-  ...socialMetadata({
-    title: `${TITLE} | ${site.name}`,
-    description: DESCRIPTION,
-    path: "/privacidad",
-  }),
+  ...socialMetadata({ title: `${TITLE} | ${site.name}`, description: DESCRIPTION, path: "/privacidad" }),
 };
-
-/** Última vez que se revisó el texto. Cambia cuando cambie lo que se hace con los datos. */
-const UPDATED = "17 de octubre de 2026";
-
-const linkClass =
-  "text-burgundy underline decoration-burgundy/40 underline-offset-4 transition-colors hover:decoration-burgundy";
-
-function Section({
-  number,
-  title,
-  children,
-}: {
-  number: string;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="border-t border-stone py-9 lg:py-11">
-      <div className="grid gap-4 lg:grid-cols-[4rem_minmax(0,1fr)] lg:gap-8">
-        <span className="font-display text-base text-burgundy tabular">
-          {number}
-        </span>
-        <div>
-          <h2 className="font-display text-[1.625rem] leading-tight text-ink">
-            {title}
-          </h2>
-          <div className="mt-4 space-y-4 font-serif text-[1.0625rem] leading-[1.75] text-ink-soft">
-            {children}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Bullets({ items }: { items: React.ReactNode[] }) {
-  return (
-    <ul className="space-y-2.5">
-      {items.map((item, index) => (
-        <li key={index} className="flex gap-3">
-          <span
-            aria-hidden
-            className="mt-[0.85em] h-px w-4 shrink-0 bg-burgundy/60"
-          />
-          <span>{item}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 export default function PrivacyPage() {
   const whatsapp = generalWhatsappUrl();
-
   return (
-    <>
-      <section className="border-b border-stone bg-cream">
-        <Container width="narrow">
-          <div className="py-14 lg:py-20">
-            <Eyebrow>{site.tagline}</Eyebrow>
-            <h1 className="mt-7 font-display text-[clamp(2.25rem,5vw,3.5rem)] leading-[1.05] text-ink">
-              Política de tratamiento
-              <br />
-              de datos personales
-            </h1>
-            <Rule className="mt-8" />
-            <p className="mt-7 font-serif text-[1.0625rem] leading-[1.75] text-ink-soft">
-              Cuando nos escribes nos das tus datos. Aquí te contamos cuáles
-              son, para qué los usamos y cómo puedes pedirnos que los
-              corrijamos o los borremos. Está escrito conforme a la Ley 1581
-              de 2012 y sus decretos reglamentarios.
-            </p>
-            <p className="label-caps mt-6 text-ink-muted">
-              Última actualización · {UPDATED}
-            </p>
-          </div>
-        </Container>
-      </section>
+    <LegalDocument title={TITLE} updated={UPDATED} version={PRIVACY_POLICY_VERSION}>
+      <LegalSection number="01" title="Responsable del tratamiento">
+        <p><strong className="text-ink">MILLE Motor Culture</strong> identifica la marca de este sitio. La identidad legal del responsable del tratamiento y sus datos de contacto deben confirmarse antes de publicar esta política como versión definitiva.</p>
+        <p>Para una consulta sobre tus datos puedes usar el WhatsApp de atención: {site.phone && whatsapp ? <a href={whatsapp} target="_blank" rel="noreferrer noopener">{site.phone.display}</a> : "canal de WhatsApp"}, o el <a href="/contacto">formulario de contacto</a>. Para ejercer derechos no necesitas enviar información adicional a la necesaria para ubicar tu solicitud.</p>
+      </LegalSection>
 
-      <Container width="narrow">
-        <div className="pb-16 lg:pb-24">
-          <Section number="01" title="Quién es el responsable">
-            <p>
-              MILLE — House of Motor Culture es un proyecto de David
-              Hernández y Nicolás Henao, con sede en {site.city},{" "}
-              {site.country}. Somos los responsables del tratamiento de los
-              datos personales que recogemos en este sitio y por nuestra
-              línea de WhatsApp.
-            </p>
-            <p>
-              Puedes escribirnos para cualquier asunto sobre tus datos por{" "}
-              {site.phone && whatsapp ? (
-                <>
-                  <a
-                    href={whatsapp}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className={linkClass}
-                  >
-                    WhatsApp ({site.phone.display})
-                  </a>{" "}
-                  — {site.phone.hours.label.toLowerCase()} —
-                </>
-              ) : (
-                "WhatsApp"
-              )}{" "}
-              o desde el{" "}
-              <Link href="/contacto" className={linkClass}>
-                formulario de contacto
-              </Link>
-              .
-            </p>
-          </Section>
+      <LegalSection number="02" title="Datos que tratamos y de dónde vienen">
+        <ul className="list-disc space-y-2 pl-5">
+          <li><strong className="text-ink">Consultas y solicitudes de cita o información:</strong> nombre y al menos un canal de respuesta (teléfono o correo); el otro canal es opcional. También recibimos el mensaje opcional, vehículo consultado y página desde la que se envió. Los entregas en el formulario de contacto o en el formulario de una ficha de vehículo. Se guardan en la base de datos de la aplicación.</li>
+          <li><strong className="text-ink">Autorización de privacidad:</strong> versión de esta política, tipo de autorización, origen y hora generada por el servidor, asociadas al registro de la consulta. No almacenamos la IP ni el agente del navegador como prueba de autorización.</li>
+          <li><strong className="text-ink">Clics en enlaces de WhatsApp:</strong> página de origen, tipo de enlace, vehículo relacionado si aplica y hora del evento. Se guardan en la base de datos para contar interacciones; el sitio no añade nombre, correo ni teléfono al evento.</li>
+          <li><strong className="text-ink">Panel interno:</strong> correo de la cuenta autorizada y datos técnicos de sesión necesarios para iniciar sesión y proteger la administración del inventario.</li>
+          <li><strong className="text-ink">Control antispam:</strong> la dirección IP recibida en la solicitud se usa como clave en memoria del servidor para limitar envíos repetidos dentro de una ventana de diez minutos. El código no la escribe en la base de datos; su permanencia depende de la memoria temporal de la instancia.</li>
+        </ul>
+        <p>No hay campos para datos sensibles ni para datos de niñas, niños o adolescentes. No envíes esa información en el campo de mensaje.</p>
+      </LegalSection>
 
-          <Section number="02" title="Qué datos recogemos y cómo">
-            <Bullets
-              items={[
-                <>
-                  <strong className="font-medium text-ink">
-                    Formularios del sitio
-                  </strong>{" "}
-                  (contacto y solicitudes de información o de cita): tu
-                  nombre, teléfono, correo, el mensaje que escribas y, si
-                  aplica, el vehículo por el que preguntas.
-                </>,
-                <>
-                  <strong className="font-medium text-ink">WhatsApp</strong>:
-                  tu número de teléfono, el nombre de tu perfil y lo que nos
-                  escribas. WhatsApp es un servicio de Meta Platforms, que
-                  trata esos datos según sus propias condiciones.
-                </>,
-                <>
-                  <strong className="font-medium text-ink">
-                    Clics al botón de WhatsApp
-                  </strong>
-                  : contamos cuántas veces se toca, desde qué página y por qué
-                  vehículo. Ese conteo no guarda tu IP, tu dispositivo ni
-                  nada que te identifique.
-                </>,
-              ]}
-            />
-            <p>
-              No usamos cookies de publicidad ni herramientas de analítica de
-              terceros en el sitio público. No pedimos datos sensibles ni
-              datos de menores de edad.
-            </p>
-          </Section>
+      <LegalSection number="03" title="Finalidades y autorización">
+        <p>Usamos los datos del formulario para recibir, revisar y responder la consulta que la persona inicia; identificar el vehículo por el que pregunta; y coordinar, cuando se solicite, una visita. Usamos los datos de autorización para conservar evidencia de la autorización previa e informada. Los conteos de WhatsApp sirven para conocer qué páginas y fichas generan interés. Las credenciales internas sirven para autenticar al equipo autorizado.</p>
+        <p>Antes de enviar un formulario público, la persona debe marcar una casilla sin seleccionar previamente que autoriza el tratamiento descrito aquí. La autorización se solicita por separado de los Términos y de cualquier comunicación comercial. El sitio no ofrece suscripciones comerciales ni registra consentimiento de mercadeo. Si no autorizas, el formulario no se envía; puedes comunicarte por los canales que aparecen en contacto para consultar alternativas.</p>
+        <p>El tratamiento se rige por la Ley 1581 de 2012 y sus normas reglamentarias, incluida la autorización previa e informada cuando sea exigible. La base de este registro concreto es la autorización expresa otorgada al enviar el formulario.</p>
+      </LegalSection>
 
-          <Section number="03" title="Para qué los usamos">
-            <Bullets
-              items={[
-                "Responder tu consulta y escribirte de vuelta.",
-                "Coordinar una visita o una cita para ver un vehículo.",
-                "Contarte de vehículos que encajen con lo que buscas.",
-                "Hablar contigo sobre el vehículo que quieres presentar con nosotros.",
-                "Entender si el sitio y la atención funcionan, con cifras agregadas que no te identifican.",
-              ]}
-            />
-            <p>No vendemos ni cedemos tus datos a terceros.</p>
-          </Section>
+      <LegalSection number="04" title="Almacenamiento, encargados y circulación">
+        <p>La configuración de la base de datos de la aplicación apunta a Supabase en East US (North Virginia, AWS us-east-1). Esto acredita la ubicación configurada para el almacenamiento de la base, pero por sí solo no determina si la operación constituye transferencia o transmisión internacional ni el rol jurídico de Supabase. Esa clasificación requiere revisar el contrato, el DPA, las instrucciones sobre fines y medios, y los subencargados que puedan acceder o tratar los datos. También deben confirmarse por separado las regiones aplicables a Auth y Storage. El proveedor de alojamiento de la aplicación debe confirmarse en la configuración del despliegue.</p>
+        <p>En términos generales, hay transmisión cuando un encargado trata los datos por cuenta del responsable; hay transferencia cuando se comunican a otro responsable que decide sus propios fines y medios. El almacenamiento o procesamiento técnico fuera de Colombia describe la ubicación del tratamiento, pero no basta para escoger entre esas figuras. La relación concreta con Supabase requiere confirmación contractual y jurídica. Al elegir un enlace de WhatsApp o Instagram, el navegador abre el servicio correspondiente y la información que compartas allí queda sujeta a las políticas de ese proveedor; el enlace no envía automáticamente el contenido de esta consulta.</p>
+      </LegalSection>
 
-          <Section number="04" title="Con quién los compartimos">
-            <p>
-              Solo con los proveedores que hacen posible el sitio y la
-              atención, bajo sus propias condiciones: el alojamiento y la base
-              de datos (Vercel y Supabase) y WhatsApp (Meta). Algunos de ellos
-              procesan información en servidores fuera de Colombia. Fuera de
-              eso, solo compartiremos tus datos si una autoridad competente
-              nos lo exige conforme a la ley.
-            </p>
-          </Section>
+      <LegalSection number="05" title="Conservación y seguridad">
+        <p>El proyecto no implementa una fecha automática de eliminación para las consultas ni una tabla de plazos de conservación. La pauta publicada es conservarlas mientras se atiende la solicitud y luego revisarlas para eliminarlas cuando dejen de ser necesarias, salvo deber legal o necesidad de atender una reclamación. La autorización vinculada a la consulta se elimina con ella. MILLE debe aprobar y aplicar un calendario concreto de conservación.</p>
+        <p>El acceso a consultas está limitado al panel autenticado y autorizado; la base de datos tiene controles de acceso, y el servidor valida los datos recibidos. Estas medidas reducen el riesgo, pero ningún sistema conectado a internet puede prometer seguridad absoluta.</p>
+      </LegalSection>
 
-          <Section number="05" title="Tu autorización">
-            <p>
-              Al enviarnos un formulario o escribirnos por WhatsApp nos
-              autorizas a tratar tus datos para las finalidades de esta
-              política. Puedes revocar esa autorización o pedir que
-              eliminemos tus datos cuando quieras, escribiéndonos por
-              cualquiera de los canales de arriba.
-            </p>
-          </Section>
+      <LegalSection number="06" title="Derechos y solicitudes">
+        <p>Puedes conocer, actualizar y rectificar tus datos; solicitar prueba de la autorización y conocer el uso dado; presentar consultas o reclamos; y solicitar la revocatoria o supresión cuando proceda. También puedes acudir a la Superintendencia de Industria y Comercio después de agotar el trámite ante el responsable, según las reglas aplicables.</p>
+        <p>Envía tu solicitud por {site.phone && whatsapp ? <a href={whatsapp} target="_blank" rel="noreferrer noopener">WhatsApp ({site.phone.display})</a> : "WhatsApp"} e indica “datos personales”, cómo podemos ubicar tu consulta y el derecho que deseas ejercer. Las consultas se atienden en diez (10) días hábiles; si no es posible responder en ese plazo, se informará el motivo y el nuevo plazo, que no excederá cinco (5) días hábiles adicionales. Los reclamos se atienden en quince (15) días hábiles; la ampliación, cuando aplique, no excederá ocho (8) días hábiles adicionales.</p>
+      </LegalSection>
 
-          <Section number="06" title="Tus derechos">
-            <p>Como titular de tus datos, tienes derecho a:</p>
-            <Bullets
-              items={[
-                "Conocer, actualizar y rectificar tus datos.",
-                "Pedir prueba de la autorización que nos diste.",
-                "Saber el uso que le hemos dado a tus datos.",
-                "Revocar la autorización y pedir la supresión de tus datos.",
-                "Acceder de forma gratuita a tus datos personales.",
-                "Presentar quejas ante la Superintendencia de Industria y Comercio por infracciones a la ley.",
-              ]}
-            />
-          </Section>
-
-          <Section number="07" title="Cómo ejercer tus derechos">
-            <p>
-              Escríbenos por WhatsApp o por el formulario de contacto,
-              indicando «datos personales» y qué quieres hacer: consultar,
-              corregir, revocar o eliminar. Responderemos las consultas en un
-              máximo de diez (10) días hábiles, prorrogables cinco (5) más, y
-              los reclamos en un máximo de quince (15) días hábiles,
-              prorrogables ocho (8) más, como establece la ley.
-            </p>
-          </Section>
-
-          <Section number="08" title="Cuánto tiempo y con qué cuidado">
-            <p>
-              Conservamos tus datos mientras sean necesarios para atender tu
-              solicitud y durante el tiempo que la ley exija, o hasta que nos
-              pidas eliminarlos. El acceso a las solicitudes que recibimos
-              está limitado al equipo de MILLE mediante inicio de sesión, y
-              las conexiones a este sitio van cifradas.
-            </p>
-          </Section>
-
-          <Section number="09" title="Cambios a esta política">
-            <p>
-              Si cambia lo que hacemos con tus datos, actualizaremos esta
-              página y la fecha de arriba. Te recomendamos revisarla de vez en
-              cuando.
-            </p>
-          </Section>
-        </div>
-      </Container>
-    </>
+      <LegalSection number="07" title="Menores de edad y cambios">
+        <p>El sitio no está dirigido a niñas, niños o adolescentes y no solicita deliberadamente sus datos personales. Si se reciben por error, contáctanos para revisar el caso y aplicar las reglas legales pertinentes, siempre con prevalencia de sus derechos.</p>
+        <p>Si cambia el tratamiento, se actualizará esta política y su versión. Si un cambio requiere una nueva autorización, se solicitará antes de realizar el tratamiento nuevo.</p>
+      </LegalSection>
+    </LegalDocument>
   );
 }

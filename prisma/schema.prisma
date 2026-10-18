@@ -401,17 +401,33 @@ model Inquiry {
   vehicle      Vehicle?      @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
   vehicleLabel String?
   name         String
-  phone        String
-  email        String
+  phone        String?
+  email        String?
   message      String?
   /// Página desde la que se envió: "contacto", "vehiculo:<slug>".
   source       String?
+  consent      ConsentRecord?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
   @@index([status])
   @@index([createdAt])
   @@index([vehicleId])
+}
+
+/// Prueba mínima de la autorización de privacidad enviada junto con una consulta.
+/// No almacena IP, user-agent ni valores de fecha aportados por el navegador.
+model ConsentRecord {
+  id                   String   @id @default(uuid()) @db.Uuid
+  inquiryId            String   @unique @db.Uuid
+  inquiry              Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  consentType          String   @default("privacy_treatment")
+  accepted             Boolean  @default(true)
+  privacyPolicyVersion String
+  source               String
+  acceptedAt           DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([acceptedAt])
 }
 
 // ---------------------------------------------------------------------------

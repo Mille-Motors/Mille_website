@@ -27,7 +27,7 @@ export function EmptyState({
         {title}
       </h2>
       {description ? (
-        <p className="mt-5 max-w-md font-serif text-[1.0625rem] leading-relaxed text-ink-soft">
+        <p className="mt-5 max-w-md font-serif text-[1.125rem] leading-relaxed text-ink-soft">
           {description}
         </p>
       ) : null}

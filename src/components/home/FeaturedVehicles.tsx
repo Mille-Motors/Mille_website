@@ -1,54 +1,205 @@
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { Container } from "@/components/ui/Container";
-import { SectionHeading } from "@/components/ui/SectionHeading";
-import { VehicleCard } from "@/components/vehicle/VehicleCard";
+import { CategoryBand } from "@/components/home/CategoryBand";
+import { RoundArrow, TextLink } from "@/components/ui/Arrow";
+import { badgeClass, badgeFor } from "@/components/vehicle/vehicle-badge";
+import { cn } from "@/lib/cn";
+import { objectPosition } from "@/lib/focal-point";
+import { formatCOP, formatMileage } from "@/lib/format";
 import { getFeaturedVehicles } from "@/lib/vehicles";
+import { getSiteMediaImage } from "@/server/site-media/service";
+import type { Vehicle } from "@/types/vehicle";
+import { REVEAL } from "@/lib/reveal";
+
+/**
+ * La primera sección de producto: dos fotografías grandes, una más baja que
+ * la otra, sobre fondo oscuro. Es la parte de la home que más se parece a una
+ * revista de motor.
+ *
+ * Con dos o más vehículos destacados en el inventario, las dos tarjetas son
+ * esos vehículos, con su nombre, su precio y su enlace. Mientras no los haya,
+ * son dos fotografías editoriales de cultura motor, administrables desde
+ * /admin/contenido, que llevan al inventario y lo dicen en una nota: nunca
+ * un vehículo inventado con su precio.
+ */
+const editorial = [
+  { slot: "home.featured.a", line: "El gusto de conducir." },
+  { slot: "home.featured.b", line: "Discreto. Hasta que arranca." },
+] as const;
 
 export async function FeaturedVehicles() {
-  const vehicles = await getFeaturedVehicles(4);
-
-  // Sin inventario publicado no hay nada que destacar. Un titular sobre una
-  // rejilla vacía no informa de nada y parece que la página se rompió; es
-  // más honesto que la sección no exista.
-  if (vehicles.length === 0) return null;
+  const [vehicles, first, second] = await Promise.all([
+    getFeaturedVehicles(2),
+    getSiteMediaImage(editorial[0].slot),
+    getSiteMediaImage(editorial[1].slot),
+  ]);
+  const real = vehicles.length >= 2;
+  const editorialImages = [first, second];
 
   return (
-    <section className="bg-cream py-16 lg:py-20">
-      <Container width="wide">
-        <SectionHeading
-          title="Vehículos destacados"
-          action={
-            <Link
-              href="/vehiculos"
-              className="label-caps group inline-flex items-center gap-2.5 text-ink-muted transition-colors hover:text-burgundy"
-            >
-              Ver todos los vehículos
-              <ArrowRight
-                aria-hidden
-                strokeWidth={1.25}
-                className="size-4 transition-transform group-hover:translate-x-1"
-              />
-            </Link>
-          }
-        />
+    <section
+      id="vehiculos"
+      className="section-y scroll-mt-header bg-dark text-cream"
+    >
+      <div className="wrap">
+        <div className="mb-[clamp(2.5rem,5vw,4.5rem)] grid gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-end lg:gap-[8vw]">
+          <h2 className="text-title" {...REVEAL}>
+            Nos hacen mirar
+            <br className="hidden sm:block" /> dos veces.
+          </h2>
+          <div
+            className="max-w-104 pb-2 lg:justify-self-end"
+            {...REVEAL}
+            style={{ "--d": "120ms" } as React.CSSProperties}
+          >
+            <p className="text-[1.25rem] leading-snug text-cream/90">
+              Una silueta, una versión, un sonido. Cada uno tiene su razón.
+            </p>
+            <TextLink href="/vehiculos" className="mt-6">
+              Ver vehículos
+            </TextLink>
+          </div>
+        </div>
 
-        {/* Horizontal rail on phones, four-up grid from large screens. */}
-        <ul className="mt-9 -mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-x-5 sm:gap-y-9 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4">
-          {vehicles.map((vehicle, index) => (
+        <ul className="grid gap-12 lg:grid-cols-[1.2fr_1fr] lg:gap-[4vw]">
+          {(real ? vehicles.slice(0, 2) : editorial).map((entry, index) => (
             <li
-              key={vehicle.id}
-              className="flex w-[78vw] shrink-0 snap-start sm:w-auto sm:shrink"
+              key={"id" in entry ? entry.id : entry.slot}
+              {...REVEAL}
+              style={{ "--d": `${index * 140}ms` } as React.CSSProperties}
+              // El segundo baja: el desnivel es lo que evita que las dos
+              // fotografías se lean como una rejilla.
+              className={cn(index === 1 && "lg:mt-[22%]")}
             >
-              <VehicleCard
-                vehicle={vehicle}
-                priority={index === 0}
-                sizes="(min-width: 1024px) 22vw, (min-width: 640px) 45vw, 78vw"
-              />
+              {"id" in entry ? (
+                <VehicleFeature vehicle={entry} priority={index === 0} />
+              ) : (
+                <EditorialFeature
+                  image={editorialImages[index]}
+                  line={entry.line}
+                  priority={index === 0}
+                />
+              )}
             </li>
           ))}
         </ul>
-      </Container>
+
+        {real ? null : (
+          <p className="mt-10 text-sm text-cream/60">
+            Imágenes de cultura motor. Consulta la disponibilidad en
+            Vehículos.
+          </p>
+        )}
+
+        <CategoryBand className="mt-[clamp(3rem,6vw,6rem)]" />
+      </div>
     </section>
+  );
+}
+
+function VehicleFeature({
+  vehicle,
+  priority,
+}: {
+  vehicle: Vehicle;
+  priority?: boolean;
+}) {
+  const cover = vehicle.images[0];
+  const badge = badgeFor(vehicle);
+  const name = [vehicle.make, vehicle.model, vehicle.version]
+    .filter(Boolean)
+    .join(" ");
+  const details = [
+    String(vehicle.year),
+    vehicle.mileage === null ? null : formatMileage(vehicle.mileage),
+    vehicle.fuelType,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <article className="group relative">
+      <div className="relative aspect-4/3 overflow-hidden rounded-xl bg-charcoal">
+        <Image
+          src={cover.src}
+          alt={cover.alt}
+          fill
+          priority={priority}
+          sizes="(min-width: 1024px) 52vw, 92vw"
+          className="object-cover transition-transform duration-1200 ease-out-strong [@media(hover:hover)]:group-hover:scale-[1.035]"
+          style={{ objectPosition: objectPosition(cover.focal) }}
+        />
+        {badge ? (
+          <span
+            className={cn(
+              "absolute top-4 left-4 rounded-full px-3.5 py-1.5 text-sm leading-none",
+              badgeClass[badge.tone],
+            )}
+          >
+            {badge.label}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-6 flex items-start justify-between gap-6">
+        <div className="min-w-0">
+          <h3 className="text-[clamp(1.5rem,1.45vw+0.75rem,2.375rem)] leading-[1.15]">
+            <Link
+              href={`/vehiculos/${vehicle.slug}`}
+              className="after:absolute after:inset-0 focus-visible:outline-none"
+            >
+              {name}
+            </Link>
+          </h3>
+          <p className="mt-2 text-base text-cream/65 tabular">{details}</p>
+          {vehicle.price !== null ? (
+            <p className="mt-4 text-[1.375rem] leading-none tabular">
+              {formatCOP(vehicle.price)}
+            </p>
+          ) : null}
+        </div>
+        <RoundArrow tone="dark" />
+      </div>
+    </article>
+  );
+}
+
+/** Una fotografía de cultura motor con una frase, que lleva al inventario. */
+function EditorialFeature({
+  image,
+  line,
+  priority,
+}: {
+  image: Awaited<ReturnType<typeof getSiteMediaImage>>;
+  line: string;
+  priority?: boolean;
+}) {
+  return (
+    <article className="group relative">
+      <div className="relative aspect-4/3 overflow-hidden rounded-xl bg-charcoal">
+        <Image
+          src={image.src}
+          alt={image.alt}
+          fill
+          priority={priority}
+          sizes="(min-width: 1024px) 52vw, 92vw"
+          quality={90}
+          className="object-cover transition-transform duration-1200 ease-out-strong [@media(hover:hover)]:group-hover:scale-[1.035]"
+          style={{ objectPosition: objectPosition(image.focal) }}
+        />
+      </div>
+
+      <div className="mt-6 flex items-center justify-between gap-6">
+        <h3 className="text-[clamp(1.5rem,1.45vw+0.75rem,2.375rem)] leading-[1.15]">
+          <Link
+            href="/vehiculos"
+            className="after:absolute after:inset-0 focus-visible:outline-none"
+          >
+            {line}
+          </Link>
+        </h3>
+        <RoundArrow tone="dark" />
+      </div>
+    </article>
   );
 }

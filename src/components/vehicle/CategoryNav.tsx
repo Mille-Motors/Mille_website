@@ -7,8 +7,9 @@ import { inventoryHref, type InventoryFilters } from "@/lib/filters";
  * desplegable. Solo se ofrecen las que tienen vehículos detrás: la lista
  * viene de las facetas del inventario visible, no de una tabla completa.
  *
- * En teléfono se dibuja como rejilla de tres columnas y no como carrusel:
- * todas las opciones tienen que leerse sin descubrir que la fila se desliza.
+ * En teléfono es una fila que se desliza hacia un lado y llega hasta el borde
+ * de la pantalla, de modo que el corte de la última opción avisa de que hay
+ * más; desde tablet cabe entera y salta de línea si hace falta.
  */
 export interface CategoryOption {
   id: string;
@@ -48,29 +49,17 @@ export function CategoryNav({
     <nav
       aria-label={`Categorías de ${filters.tipo === "moto" ? "motos" : "carros"}`}
     >
-      <ul
-        className={cn(
-          // Rejilla en teléfono para que nada quede fuera de pantalla; fila
-          // en línea desde tablet, donde sí cabe.
-          "grid grid-cols-3 border-t border-l border-stone",
-          "sm:flex sm:flex-wrap sm:gap-x-9 sm:border-0",
-        )}
-      >
+      <ul className="-mx-6 flex gap-1.5 overflow-x-auto px-6 pb-1 scrollbar-none sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
         {entries.map((entry) => (
-          <li
-            key={entry.key}
-            className="border-r border-b border-stone sm:border-0"
-          >
+          <li key={entry.key} className="shrink-0">
             <Link
               href={entry.href}
               aria-current={entry.active ? "page" : undefined}
               className={cn(
-                // 48px de alto en teléfono mantiene el objetivo táctil cómodo.
-                "flex h-12 items-center justify-center px-2 text-center font-serif text-[0.875rem] transition-colors",
-                "sm:h-auto sm:justify-start sm:border-b-2 sm:px-0 sm:py-2 sm:text-base",
+                "press inline-flex min-h-11 items-center rounded-full px-4 text-[1.125rem]",
                 entry.active
-                  ? "bg-burgundy text-cream sm:border-burgundy sm:bg-transparent sm:text-ink"
-                  : "text-ink-soft hover:bg-sand/60 sm:border-transparent sm:hover:bg-transparent sm:hover:text-ink",
+                  ? "bg-burgundy text-cream"
+                  : "text-ink-soft hover:bg-ink/6 hover:text-ink",
               )}
             >
               {entry.label}

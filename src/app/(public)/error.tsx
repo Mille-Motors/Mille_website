@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { ArrowRight, RotateCcw } from "lucide-react";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { Container } from "@/components/ui/Container";
-import { site } from "@/data/site";
+import { RotateCcw } from "lucide-react";
+import { Button, ButtonArrow, ButtonLink } from "@/components/ui/Button";
 
 /**
  * Lo que se ve cuando algo del sitio público falla de verdad —la base no
@@ -31,42 +29,42 @@ export default function PublicError({
 
   return (
     <section className="bg-cream">
-      <Container width="wide">
-        <div className="flex min-h-[60dvh] flex-col justify-center py-16 lg:py-24">
-          <p className="eyebrow leading-[1.9] text-ink-muted/70">{site.tagline}</p>
+      <div className="wrap flex min-h-[70dvh] flex-col justify-center py-[clamp(3.5rem,7vw,8rem)]">
+        <h1 className="text-title hero-rise max-w-[16ch]" style={{ "--i": 0 } as React.CSSProperties}>
+          Algo se rompió de nuestro lado.
+        </h1>
 
-          <h1 className="mt-7 max-w-2xl font-display text-[clamp(1.875rem,4vw,2.75rem)] leading-[1.1] text-ink uppercase">
-            Algo se rompió de nuestro lado.
-          </h1>
+        <p
+          className="hero-rise mt-7 max-w-md text-[1.25rem] leading-snug text-ink-soft"
+          style={{ "--i": 1 } as React.CSSProperties}
+        >
+          No pudimos cargar esta página. No es culpa tuya y no hemos perdido
+          nada: vuelve a intentarlo en un momento.
+        </p>
 
-          <span aria-hidden className="mt-8 block h-px w-20 bg-burgundy/60" />
-
-          <p className="mt-7 max-w-md font-serif text-[1.0625rem] leading-[1.75] text-ink-soft">
-            No pudimos cargar esta página. No es culpa tuya y no hemos perdido
-            nada: vuelve a intentarlo en un momento.
-          </p>
-
-          <div className="mt-10 flex flex-wrap items-center gap-3">
-            <Button size="lg" onClick={reset}>
-              <RotateCcw aria-hidden className="size-4" strokeWidth={1.5} />
-              Reintentar
-            </Button>
-            <ButtonLink href="/" variant="ghost" size="lg">
-              Volver al inicio
-              <ArrowRight aria-hidden className="size-4" strokeWidth={1.5} />
-            </ButtonLink>
-          </div>
-
-          {/* El digest es el único identificador que Next expone en cliente y
-              no revela nada del error: sirve para cruzarlo con los registros
-              del servidor si alguien reporta el fallo. */}
-          {error.digest ? (
-            <p className="mt-14 text-xs text-ink-muted/70 tabular">
-              Referencia: {error.digest}
-            </p>
-          ) : null}
+        <div
+          className="hero-rise mt-10 flex flex-wrap items-center gap-3"
+          style={{ "--i": 2 } as React.CSSProperties}
+        >
+          <Button size="lg" onClick={reset} className="gap-4">
+            <RotateCcw aria-hidden className="size-5" strokeWidth={1.4} />
+            Reintentar
+          </Button>
+          <ButtonLink href="/" variant="ghost" size="lg" className="gap-8">
+            Volver al inicio
+            <ButtonArrow />
+          </ButtonLink>
         </div>
-      </Container>
+
+        {/* El digest es el único identificador que Next expone en cliente y
+            no revela nada del error: sirve para cruzarlo con los registros
+            del servidor si alguien reporta el fallo. */}
+        {error.digest ? (
+          <p className="mt-14 text-sm text-ink-muted tabular">
+            Referencia: {error.digest}
+          </p>
+        ) : null}
+      </div>
     </section>
   );
 }

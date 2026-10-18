@@ -16,7 +16,7 @@ export function VehicleTags({ vehicle }: { vehicle: Vehicle }) {
         <li key={tag}>
           <Link
             href={inventoryHref({ tipo: vehicle.vehicleType, etiqueta: tag })}
-            className="label-caps inline-flex items-center rounded-xs border border-stone px-3 py-1.5 text-[10px] text-ink-soft transition-colors hover:border-burgundy/50 hover:text-burgundy"
+            className="press inline-flex min-h-10 items-center rounded-full border border-ink/25 px-4 text-base text-ink-soft hover:border-burgundy hover:text-burgundy"
           >
             {tag}
           </Link>

@@ -5,7 +5,7 @@ import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const control =
-  "w-full rounded-xs border border-stone bg-paper px-4 text-sm text-ink transition-colors placeholder:text-ink-muted/70 hover:border-stone-strong focus:border-burgundy focus:outline-none";
+  "w-full rounded-md border border-ink/25 bg-paper px-4 text-base text-ink transition-colors placeholder:text-ink-muted/70 hover:border-ink/50 focus:border-burgundy focus:ring-1 focus:ring-burgundy/40 focus:outline-none";
 
 function Label({
   htmlFor,
@@ -17,7 +17,7 @@ function Label({
   required?: boolean;
 }) {
   return (
-    <label htmlFor={htmlFor} className="label-caps mb-2 block text-ink-soft">
+    <label htmlFor={htmlFor} className="mb-2 block text-[0.9375rem] text-ink-soft">
       {children}
       {required ? <span className="ml-1 text-burgundy">*</span> : null}
     </label>
@@ -26,7 +26,7 @@ function Label({
 
 function Hint({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <p id={id} className="mt-1.5 text-xs text-burgundy">
+    <p id={id} className="mt-1.5 text-sm text-burgundy">
       {children}
     </p>
   );
@@ -160,7 +160,7 @@ export function Checkbox({
   return (
     <label
       className={cn(
-        "flex cursor-pointer items-start gap-3 font-serif text-[0.9375rem] text-ink-soft",
+        "flex cursor-pointer items-start gap-3 text-[0.9375rem] text-ink-soft",
         className,
       )}
     >
@@ -172,7 +172,7 @@ export function Checkbox({
       <span>
         {label}
         {hint ? (
-          <span className="mt-0.5 block text-xs text-ink-muted">{hint}</span>
+          <span className="mt-0.5 block text-sm text-ink-muted">{hint}</span>
         ) : null}
       </span>
     </label>

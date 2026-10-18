@@ -10,11 +10,12 @@ import type { InquiryType } from "@/types/vehicle";
 export interface InquiryFields {
   type: InquiryType;
   name: string;
-  phone: string;
-  email: string;
+  phone?: string;
+  email?: string;
   message?: string;
   vehicleSlug?: string;
   source?: string;
+  privacyConsent: boolean;
   /** Campo trampa: si viene con algo, lo rellenó un bot. */
   website?: string;
 }

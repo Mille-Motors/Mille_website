@@ -5,11 +5,11 @@ próxima ronda de dirección visual, no mezclada con cambios de contenido.
 
 | # | Tema | Detalle | Severidad |
 |---|---|---|---|
-| 1 | Scrim del menú móvil | El menú del navbar no oscurece el fondo. `backdrop-blur` en el header crea un bloque contenedor, así que el scrim `fixed inset-0` mide 390×72 px en vez de la pantalla. El drawer de filtros no está afectado | Alta |
+| 1 | ~~Scrim del menú móvil~~ | Resuelto con el rediseño editorial: el menú es ahora una hoja de pantalla completa, sin `backdrop-blur` en la barra. | — |
 | 2 | Cuero demasiado claro | `brand/interior.jpg` es cognac (media `#9b6d4b`); la referencia es vinotinto oscuro (media `#42322e`). Hoy solo se usa en /contacto | Alta |
 | 3 | Vinotinto de interfaz | Los botones usan `#5f0913`, tomado del escudo. Los comps usan `#4d101b`, más profundo. Falta decidir cuál manda | Media |
-| 4 | Navbar contextual | La referencia alterna navbar negro en detalle y estados, con "Agendar cita" como CTA. Hoy hay un solo navbar crema con "Ver inventario". La variante `tone="dark"` ya existe pero no se usa | Media |
-| 5 | 404 | La referencia centra el número con el auto sangrando abajo; la implementación es a dos columnas alineada a la izquierda | Media |
+| 4 | ~~Navbar contextual~~ | Reemplazado por la barra del rediseño: transparente sobre la portada de la home, crema en el resto. | — |
+| 5 | ~~404~~ | Rediseñada con el sistema editorial. | — |
 | 6 | Inventario vacío | Falta la fila de confianza inferior de la referencia: certificados, asesoría, experiencia | Baja |
 | 7 | Admin crear | La referencia usa selects para marca y modelo y chips para colores; hoy son campos de texto | Baja |
 
@@ -23,20 +23,30 @@ cuando llegue esa fase.**
 
 ## Contenido editable desde admin — RESUELTO
 
-Las cuatro fotografías de la home ya se administran desde **`/admin/contenido`**
-y cambiarlas no exige desplegar. Las claves y sus imágenes de respaldo viven
-en `src/lib/site-media.ts`; el funcionamiento está en `docs/backend.md`.
+Las fotografías de la home, el contacto y la 404 se administran desde
+**`/admin/contenido`** y cambiarlas no exige desplegar. Las claves y sus
+imágenes de respaldo viven en `src/lib/site-media.ts`; el funcionamiento está
+en `docs/backend.md`. Tras el rediseño editorial son ocho slots:
 
 | Slot | Clave | Componente | Imagen original |
 | --- | --- | --- | --- |
-| Hero de la home | `home.hero` | `components/home/Hero.tsx` | `brand/hero.jpg` |
-| Capítulo 01, por qué estamos aquí | `home.about.origin` | `components/home/about/ChapterOrigin.tsx` | `vehicles/audi-rs-5-sportback/01.jpg` |
-| House of Motor Culture | `home.about.house` | `components/home/about/HouseOfMotorCulture.tsx` | `vehicles/bmw-m4-competition/01.jpg` |
-| Capítulo 06, hacia dónde queremos ir | `home.about.future` | `components/home/about/ChapterFuture.tsx` | `vehicles/bmw-r-1250-gs-adventure/01.jpg` |
+| Portada de la home | `home.hero` | `components/home/Hero.tsx` | `brand/hero.jpg` |
+| Destacados: primera fotografía | `home.featured.a` | `components/home/FeaturedVehicles.tsx` | `vehicles/bmw-m4-competition/01.jpg` |
+| Destacados: segunda fotografía | `home.featured.b` | `components/home/FeaturedVehicles.tsx` | `vehicles/audi-rs-5-sportback/02.jpg` |
+| Historia: «Nos pasa desde siempre» | `home.about.origin` | `components/home/Story.tsx` | `vehicles/porsche-macan/02.jpg` |
+| Vende con MILLE | `home.about.house` | `components/home/SellCampaign.tsx` | `vehicles/jeep-grand-cherokee-limited/01.jpg` |
+| Cultura: «Fuera del garaje» | `home.about.future` | `components/home/Culture.tsx` | `vehicles/bmw-r-1250-gs-adventure/01.jpg` |
+| Contacto | `contact.hero` | `app/(public)/contacto/page.tsx` | `brand/night.jpg` |
+| Error 404 | `error.404` | `app/not-found.tsx` | `brand/night.jpg` |
 
-Los componentes siguen intactos salvo el origen de la imagen: cada uno lee su
-slot y, si no se ha cambiado nunca o la base no responde, cae a la fotografía
-original del repositorio.
+Las dos fotografías de «Destacados» solo se ven mientras no haya dos
+vehículos destacados en el inventario; cuando los hay, la sección enseña esos
+vehículos.
+
+Cada componente lee su slot y, si no se ha cambiado nunca o la base no
+responde, cae a la fotografía original del repositorio. Una fila sembrada como
+`LEGACY` que apunte a un archivo que ya no es el original del slot se ignora:
+manda el código.
 
 ## Ficha técnica — decisión de producto y nota legal
 

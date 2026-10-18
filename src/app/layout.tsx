@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, EB_Garamond, Instrument_Serif } from "next/font/google";
+import { Barlow_Semi_Condensed, Gilda_Display } from "next/font/google";
 import { site } from "@/data/site";
 import {
   PUBLIC_ROBOTS,
@@ -9,26 +9,22 @@ import {
 } from "@/lib/seo";
 import "./globals.css";
 
-const instrumentSerif = Instrument_Serif({
+/**
+ * Una sola familia para todo el texto del sitio: una grotesca semicondensada
+ * de trazo regular, de proporciones parecidas a las de las marcas de motor
+ * alemanas que inspiran el diseño. El logotipo es el único texto en serif.
+ */
+const barlow = Barlow_Semi_Condensed({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+  variable: "--font-barlow",
+  display: "swap",
+});
+
+const gilda = Gilda_Display({
   subsets: ["latin"],
   weight: "400",
-  style: ["normal", "italic"],
-  variable: "--font-instrument-serif",
-  display: "swap",
-});
-
-const ebGaramond = EB_Garamond({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
-  variable: "--font-eb-garamond",
-  display: "swap",
-});
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  variable: "--font-dm-sans",
+  variable: "--font-gilda",
   display: "swap",
 });
 
@@ -65,14 +61,27 @@ export const viewport: Viewport = {
   themeColor: "#f8f5ef",
 };
 
+/**
+ * Marca la página como "con script" antes del primer pintado. Es lo que
+ * permite que las animaciones de entrada partan de oculto solo cuando de
+ * verdad habrá script que las muestre: sin él, todo el contenido se ve.
+ */
+const MARK_SCRIPTED = "document.documentElement.classList.add('js')";
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
       lang="es-CO"
-      className={`${instrumentSerif.variable} ${ebGaramond.variable} ${dmSans.variable}`}
+      className={`${barlow.variable} ${gilda.variable}`}
+      // El script de arriba añade una clase a <html> antes de que React
+      // hidrate; sin esto React lo tomaría por una diferencia.
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: MARK_SCRIPTED }} />
+      </head>
       <body className="min-h-dvh bg-cream text-ink antialiased">
         {children}
       </body>

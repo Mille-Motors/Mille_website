@@ -1,99 +1,127 @@
 import Link from "next/link";
-import { MapPin } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { BackToTop } from "@/components/layout/BackToTop";
 import { InstagramIcon, WhatsappIcon } from "@/components/ui/BrandIcons";
-import { Logo } from "@/components/brand/Logo";
-import { Container } from "@/components/ui/Container";
-import { site } from "@/data/site";
+import { mainNav, site } from "@/data/site";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
 
 const whatsappHref = generalWhatsappUrl();
 
 const year = new Date().getFullYear();
 
+const linkClass =
+  "group inline-flex min-h-11 items-center gap-4 hover:underline hover:underline-offset-[0.4em] decoration-cream/50";
+
+/**
+ * El cierre del sitio: oscuro, con las rutas, los canales y el nombre de
+ * MILLE a todo el ancho. No es un mapa del sitio: es la última página de la
+ * revista.
+ */
 export function Footer() {
   return (
-    <footer className="border-t border-stone bg-cream">
-      <Container width="wide">
-        <div className="flex flex-col gap-10 py-12 lg:flex-row lg:items-start lg:justify-between lg:py-14">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-8">
-            <Logo href={null} />
-            <p className="eyebrow max-w-[19rem] leading-[1.8] text-ink-muted">
-              {site.tagline}
-            </p>
-          </div>
+    <footer className="bg-dark text-cream">
+      <div className="wrap pt-[clamp(3.5rem,6vw,6.5rem)]">
+        <div className="grid gap-12 pb-[clamp(3rem,5vw,5rem)] sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_auto] lg:gap-[5vw]">
+          <p className="text-[clamp(1.375rem,1vw+1rem,1.75rem)] leading-snug sm:col-span-2 lg:col-span-1">
+            {site.tagline}.
+            <span className="mt-2 block text-base text-cream/60">
+              {site.city}, {site.country}
+            </span>
+          </p>
 
           <nav aria-label="Pie de página">
-            <ul className="flex flex-wrap items-center gap-x-7 gap-y-3">
-              <li>
-                <Link
-                  href="/vehiculos"
-                  className="font-serif text-[0.9375rem] text-ink-soft transition-colors hover:text-burgundy"
-                >
-                  Vehículos
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/contacto"
-                  className="font-serif text-[0.9375rem] text-ink-soft transition-colors hover:text-burgundy"
-                >
-                  Contacto
-                </Link>
-              </li>
-              {site.instagram ? (
-                <li>
-                  <a
-                    href={site.instagram.url}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="inline-flex items-center gap-2 font-serif text-[0.9375rem] text-ink-soft transition-colors hover:text-burgundy"
-                  >
-                    <InstagramIcon className="size-4" />
-                    Instagram
-                  </a>
+            <ul className="grid gap-1">
+              {mainNav.map((item) => (
+                <li key={item.href}>
+                  {item.href.startsWith("/#") ? (
+                    <a href={item.href} className={linkClass}>
+                      {item.label}
+                    </a>
+                  ) : (
+                    <Link href={item.href} className={linkClass}>
+                      {item.label}
+                    </Link>
+                  )}
                 </li>
-              ) : null}
-              {whatsappHref ? (
-                <li>
-                  <a
-                    href={whatsappHref}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    data-wa-source="footer"
-                    data-wa-intent="general"
-                    className="inline-flex items-center gap-2 font-serif text-[0.9375rem] text-ink-soft transition-colors hover:text-burgundy"
-                  >
-                    <WhatsappIcon className="size-4" />
-                    WhatsApp
-                  </a>
-                </li>
-              ) : null}
-              <li className="inline-flex items-center gap-1.5 font-serif text-[0.9375rem] text-ink-muted">
-                <MapPin aria-hidden className="size-3.5" strokeWidth={1.5} />
-                {site.city}, {site.country}
-              </li>
+              ))}
             </ul>
           </nav>
+
+          <ul className="grid content-start gap-1">
+            {site.instagram ? (
+              <li>
+                <a
+                  href={site.instagram.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={linkClass}
+                >
+                  <InstagramIcon className="size-5" />
+                  Instagram
+                  <ArrowRight
+                    aria-hidden
+                    strokeWidth={1.3}
+                    className="arrow-slide-icon size-5"
+                  />
+                </a>
+              </li>
+            ) : null}
+            {whatsappHref ? (
+              <li>
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  data-wa-source="footer"
+                  data-wa-intent="general"
+                  className={linkClass}
+                >
+                  <WhatsappIcon className="size-5" />
+                  WhatsApp
+                  <ArrowRight
+                    aria-hidden
+                    strokeWidth={1.3}
+                    className="arrow-slide-icon size-5"
+                  />
+                </a>
+              </li>
+            ) : null}
+            <li>
+              <Link href="/terminos" className={linkClass}>
+                Términos y Condiciones
+              </Link>
+            </li>
+            <li>
+              <Link href="/privacidad" className={linkClass}>
+                Política de Privacidad
+              </Link>
+            </li>
+            <li>
+              <Link href="/cookies" className={linkClass}>
+                Política de Cookies
+              </Link>
+            </li>
+          </ul>
+
+          <BackToTop className="group inline-flex min-h-11 cursor-pointer items-center gap-3 justify-self-start text-[1.125rem] sm:justify-self-end lg:self-start" />
         </div>
 
-        <div className="flex flex-col gap-4 border-t border-stone py-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
-            <span>© {year} MILLE. Todos los derechos reservados.</span>
-            <Link
-              href="/privacidad"
-              className="underline decoration-stone-strong underline-offset-4 transition-colors hover:text-burgundy hover:decoration-burgundy"
-            >
-              Política de datos
-            </Link>
-          </p>
+        {/* El nombre vuelve a todo el ancho: lo último que se ve. Es
+            decorativo; el texto de verdad ya está arriba. */}
+        <p
+          aria-hidden
+          className="font-wordmark select-none text-center text-[clamp(4.5rem,23.5vw,22rem)] leading-[0.82] tracking-[0.04em] text-cream/7"
+        >
+          MILLE
+        </p>
+
+        <div className="flex flex-col gap-2 border-t border-cream/15 py-6 text-sm text-cream/60 sm:flex-row sm:items-center sm:justify-between">
+          <p>© {year} MILLE. Todos los derechos reservados.</p>
           {/* El margen derecho libra el botón flotante de WhatsApp, que se
               queda fijo sobre esta esquina al llegar al final de la página. */}
-          <p className="eyebrow flex items-center gap-4 text-ink-muted sm:pr-20 lg:pr-44">
-            <span aria-hidden className="h-px w-10 bg-burgundy/50" />
-            {site.signature}
-          </p>
+          <p className="sm:pr-20 lg:pr-44">{site.signature}</p>
         </div>
-      </Container>
+      </div>
     </footer>
   );
 }

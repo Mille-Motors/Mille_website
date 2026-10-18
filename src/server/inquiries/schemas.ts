@@ -37,25 +37,42 @@ const phone = z
     { message: "Indica un teléfono válido." },
   );
 
-export const inquiryInputSchema = z.object({
+const optionalPhone = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  phone.optional(),
+);
+const optionalEmail = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.email({ message: "Indica un correo válido." }).max(200).optional(),
+);
+
+export const inquiryInputSchema = z
+  .object({
   type: z.enum(INQUIRY_TYPES),
   name: z
     .string()
     .trim()
     .min(2, { message: "Indica tu nombre." })
     .max(120),
-  phone,
-  email: z.email({ message: "Indica un correo válido." }).max(200),
+  phone: optionalPhone,
+  email: optionalEmail,
   message: z.string().trim().max(2000).optional(),
   /** Slug del vehículo, no su id: el formulario público solo conoce slugs. */
   vehicleSlug: z.string().trim().max(120).optional(),
   source: z.string().trim().max(120).optional(),
+  privacyConsent: z.literal(true, {
+    error: "Debes autorizar el tratamiento de tus datos para enviar la solicitud.",
+  }),
   /**
    * Campo trampa. Es invisible y no tiene etiqueta, así que solo lo rellena
    * un bot que completa todos los inputs del formulario.
    */
   website: z.string().max(200).optional(),
-});
+  })
+  .refine((value) => Boolean(value.phone || value.email), {
+    path: ["phone"],
+    message: "Indica al menos un teléfono o un correo para poder responderte.",
+  });
 
 export type InquiryInput = z.infer<typeof inquiryInputSchema>;
 

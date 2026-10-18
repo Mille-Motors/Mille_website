@@ -477,20 +477,10 @@ export function InquiriesAdmin({
                     <p className="font-serif text-[1.0625rem] text-ink">
                       {inquiry.name}
                     </p>
-                    <p className="mt-1 font-serif text-sm text-ink-muted">
-                      <a
-                        href={`tel:${inquiry.phone.replace(/\s/g, "")}`}
-                        className="transition-colors hover:text-burgundy"
-                      >
-                        {inquiry.phone}
-                      </a>
-                      {" · "}
-                      <a
-                        href={`mailto:${inquiry.email}`}
-                        className="transition-colors hover:text-burgundy"
-                      >
-                        {inquiry.email}
-                      </a>
+                    <p className="mt-1 flex flex-wrap gap-x-2 font-serif text-sm text-ink-muted">
+                      {inquiry.phone ? <a href={`tel:${inquiry.phone.replace(/\s/g, "")}`} className="transition-colors hover:text-burgundy">{inquiry.phone}</a> : null}
+                      {inquiry.phone && inquiry.email ? <span aria-hidden>·</span> : null}
+                      {inquiry.email ? <a href={`mailto:${inquiry.email}`} className="transition-colors hover:text-burgundy">{inquiry.email}</a> : null}
                     </p>
                   </div>
 

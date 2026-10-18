@@ -22,14 +22,14 @@ export function VehicleHighlights({
   if (items.length === 0) return null;
 
   return (
-    <ul className="divide-y divide-stone border-t border-stone">
+    <ul className="divide-y divide-ink/12 border-t border-ink/12">
       {items.map((item) => (
         <li key={item.name} className="py-4">
-          <p className="font-serif text-[1.0625rem] leading-snug text-ink">
+          <p className="text-[1.25rem] leading-snug text-ink">
             {item.name}
           </p>
           {item.description ? (
-            <p className="mt-1.5 font-serif text-[0.9375rem] leading-relaxed text-ink-muted">
+            <p className="mt-1.5 text-[1.125rem] leading-relaxed text-ink-muted">
               {item.description}
             </p>
           ) : null}
@@ -49,7 +49,7 @@ function CheckList({ items }: { items: string[] }) {
             strokeWidth={1.4}
             className="mt-0.5 size-4 shrink-0 text-burgundy"
           />
-          <span className="font-serif text-[0.9375rem] leading-snug text-ink-soft">
+          <span className="text-[1.125rem] leading-snug text-ink-soft">
             {item}
           </span>
         </li>
@@ -71,11 +71,11 @@ export function VehicleEquipment({ equipment }: { equipment: string[] }) {
   if (sections.length === 0) return null;
 
   return (
-    <div className="grid gap-8">
+    <div className="grid gap-10">
       {sections.map((section, index) => (
         <section key={section.title ?? `sin-seccion-${index}`}>
           {section.title ? (
-            <h3 className="eyebrow mb-4 text-ink-muted">{section.title}</h3>
+            <h3 className="mb-4 text-[1.25rem] leading-snug font-medium text-ink">{section.title}</h3>
           ) : null}
           <CheckList items={section.items} />
         </section>

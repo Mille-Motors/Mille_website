@@ -66,8 +66,14 @@ export const site: {
   },
 };
 
+/**
+ * El menú del sitio. Los enlaces con `/#` saltan a una sección de la home:
+ * cada una tiene su `id` en `src/app/(public)/(home)/page.tsx`.
+ */
 export const mainNav = [
   { label: "Vehículos", href: "/vehiculos" },
-  { label: "Sobre MILLE", href: "/#mille" },
+  { label: "Nuestra historia", href: "/#mille" },
+  { label: "Vender con MILLE", href: "/#vender" },
+  { label: "Cultura motor", href: "/#cultura" },
   { label: "Contacto", href: "/contacto" },
 ] as const;

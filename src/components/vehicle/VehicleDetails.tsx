@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { scrollBehaviorFor, toggleSection } from "@/lib/accordion-scroll";
 
@@ -19,8 +18,8 @@ import { scrollBehaviorFor, toggleSection } from "@/lib/accordion-scroll";
  * la página tenga un solo eje de lectura. Lo que cambia con el ancho es
  * cuánto cabe DENTRO de cada sección abierta, no cuántas hay abiertas.
  *
- * No son tarjetas: son filetes horizontales sobre el mismo fondo crema, que
- * es como el resto del sitio separa secciones.
+ * No son tarjetas: son filetes horizontales sobre el mismo fondo crema, con un
+ * más que se vuelve menos al abrir, como el acordeón de la home.
  */
 export interface DetailSection {
   /** Estable: se usa como `key` y para el ancla. */
@@ -77,7 +76,7 @@ export function VehicleDetails({ sections }: { sections: DetailSection[] }) {
   if (sections.length === 0) return null;
 
   return (
-    <div className="border-t border-stone">
+    <div className="border-t border-ink/20">
       {sections.map((section) => {
         const expanded = open === section.id;
         const panelId = `${base}-${section.id}`;
@@ -89,7 +88,7 @@ export function VehicleDetails({ sections }: { sections: DetailSection[] }) {
             // Que el título no acabe debajo de la barra superior, que es
             // sticky. La altura sale de la misma variable que usa la barra,
             // así que no hay dos números que mantener de acuerdo.
-            className="scroll-mt-header border-b border-stone"
+            className="scroll-mt-header border-b border-ink/20"
           >
             <h3>
               <button
@@ -110,28 +109,29 @@ export function VehicleDetails({ sections }: { sections: DetailSection[] }) {
                   setOpen(next.open);
                 }}
                 className={cn(
-                  "group flex w-full items-baseline justify-between gap-6 py-6 text-left transition-colors lg:py-7",
+                  "group flex min-h-20 w-full cursor-pointer items-center justify-between gap-6 py-6 text-left transition-colors lg:py-7",
                   "hover:text-burgundy focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-burgundy",
                   expanded ? "text-ink" : "text-ink-soft",
                 )}
               >
-                <span className="font-display text-[clamp(1.5rem,2.6vw,2rem)] leading-none">
+                <span className="text-[clamp(1.5rem,1.4vw+1.1rem,2.375rem)] leading-none">
                   {section.title}
                 </span>
                 <span className="flex shrink-0 items-center gap-4">
                   {section.hint ? (
-                    <span className="label-caps hidden text-[10px] text-ink-muted sm:inline">
+                    <span className="hidden text-base text-ink-muted sm:inline">
                       {section.hint}
                     </span>
                   ) : null}
-                  <ChevronDown
-                    aria-hidden
-                    strokeWidth={1.2}
-                    className={cn(
-                      "size-5 text-ink-muted transition-transform duration-300",
-                      expanded && "rotate-180",
-                    )}
-                  />
+                  <span aria-hidden className="relative size-4 shrink-0">
+                    <i className="absolute top-[7px] left-0 block h-px w-4 bg-current" />
+                    <i
+                      className={cn(
+                        "absolute top-[7px] left-0 block h-px w-4 bg-current transition-transform duration-300 ease-out",
+                        expanded ? "rotate-0" : "rotate-90",
+                      )}
+                    />
+                  </span>
                 </span>
               </button>
             </h3>

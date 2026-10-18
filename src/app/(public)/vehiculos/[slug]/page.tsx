@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, ChevronRight } from "lucide-react";
-import { Container } from "@/components/ui/Container";
-import { Rule } from "@/components/ui/Rule";
-import { SectionHeading } from "@/components/ui/SectionHeading";
+import { ChevronRight } from "lucide-react";
+import { TextLink } from "@/components/ui/Arrow";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { StickyWhatsapp } from "@/components/vehicle/StickyWhatsapp";
 import { VehicleCard } from "@/components/vehicle/VehicleCard";
@@ -47,6 +45,7 @@ import { equipmentSections } from "@/lib/equipment";
 import { isFullyElectric } from "@/types/vehicle";
 import { getRelatedVehicles, getVehicleBySlug } from "@/lib/vehicles";
 import { vehicleWhatsappUrl } from "@/lib/whatsapp";
+import { REVEAL } from "@/lib/reveal";
 
 /**
  * No hay `generateStaticParams`: la base es la fuente de verdad y publicar
@@ -155,7 +154,7 @@ export default async function VehicleDetailPage(
               esta unidad de otra igual, no una línea más de una lista. */}
           {highlights.length > 0 ? (
             <section>
-              <h4 className="eyebrow mb-5 text-burgundy">
+              <h4 className="mb-4 text-[1.25rem] leading-snug font-medium text-burgundy">
                 Equipamiento destacado
               </h4>
               <VehicleHighlights items={highlights} />
@@ -177,7 +176,7 @@ export default async function VehicleDetailPage(
         <div className="max-w-3xl">
           <SpecTable rows={papers} />
           {vehicle.documentation.documentationNotes ? (
-            <p className="mt-6 font-serif text-[0.9375rem] leading-relaxed text-ink-muted">
+            <p className="mt-6 text-[1.125rem] leading-relaxed text-ink-muted">
               {vehicle.documentation.documentationNotes}
             </p>
           ) : null}
@@ -185,6 +184,8 @@ export default async function VehicleDetailPage(
       ),
     });
   }
+
+  const crumb = "transition-colors hover:text-cream";
 
   return (
     <>
@@ -204,117 +205,128 @@ export default async function VehicleDetailPage(
         ])}
       />
 
-      {/* Breadcrumb + headline over the MILLE burgundy, not a generic dark
-          band — carries the same treatment for cars and motos alike. */}
-      <section className="bg-burgundy text-cream">
-        <Container width="wide">
-          <nav aria-label="Ruta" className="pt-6">
-            <ol className="flex flex-wrap items-center gap-1.5 text-xs text-cream/50">
+      {/* Arriba, en oscuro: la fotografía y el resumen. A la izquierda la
+          galería; a la derecha el nombre, el precio, las cifras y las
+          acciones. En teléfono se apilan en ese orden de lectura: nombre,
+          fotografías, precio y cifras. */}
+      <section className="bg-dark pt-6 pb-[clamp(3rem,6vw,6rem)] text-cream">
+        <div className="wrap">
+          <nav aria-label="Ruta">
+            <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[0.9375rem] text-cream/60">
               <li>
-                <Link href="/" className="transition-colors hover:text-cream">
+                <Link href="/" className={crumb}>
                   Inicio
                 </Link>
               </li>
-              <ChevronRight aria-hidden className="size-3" strokeWidth={1.5} />
+              <ChevronRight aria-hidden className="size-3.5" strokeWidth={1.4} />
               <li>
-                <Link
-                  href="/vehiculos"
-                  className="transition-colors hover:text-cream"
-                >
+                <Link href="/vehiculos" className={crumb}>
                   Vehículos
                 </Link>
               </li>
-              <ChevronRight aria-hidden className="size-3" strokeWidth={1.5} />
+              <ChevronRight aria-hidden className="size-3.5" strokeWidth={1.4} />
               <li>
                 <Link
                   href={`/vehiculos?marca=${encodeURIComponent(vehicle.make)}`}
-                  className="transition-colors hover:text-cream"
+                  className={crumb}
                 >
                   {vehicle.make}
                 </Link>
               </li>
-              <ChevronRight aria-hidden className="size-3" strokeWidth={1.5} />
-              <li aria-current="page" className="text-cream/80">
+              <ChevronRight aria-hidden className="size-3.5" strokeWidth={1.4} />
+              <li aria-current="page" className="text-cream">
                 {vehicle.model} {vehicle.version}
               </li>
             </ol>
           </nav>
 
-          {/* Stacks breadcrumb → title → year·km → price → status on phones;
-              title+meta beside price+status from desktop up. */}
-          <div className="flex flex-col gap-6 pt-7 pb-10 lg:flex-row lg:items-end lg:justify-between lg:pb-12">
-            <div>
-              <h1 className="font-display text-[clamp(2.25rem,5vw,3.5rem)] leading-[1.04] text-cream">
+          <div className="mt-7 grid gap-x-[5vw] gap-y-9 lg:mt-9 lg:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)] lg:gap-y-10">
+            <div className="lg:col-start-2 lg:row-start-1">
+              <h1
+                className="text-[clamp(2.25rem,3.4vw+1rem,4.75rem)] leading-[1.04] tracking-[-0.01em]"
+                {...REVEAL}
+              >
                 {title}
               </h1>
-              <p className="mt-4 flex items-center gap-3 font-serif text-[0.9375rem] text-cream/65 tabular">
+              <p
+                className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[1.125rem] text-cream/70 tabular"
+                {...REVEAL}
+                style={{ "--d": "80ms" } as React.CSSProperties}
+              >
                 <span>{vehicle.year}</span>
                 {vehicle.mileage !== null ? (
                   <>
-                    <span aria-hidden className="h-3.5 w-px bg-cream/25" />
+                    <span aria-hidden>·</span>
                     <span>{formatMileage(vehicle.mileage)}</span>
+                  </>
+                ) : null}
+                {vehicle.fuelType ? (
+                  <>
+                    <span aria-hidden>·</span>
+                    <span>{vehicle.fuelType}</span>
                   </>
                 ) : null}
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-              {/* Publicar exige precio, así que aquí siempre lo hay; si
-                  faltara, la cabecera se queda sin la cifra antes que
-                  anunciar "$ 0". */}
-              {vehicle.price !== null ? (
-                <p className="font-display text-[clamp(1.75rem,3.4vw,2.5rem)] leading-none text-cream tabular">
-                  {formatCOP(vehicle.price)}
-                  <span className="ml-2 font-sans text-sm tracking-wide text-cream/55">
-                    COP
-                  </span>
-                </p>
-              ) : null}
-              <StatusPill status={vehicle.availability} tone="onBurgundy" />
+            <div className="min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+              <VehicleGallery images={vehicle.images} name={title} />
+            </div>
+
+            <div
+              className="lg:col-start-2 lg:row-start-2"
+              {...REVEAL}
+              style={{ "--d": "140ms" } as React.CSSProperties}
+            >
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+                {/* Publicar exige precio, así que aquí siempre lo hay; si
+                    faltara, la cabecera se queda sin la cifra antes que
+                    anunciar "$ 0". */}
+                {vehicle.price !== null ? (
+                  <p className="text-[clamp(2rem,1.8vw+1.3rem,3.25rem)] leading-none tabular">
+                    {formatCOP(vehicle.price)}
+                    <span className="ml-2 text-base text-cream/55">COP</span>
+                  </p>
+                ) : null}
+                <StatusPill status={vehicle.availability} tone="onBurgundy" />
+              </div>
+
+              <VehicleQuickFacts
+                facts={facts}
+                className="mt-9 border-t border-cream/15 pt-8"
+              />
+
+              <VehicleContactActions
+                vehicle={vehicle}
+                variant="summary"
+                className="mt-9 hidden lg:grid"
+              />
             </div>
           </div>
-        </Container>
+        </div>
       </section>
 
-      {/* A · La galería, a todo el ancho editorial. */}
-      <section className="bg-cream pt-8 pb-10 lg:pt-10">
-        <Container width="wide">
-          <VehicleGallery images={vehicle.images} />
-        </Container>
-      </section>
-
-      {/* C · Los datos rápidos: lo que se mira antes de decidir si se sigue
-          leyendo. Se adaptan al universo —una moto enseña cilindrada y
-          transmisión final; un carro, tracción— y desaparecen enteros si no
-          conocemos ninguno. */}
-      {facts.length > 0 ? (
-        <section className="bg-cream pb-12 lg:pb-16">
-          <Container width="wide">
-            <VehicleQuickFacts facts={facts} />
-          </Container>
-        </section>
-      ) : null}
-
-      {/* D · El relato. En una medida de lectura, no a 1.400 px: un párrafo
-          de ciento veinte caracteres por línea no se lee, se recorre. */}
-      <section className="bg-cream pb-14 lg:pb-20">
-        <Container width="wide">
-          <div className="max-w-[68ch]">
-            <h2 className="font-display text-[clamp(1.75rem,3vw,2.25rem)] text-ink">
+      {/* El relato, en una medida de lectura y no a 1.400 px: un párrafo de
+          ciento veinte caracteres por línea no se lee, se recorre. */}
+      <section className="section-y bg-cream">
+        <div className="wrap grid gap-8 lg:grid-cols-[0.8fr_1fr] lg:gap-[8vw]">
+          <div {...REVEAL}>
+            <h2 className="text-heading max-w-[14ch]">
               Acerca de este vehículo
             </h2>
-            {/* Una línea de entrada, no un subtítulo: va en el mismo serif
-                menudo que el resto de texto secundario de la ficha, de modo
-                que se lea como una aclaración y no compita con el titular.
-                Vale igual para carro y para moto, y por eso no nombra
-                ninguno de los dos. */}
-            <p className="mt-2.5 font-serif text-[0.9375rem] leading-relaxed text-ink-muted">
+            <p className="mt-4 max-w-[28ch] text-[1.125rem] leading-snug text-ink-muted">
               Una visión general de su configuración, estado y detalles clave.
             </p>
-            <Rule className="mt-4 mb-7" />
+          </div>
+
+          <div
+            className="max-w-160"
+            {...REVEAL}
+            style={{ "--d": "100ms" } as React.CSSProperties}
+          >
             {/* `whitespace-pre-line` conserva los párrafos que se
                 escribieron en el admin. */}
-            <p className="font-serif text-[1.0625rem] leading-[1.85] whitespace-pre-line text-ink-soft lg:text-[1.125rem]">
+            <p className="text-[1.25rem] leading-[1.65] whitespace-pre-line text-ink-soft">
               {vehicle.description}
             </p>
 
@@ -323,72 +335,81 @@ export default async function VehicleDetailPage(
                 <VehicleTags vehicle={vehicle} />
               </div>
             ) : null}
-          </div>
 
-          {/* H · El apunte editorial, si existe. Va aquí, junto al relato,
-              porque es de la misma naturaleza: algo que contar, no un dato
-              que consultar. */}
-          {funFactVisible ? (
-            <div className="mt-12 max-w-[68ch]">
-              <VehicleFunFact funFact={vehicle.funFact} />
-            </div>
-          ) : null}
-        </Container>
+            {/* El apunte editorial, si existe: es de la misma naturaleza que
+                el relato —algo que contar, no un dato que consultar—. */}
+            {funFactVisible ? (
+              <div className="mt-10">
+                <VehicleFunFact funFact={vehicle.funFact} />
+              </div>
+            ) : null}
+          </div>
+        </div>
       </section>
 
-      {/* E, F, G · Todo lo consultable, en una sola pila desplegable y con
-          el MISMO patrón en teléfono y en escritorio. Antes el escritorio
-          abría dos columnas con todo desplegado a la vez y no había por
-          dónde empezar a mirar. */}
+      {/* Todo lo consultable, en una sola pila desplegable y con el MISMO
+          patrón en teléfono y en escritorio. Antes el escritorio abría dos
+          columnas con todo desplegado a la vez y no había por dónde empezar
+          a mirar. */}
       {details.length > 0 ? (
-        <section className="bg-cream pb-16 lg:pb-24">
-          <Container width="wide">
-            <h2 className="font-display text-[clamp(1.75rem,3vw,2.25rem)] text-ink">
+        <section className="bg-cream pb-(--space)">
+          <div className="wrap">
+            <h2 className="text-heading mb-8 lg:mb-10" {...REVEAL}>
               Detalles del vehículo
             </h2>
-            <div className="mt-7">
-              <VehicleDetails sections={details} />
-            </div>
-          </Container>
+            <VehicleDetails sections={details} />
+          </div>
         </section>
       ) : null}
 
-      <section className="bg-cream py-12">
-        <Container width="wide">
-          <VehicleContactActions vehicle={vehicle} />
-        </Container>
+      {/* El cierre: vinotinto, con las tres maneras de preguntar. Es el ancla
+          de la barra fija del teléfono. */}
+      <section className="bg-burgundy py-[clamp(4rem,8vw,8rem)] text-cream">
+        <div className="wrap">
+          <div className="mb-10 grid gap-5 lg:grid-cols-[1.4fr_1fr] lg:items-end lg:gap-[8vw]">
+            <h2 className="text-title" {...REVEAL}>
+              ¿Te interesa este vehículo?
+            </h2>
+            <p
+              className="max-w-96 text-[1.375rem] leading-snug lg:justify-self-end"
+              {...REVEAL}
+              style={{ "--d": "100ms" } as React.CSSProperties}
+            >
+              Escríbenos, pregunta lo que quieras o agenda una visita. Te
+              respondemos con calma.
+            </p>
+          </div>
+          <VehicleContactActions vehicle={vehicle} variant="closing" />
+        </div>
       </section>
 
       {related.length > 0 ? (
-        <section className="border-t border-stone bg-cream py-14">
-          <Container width="wide">
-            <SectionHeading
-              title="Vehículos relacionados"
-              action={
-                <Link
-                  href="/vehiculos"
-                  className="label-caps group inline-flex items-center gap-2.5 text-ink-muted transition-colors hover:text-burgundy"
+        <section className="section-y bg-cream">
+          <div className="wrap">
+            <div className="mb-10 flex flex-wrap items-end justify-between gap-x-8 gap-y-4 lg:mb-12">
+              <h2 className="text-heading" {...REVEAL}>
+                Vehículos relacionados
+              </h2>
+              <TextLink href="/vehiculos" className="text-ink">
+                Ver más vehículos
+              </TextLink>
+            </div>
+            <ul className="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-8">
+              {related.map((item, index) => (
+                <li
+                  key={item.id}
+                  className="flex"
+                  {...REVEAL}
+                  style={{ "--d": `${index * 90}ms` } as React.CSSProperties}
                 >
-                  Ver más vehículos
-                  <ArrowRight
-                    aria-hidden
-                    strokeWidth={1.25}
-                    className="size-4 transition-transform group-hover:translate-x-1"
-                  />
-                </Link>
-              }
-            />
-            <ul className="mt-9 grid gap-x-5 gap-y-9 sm:grid-cols-2 lg:grid-cols-3">
-              {related.map((item) => (
-                <li key={item.id} className="flex">
                   <VehicleCard
                     vehicle={item}
-                    sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 88vw"
+                    sizes="(min-width: 1024px) 28vw, (min-width: 640px) 44vw, 92vw"
                   />
                 </li>
               ))}
             </ul>
-          </Container>
+          </div>
         </section>
       ) : null}
 

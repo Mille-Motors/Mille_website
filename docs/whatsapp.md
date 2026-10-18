@@ -9,7 +9,8 @@ Línea: **+57 312 638 5028** (WhatsApp Business, app). Atención: todos los día
 | Todas las páginas públicas (menos la ficha de un vehículo) | Botón flotante abajo a la derecha. Abre un menú con cuatro motivos: **buscar**, **hablar de mi vehículo**, **agendar cita** y **otra consulta**. Cada uno abre WhatsApp con su mensaje ya escrito. El menú dice si estamos en horario. |
 | Ficha de un vehículo, escritorio | Botón flotante directo (sin menú) a un chat que **ya nombra ese vehículo**: marca, modelo, año, precio y el enlace a la ficha. |
 | Ficha de un vehículo, móvil | La barra fija de abajo (precio + WhatsApp), con el mismo mensaje. |
-| Pie, `/contacto`, 404 | Enlaces con el mensaje general. |
+| Menú, pie, `/contacto`, 404 | Enlaces con el mensaje general. |
+| Home, «Vende con MILLE» | Botón que abre el chat con el mensaje de `vender` ya escrito. |
 | `/privacidad` | Política de tratamiento de datos (Ley 1581). Enlazada en el pie y bajo el botón de enviar de los dos formularios. |
 
 Todo sale de `site.phone` en `src/data/site.ts`. Si ese valor vuelve a ser `null`, todo lo de WhatsApp desaparece solo; nunca hay un botón que abra un número falso.
@@ -63,7 +64,7 @@ Los textos están listos para pegar. Las rutas de los menús cambian un poco seg
 
 ## Política de datos
 
-`src/app/(public)/privacidad/page.tsx`. Habla de lo que de verdad hace el sitio: formularios, WhatsApp y el conteo anónimo de clics; Vercel, Supabase y Meta como proveedores. **Si cambia algo de eso —por ejemplo, si se añade analítica o un CRM—, hay que actualizar el texto y la fecha.** El texto es un borrador sólido, pero no sustituye la revisión de un abogado antes de lanzar con tráfico real; pendiente: indicar en la política un correo o dirección de contacto del responsable cuando existan.
+`src/app/(public)/privacidad/page.tsx`. Habla de lo que de verdad hace el sitio: formularios, WhatsApp y el conteo de clics; y describe los proveedores solo hasta donde llega la evidencia técnica. **Si cambia algo de eso —por ejemplo, si se añade analítica o un CRM—, hay que actualizar el texto y la fecha.** Antes de poner la política en vigor deben completarse la identidad legal y los canales formales de contacto del responsable, y revisarse la clasificación contractual de los proveedores internacionales.
 
 ## Fase 2 (no construida)
 

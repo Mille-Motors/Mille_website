@@ -5,12 +5,11 @@ import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { scrollToInventory } from "@/components/vehicle/inventory-anchor";
 import { inventoryHref, type InventoryFilters } from "@/lib/filters";
-import { VEHICLE_TYPES, type VehicleType } from "@/types/vehicle";
 import { typeLabel } from "@/lib/categories";
 
 /**
- * The first decision of the page, and deliberately the loudest thing on it.
- * Whole inventory sits underneath at a much quieter weight.
+ * La primera decisión de la página: todo el inventario, solo carros o solo
+ * motos. Tres píldoras con su cuenta, la activa rellena.
  *
  * Plain links, not buttons: each view is a real URL, so this works with
  * middle-click, back/forward and sharing for free.
@@ -26,6 +25,8 @@ import { typeLabel } from "@/lib/categories";
  * cambian el tipo igual, pero sin intención que consumir no mueven la
  * página. Se usa el mismo ancla que "Ver inventario", no otro sistema.
  */
+type Universe = InventoryFilters["tipo"];
+
 export function TypeSelector({
   filters,
   counts,
@@ -41,7 +42,7 @@ export function TypeSelector({
     scrollToInventory();
   }, [filters.tipo]);
 
-  const handleClick = (type: VehicleType) => (event: MouseEvent<HTMLAnchorElement>) => {
+  const handleClick = (type: Universe) => (event: MouseEvent<HTMLAnchorElement>) => {
     // Pulsar el universo que ya está puesto no debería navegar ni mover nada.
     if (filters.tipo === type) {
       event.preventDefault();
@@ -54,57 +55,39 @@ export function TypeSelector({
     requested.current = true;
   };
 
+  const options: { type: Universe; label: string; count: number }[] = [
+    { type: "all", label: "Todos", count: counts.all },
+    { type: "auto", label: typeLabel.auto, count: counts.auto },
+    { type: "moto", label: typeLabel.moto, count: counts.moto },
+  ];
+
   return (
-    <div>
-      <div className="grid grid-cols-2 gap-3 sm:gap-5">
-        {VEHICLE_TYPES.map((type) => {
+    <nav aria-label="Tipo de vehículo">
+      <ul className="flex flex-wrap gap-2.5 sm:gap-3">
+        {options.map(({ type, label, count }) => {
           const active = filters.tipo === type;
           return (
-            <Link
-              key={type}
-              // Switching universe drops category, make and the ranges: they
-              // belong to the universe you are leaving.
-              href={inventoryHref({ tipo: type, orden: filters.orden })}
-              onClick={handleClick(type)}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "group flex flex-col justify-between gap-5 border px-5 py-5 transition-colors duration-200 sm:px-7 sm:py-6",
-                active
-                  ? "border-burgundy bg-burgundy text-cream"
-                  : "border-stone bg-transparent text-ink hover:border-ink/45",
-              )}
-            >
-              <span
+            <li key={type}>
+              <Link
+                // Switching universe drops category, make and the ranges: they
+                // belong to the universe you are leaving.
+                href={inventoryHref({ tipo: type, orden: filters.orden })}
+                onClick={handleClick(type)}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "label-caps self-end tabular",
-                  active ? "text-cream/55" : "text-ink-muted",
+                  "press inline-flex min-h-12 items-center gap-2.5 rounded-full border px-5 text-[1.125rem] sm:px-6",
+                  active
+                    ? "border-ink bg-ink text-cream"
+                    : "border-ink/25 text-ink hover:border-ink",
                 )}
               >
-                {counts[type]}
-              </span>
-              <span className="font-display text-[clamp(1.75rem,4.2vw,2.75rem)] leading-none uppercase">
-                {typeLabel[type]}
-              </span>
-            </Link>
+                {label}
+                <span className="tabular text-sm opacity-60">{count}</span>
+              </Link>
+            </li>
           );
         })}
-      </div>
-
-      <div className="mt-4 flex justify-center">
-        <Link
-          href={inventoryHref({ tipo: "all", orden: filters.orden })}
-          aria-current={filters.tipo === "all" ? "page" : undefined}
-          className={cn(
-            "label-caps inline-flex items-center gap-2.5 border-b py-1.5 transition-colors",
-            filters.tipo === "all"
-              ? "border-burgundy text-burgundy"
-              : "border-transparent text-ink-muted hover:border-stone-strong hover:text-ink",
-          )}
-        >
-          Ver todo el inventario
-          <span className="tabular opacity-60">{counts.all}</span>
-        </Link>
-      </div>
-    </div>
+      </ul>
+    </nav>
   );
 }

@@ -7,7 +7,8 @@ import type { Vehicle } from "@/types/vehicle";
 
 /**
  * Barra fija de teléfono. El precio se queda visible junto a la acción
- * principal.
+ * principal. Sólida y sin transparencias: debajo pasan fotografías y texto,
+ * y un velo borroso las dejaría leerse a medias.
  *
  * Mientras no exista línea de WhatsApp, esa acción no puede ser un botón
  * inerte: es el único CTA de la ficha en móvil. Lleva a las acciones de
@@ -16,12 +17,12 @@ import type { Vehicle } from "@/types/vehicle";
  */
 export function StickyWhatsapp({ vehicle }: { vehicle: Vehicle }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-stone bg-cream/97 px-4 py-3 backdrop-blur-[6px] lg:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-cream px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
       <div className="flex items-center gap-4">
         {/* Un publicado siempre tiene precio; si faltara, la barra se queda
             sin la cifra en vez de anunciar "$ 0". */}
         {vehicle.price !== null ? (
-          <p className="min-w-0 shrink font-display text-lg leading-none text-ink tabular">
+          <p className="min-w-0 shrink text-[1.375rem] leading-none text-ink tabular">
             {formatCOP(vehicle.price)}
           </p>
         ) : null}
@@ -34,7 +35,7 @@ export function StickyWhatsapp({ vehicle }: { vehicle: Vehicle }) {
             data-wa-intent="vehiculo"
             data-wa-slug={vehicle.slug}
           >
-            <WhatsappIcon className="size-4" />
+            <WhatsappIcon className="size-5" />
             WhatsApp
           </WhatsappButtonLink>
         ) : (

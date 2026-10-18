@@ -76,8 +76,9 @@ tipografías, radios y sombras. Los colores salen de los activos de marca, no
 están inventados: el vinotinto `#5f0913` se tomó del escudo y el crema
 `#f8f5ef` de los comps aprobados.
 
-Tipografías: Instrument Serif para titulares y precios, EB Garamond para
-texto editorial, DM Sans para interfaz, etiquetas y formularios.
+Una sola familia de texto, Barlow Semi Condensed, para todo el sitio; Gilda
+Display solo para el logotipo. El criterio completo —escala, espacio, color,
+movimiento y lo que no se hace— está en [`DESIGN.md`](DESIGN.md).
 
 ## Lo que falta para producción
 

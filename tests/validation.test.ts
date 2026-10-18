@@ -18,6 +18,7 @@ describe("solicitudes públicas", () => {
     name: "Ana Ruiz",
     phone: "+57 310 555 4433",
     email: "ana@correo.com",
+    privacyConsent: true as const,
   };
 
   it("acepta una solicitud bien formada", () => {
@@ -41,6 +42,28 @@ describe("solicitudes públicas", () => {
 
   it("rechaza un tipo que no existe", () => {
     assert.throws(() => inquiryInputSchema.parse({ ...valid, type: "otro" }));
+  });
+
+  it("exige autorización explícita de privacidad", () => {
+    const withoutConsent = { ...valid };
+    Reflect.deleteProperty(withoutConsent, "privacyConsent");
+    assert.throws(() => inquiryInputSchema.parse(withoutConsent));
+    assert.equal(
+      inquiryInputSchema.parse(valid).privacyConsent,
+      true,
+    );
+  });
+
+  it("solo exige un canal de respuesta y normaliza el otro vacío", () => {
+    const phoneOnly = inquiryInputSchema.parse({ ...valid, email: "" });
+    assert.equal(phoneOnly.email, undefined);
+    assert.equal(phoneOnly.phone, valid.phone);
+
+    const emailOnly = inquiryInputSchema.parse({ ...valid, phone: "" });
+    assert.equal(emailOnly.phone, undefined);
+    assert.equal(emailOnly.email, valid.email);
+
+    assert.throws(() => inquiryInputSchema.parse({ ...valid, phone: "", email: "" }));
   });
 
   it("acepta teléfonos como los escribe la gente", () => {

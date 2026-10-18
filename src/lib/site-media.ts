@@ -95,77 +95,115 @@ export const NOT_FOUND_SURFACE = "__not-found__";
 export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
   {
     key: "home.hero",
-    label: "Hero de la home",
+    label: "Portada de la home",
     description:
-      "La fotografía grande de la portada, al lado de «Más que carros, es un estilo de vida».",
-    aspect: "Horizontal. 4:3 en teléfono, 16:10 en tablet y vertical completa en escritorio.",
+      "La fotografía a pantalla completa que abre la home, detrás de «Nos mueve.».",
+    aspect:
+      "Horizontal y grande. Ocupa toda la pantalla: apaisada en escritorio y casi vertical en teléfono, así que conviene que el vehículo esté cerca del centro.",
     frames: {
-      // Container wide sin padding en lg (1440) × columna 1.08fr de 2fr =
-      // 777,6 px de ancho, contra el lg:min-h-[36rem] = 576 px de alto.
-      desktop: { label: "Escritorio", ratio: 1.35 },
-      // aspect-[4/3] por debajo de sm.
-      mobile: { label: "Teléfono", ratio: 4 / 3 },
+      // 100svh de alto con la barra transparente por encima: 1440 × 900 en
+      // un portátil, que es 1,6.
+      desktop: { label: "Escritorio", ratio: 1.6 },
+      // En teléfono llena la pantalla: 390 × ~700 una vez descontada la barra
+      // de direcciones del navegador.
+      mobile: { label: "Teléfono", ratio: 0.56 },
     },
-    // 1024 px de ancho efectivo en el marco de 1440 × 2 (Retina).
+    // Ancho de la pantalla × 2 (Retina): 1440 × 2 = 2880, y por encima de
+    // 2400 px la mejora ya no se nota en un recorte a pantalla completa.
     surface: "/",
-    recommendedWidth: 2050,
+    recommendedWidth: 2400,
     legacySrc: "/images/brand/hero.jpg",
     legacyAlt:
       "BMW M3 con la identidad de MILLE frente a los cerros de Bogotá",
   },
   {
-    key: "home.about.origin",
-    label: "Capítulo 01 — Por qué estamos aquí",
+    key: "home.featured.a",
+    label: "Destacados: primera fotografía",
     description:
-      "Acompaña el capítulo donde David y Nicolás cuentan cómo empezó MILLE.",
-    aspect: "Horizontal 4:3. En escritorio ocupa toda la altura del capítulo.",
+      "La fotografía grande de la izquierda en «Nos hacen mirar dos veces». Solo se ve mientras no haya dos vehículos destacados en el inventario; cuando los hay, la sección enseña esos vehículos.",
+    aspect: "Horizontal 4:3, igual en escritorio y en teléfono.",
     frames: {
-      // (1440 − 96 de padding − 64 de gap) × 1.05fr de 2.05fr = 655,6 px,
-      // contra lg:min-h-[32rem] = 512 px.
-      desktop: { label: "Escritorio", ratio: 1.28 },
+      // Columna de 1.2fr de 2.2fr dentro del ancho de página, con aspect-[4/3].
+      desktop: { label: "Escritorio", ratio: 4 / 3 },
       mobile: { label: "Teléfono", ratio: 4 / 3 },
     },
-    // 910 px efectivos × 2.
+    // ≈ 630 px de ancho en escritorio × 2.
     surface: "/",
-    recommendedWidth: 1850,
-    legacySrc: "/images/vehicles/audi-rs-5-sportback/01.jpg",
-    legacyAlt: "Audi RS 5 Sportback en carretera entre árboles de otoño",
+    recommendedWidth: 1300,
+    legacySrc: "/images/vehicles/bmw-m4-competition/01.jpg",
+    legacyAlt: "BMW M4 Competition verde frente a un edificio de ladrillo",
+  },
+  {
+    key: "home.featured.b",
+    label: "Destacados: segunda fotografía",
+    description:
+      "La fotografía de la derecha, más baja, en «Nos hacen mirar dos veces». Misma regla que la primera.",
+    aspect: "Horizontal 4:3, igual en escritorio y en teléfono.",
+    frames: {
+      // Columna de 1fr de 2.2fr dentro del ancho de página, con aspect-[4/3].
+      desktop: { label: "Escritorio", ratio: 4 / 3 },
+      mobile: { label: "Teléfono", ratio: 4 / 3 },
+    },
+    // ≈ 525 px de ancho en escritorio × 2.
+    surface: "/",
+    recommendedWidth: 1200,
+    legacySrc: "/images/vehicles/audi-rs-5-sportback/02.jpg",
+    legacyAlt: "Audi RS 5 Sportback gris junto a un edificio moderno",
+  },
+  {
+    key: "home.about.origin",
+    label: "Historia: «Nos pasa desde siempre»",
+    description:
+      "Acompaña el texto donde David y Nicolás cuentan cómo empezó MILLE.",
+    aspect: "Horizontal 5:4, igual en escritorio y en teléfono.",
+    frames: {
+      // Columna de 1.15fr de 2fr dentro del ancho de página (1440 menos los
+      // márgenes de 8vw), con aspect-[5/4]: el marco no cambia con el texto.
+      desktop: { label: "Escritorio", ratio: 1.25 },
+      mobile: { label: "Teléfono", ratio: 1.25 },
+    },
+    // ≈ 615 px de ancho en escritorio × 2.
+    surface: "/",
+    recommendedWidth: 1400,
+    legacySrc: "/images/vehicles/porsche-macan/02.jpg",
+    legacyAlt:
+      "Porsche Cayenne gris sobre un empedrado de piedra, frente a un muro claro",
   },
   {
     key: "home.about.house",
-    label: "House of Motor Culture",
+    label: "Vende con MILLE",
     description:
-      "La fotografía que va junto a la placa vinotinto del manifiesto.",
-    aspect: "Vertical u horizontal amplia. En escritorio es una columna alta.",
+      "La fotografía a todo el ancho de «Tu carro merece una buena presentación», con el texto encima, a la izquierda.",
+    aspect:
+      "Muy apaisada en escritorio y más cuadrada en teléfono. El texto va sobre la mitad izquierda: deja ahí un fondo tranquilo.",
     frames: {
-      // 1440 × 1.05fr de 2fr = 756 px, contra lg:min-h-[38rem] = 608 px.
-      desktop: { label: "Escritorio", ratio: 1.24 },
-      // El único sin aspect-ratio: 390 − 40 de padding = 350 px de ancho
-      // contra min-h-[22rem] = 352 px. Prácticamente un cuadrado, y por eso
-      // es el marco que más castiga un encuadre pensado solo para ancho.
-      mobile: { label: "Teléfono", ratio: 0.99 },
+      // 1440 de ancho contra min-h = clamp(32rem, 82svh, 58rem): 738 px de
+      // alto en una pantalla de 900.
+      desktop: { label: "Escritorio", ratio: 1.95 },
+      // 390 de ancho contra 32rem = 512 px de alto, que es el mínimo.
+      mobile: { label: "Teléfono", ratio: 0.76 },
     },
-    // 1081 px efectivos × 2; es el marco más exigente.
+    // Ancho completo × 2, igual que la portada.
     surface: "/",
-    recommendedWidth: 2200,
-    legacySrc: "/images/vehicles/bmw-m4-competition/01.jpg",
+    recommendedWidth: 2400,
+    legacySrc: "/images/vehicles/jeep-grand-cherokee-limited/01.jpg",
     legacyAlt:
-      "BMW M4 Competition en verde Isle of Man en una calle de la ciudad",
+      "Jeep Grand Cherokee gris en un valle de montaña con nieve",
   },
   {
     key: "home.about.future",
-    label: "Capítulo 06 — Hacia dónde queremos ir",
-    description: "Cierra la historia, junto a la lista de Drive, Track, Meet…",
-    aspect: "Horizontal 4:3. En escritorio ocupa toda la altura del capítulo.",
+    label: "Cultura: «Fuera del garaje»",
+    description:
+      "Junto a «El plan es encontrarnos», en la sección de rutas y encuentros.",
+    aspect: "Vertical 4:5, igual en escritorio y en teléfono.",
     frames: {
-      // (1440 − 96 − 64) × 1fr de 2.05fr = 624,4 px, contra
-      // lg:min-h-[32rem] = 512 px.
-      desktop: { label: "Escritorio", ratio: 1.22 },
-      mobile: { label: "Teléfono", ratio: 4 / 3 },
+      // Columna de 0.8fr con tope de 35rem (560 px) y aspect-[4/5].
+      desktop: { label: "Escritorio", ratio: 0.8 },
+      mobile: { label: "Teléfono", ratio: 0.8 },
     },
-    // 910 px efectivos × 2.
+    // 560 px de ancho × 2.
     surface: "/",
-    recommendedWidth: 1850,
+    recommendedWidth: 1200,
     legacySrc: "/images/vehicles/bmw-r-1250-gs-adventure/01.jpg",
     legacyAlt:
       "Motociclista en una BMW R 1250 GS Adventure en una carretera de montaña",
@@ -174,17 +212,17 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
     key: "contact.hero",
     label: "Contacto",
     description: "La fotografía principal de la página de contacto.",
-    aspect: "Horizontal. 4:3 en teléfono, 16:9 en tablet y columna alta en escritorio.",
+    aspect: "Horizontal 4:3, igual en escritorio y en teléfono.",
     frames: {
-      // Container wide sin padding en lg (1440) × columna 1fr de 2fr = 720 px
-      // de ancho, contra el lg:min-h-[34rem] = 544 px de alto.
-      desktop: { label: "Escritorio", ratio: 1.32 },
-      // aspect-[4/3] por debajo de sm.
+      // Columna de 0.9fr de 1.9fr dentro del ancho de página (1440 menos los
+      // márgenes de 8vw y el hueco), con aspect-[4/3]: el marco no cambia con
+      // el texto de al lado.
+      desktop: { label: "Escritorio", ratio: 4 / 3 },
       mobile: { label: "Teléfono", ratio: 4 / 3 },
     },
-    // 967 px de ancho efectivo en el marco de escritorio × 2 (Retina).
+    // ≈ 520 px de ancho en escritorio × 2.
     surface: "/contacto",
-    recommendedWidth: 1950,
+    recommendedWidth: 1200,
     legacySrc: "/images/brand/night.jpg",
     legacyAlt: "Vehículo de MILLE fotografiado de noche",
   },
@@ -194,15 +232,15 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
     description: "La fotografía que acompaña la página de error 404.",
     aspect: "Horizontal 4:3. Solo se muestra en escritorio.",
     frames: {
-      // Container wide con lg:px-12 (1344) menos el gap-10 (40) = 1304,
-      // repartido 1fr / 0.85fr → 599 px de ancho, y aspect-[4/3] de alto.
+      // Ancho de página (1440 menos los márgenes de 8vw) repartido 1fr / 0.85fr
+      // → ≈ 510 px de ancho, y aspect-[4/3] de alto.
       desktop: { label: "Escritorio", ratio: 4 / 3 },
       // `hidden lg:block`: por debajo de 1024 px la fotografía no se pinta.
       mobile: null,
     },
     surface: NOT_FOUND_SURFACE,
-    // 798 px de ancho efectivo × 2 (Retina).
-    recommendedWidth: 1600,
+    // ≈ 510 px de ancho efectivo × 2 (Retina).
+    recommendedWidth: 1200,
     legacySrc: "/images/brand/night.jpg",
     // Acompaña al 404 y no aporta información: se sirve con alt vacío.
     decorative: true,

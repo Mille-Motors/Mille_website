@@ -1,8 +1,10 @@
 import { Fuel, Gauge, Settings2, Timer, Waypoints, Zap } from "lucide-react";
+import { cn } from "@/lib/cn";
 import type { SpecRow } from "@/lib/vehicle-display";
 
 /**
- * Lo que alguien mira antes de decidir si sigue leyendo.
+ * Lo que alguien mira antes de decidir si sigue leyendo: cifras grandes con
+ * su nombre debajo, en dos columnas, sobre el fondo oscuro del resumen.
  *
  * Los iconos son los mismos que la ficha usaba en su tabla de
  * especificaciones; se concentran aquí, donde una tira corta los aprovecha,
@@ -23,34 +25,33 @@ const icons: Record<string, React.ElementType> = {
   Tracción: Waypoints,
 };
 
-export function VehicleQuickFacts({ facts }: { facts: SpecRow[] }) {
+export function VehicleQuickFacts({
+  facts,
+  className,
+}: {
+  facts: SpecRow[];
+  className?: string;
+}) {
   if (facts.length === 0) return null;
 
   return (
-    <ul
-      // Dos por fila en teléfono y hasta seis en escritorio: la tira se
-      // reparte sola sin dejar una huérfana al final.
-      className="grid grid-cols-2 border-t border-l border-stone sm:grid-cols-3 lg:grid-cols-6"
-    >
+    <dl className={cn("grid grid-cols-2 gap-x-6 gap-y-8", className)}>
       {facts.map(({ label, value }) => {
         const Icon = icons[label];
         return (
-          <li
-            key={label}
-            className="border-r border-b border-stone px-4 py-4 sm:px-5 sm:py-5"
-          >
-            <p className="flex items-center gap-2 text-ink-muted">
+          <div key={label}>
+            <dt className="flex items-center gap-2 text-[0.9375rem] text-cream/60">
               {Icon ? (
-                <Icon aria-hidden strokeWidth={1.2} className="size-4" />
+                <Icon aria-hidden strokeWidth={1.3} className="size-4" />
               ) : null}
-              <span className="eyebrow">{label}</span>
-            </p>
-            <p className="mt-2 font-display text-[1.375rem] leading-none text-ink tabular">
+              {label}
+            </dt>
+            <dd className="mt-2 text-[clamp(1.375rem,0.9vw+1.05rem,1.875rem)] leading-[1.1] tabular">
               {value}
-            </p>
-          </li>
+            </dd>
+          </div>
         );
       })}
-    </ul>
+    </dl>
   );
 }

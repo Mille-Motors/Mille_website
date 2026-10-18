@@ -104,7 +104,7 @@ Seis tablas. `prisma/schema.prisma` es la referencia.
 | `Vehicle` | El inventario. |
 | `VehicleImage` | Galería ordenada; `position` 0 es la portada. |
 | `Inquiry` | Lo que llega de los formularios públicos. |
-| `SiteMedia` | Las cuatro fotografías estructurales de la home. |
+| `SiteMedia` | Las ocho fotografías estructurales del sitio (home, contacto y 404). |
 | `AdminAuditLog` | Quién hizo qué. |
 
 Tres decisiones que conviene conocer:
@@ -546,8 +546,8 @@ CREATE POLICY "mille_vehicle_images_delete"
 
 ## Imágenes del sitio
 
-Las cuatro fotografías de la home que no pertenecen a ningún vehículo: el
-hero y las tres de la historia de MILLE. Se administran en
+Las ocho fotografías del sitio que no pertenecen a ningún vehículo: la
+portada, las dos de «Destacados», las tres de la historia, el contacto y la 404. Se administran en
 **`/admin/contenido`** y cambiarlas no exige volver a desplegar.
 
 La lista de slots sale de `docs/FRONTEND_VISUAL_TODO.md`, donde quedó anotada

@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { Container } from "@/components/ui/Container";
-import { cn } from "@/lib/cn";
 import { inventoryHref } from "@/lib/filters";
 
 /**
@@ -135,50 +133,42 @@ const entries: Entry[] = [
   },
 ];
 
-export function CategoryBand() {
+/**
+ * Un atajo por tipo de vehículo, en la sección oscura de la home: el dibujo
+ * de la silueta y su nombre, sobre un recuadro un tono más claro que el
+ * fondo. Dos por fila en teléfono, tres en tablet y seis en escritorio.
+ */
+export function CategoryBand({ className }: { className?: string }) {
   return (
-    <section aria-label="Categorías" className="border-y border-stone bg-cream">
-      <Container width="wide">
-        <ul className="grid grid-cols-3 sm:grid-cols-6">
-          {entries.map((entry, index) => (
-            <li
-              key={entry.label}
-              className={cn(
-                "border-stone/70",
-                // Three across on phones, six on tablet up: the dividers have
-                // to follow whichever row each item lands in.
-                index % 3 === 0 ? "border-l-0" : "border-l",
-                index >= 3 && "border-t sm:border-t-0",
-                "sm:border-l",
-                index === 0 && "sm:border-l-0",
-              )}
+    <nav aria-label="Explorar por tipo" className={className}>
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
+        {entries.map((entry) => (
+          <li key={entry.label}>
+            <Link
+              href={entry.href}
+              className="group flex h-full min-h-36 flex-col items-start justify-between gap-6 rounded-xl bg-cream/5 p-5 transition-colors duration-300 hover:bg-cream/10 sm:min-h-44 sm:p-6"
             >
-              <Link
-                href={entry.href}
-                className="group flex h-full flex-col items-center justify-start gap-2.5 px-1 py-6 text-center transition-colors hover:bg-sand/50 sm:gap-3.5 sm:px-2 sm:py-10"
+              <svg
+                // 40 unidades en vez de 24: el doble de resolución para el
+                // dibujo sin engordar el trazo.
+                viewBox="0 0 40 40"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.1}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+                className="h-auto w-full max-w-24 text-cream/70 transition-[transform,color] duration-500 ease-out-strong group-hover:translate-x-1 group-hover:text-cream"
               >
-                <svg
-                  // 40 unidades en vez de 24: el doble de resolución para el
-                  // dibujo sin engordar el trazo, que a 36 px acaba en 1,35 px.
-                  viewBox="0 0 40 40"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
-                  className="size-6 text-ink-soft transition-colors group-hover:text-burgundy sm:size-9"
-                >
-                  {entry.mark}
-                </svg>
-                <span className="font-serif text-[0.6875rem] leading-tight text-ink-soft transition-colors group-hover:text-ink sm:text-base">
-                  {entry.label}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </Container>
-    </section>
+                {entry.mark}
+              </svg>
+              <span className="text-[1.125rem] leading-none text-cream/85 transition-colors group-hover:text-cream sm:text-lg">
+                {entry.label}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }

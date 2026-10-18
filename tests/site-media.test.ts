@@ -21,11 +21,13 @@ import {
  * escribir filas que ninguna página lee.
  */
 describe("registro de slots", () => {
-  it("son exactamente los seis documentados", () => {
+  it("son exactamente los ocho documentados", () => {
     assert.deepEqual(
       SITE_MEDIA_SLOTS.map((slot) => slot.key),
       [
         "home.hero",
+        "home.featured.a",
+        "home.featured.b",
         "home.about.origin",
         "home.about.house",
         "home.about.future",

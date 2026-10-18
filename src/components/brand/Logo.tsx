@@ -3,13 +3,28 @@ import Link from "next/link";
 import shield from "@/../public/brand/shield.png";
 import { cn } from "@/lib/cn";
 
-type Tone = "ink" | "cream";
+type Tone = "ink" | "cream" | "wine";
 
+/**
+ * `header` es el tamaño de la barra superior: crece con la pantalla porque el
+ * logotipo es lo único que la barra dice de sí misma. El resto son tamaños
+ * fijos para pie, panel de administración y piezas de marca.
+ */
 const sizes = {
   sm: { shield: 26, word: "text-base tracking-[0.24em]" },
-  md: { shield: 34, word: "text-xl tracking-[0.26em]" },
-  lg: { shield: 42, word: "text-2xl tracking-[0.26em]" },
+  md: { shield: 34, word: "text-xl tracking-[0.22em]" },
+  lg: { shield: 42, word: "text-2xl tracking-[0.22em]" },
+  header: {
+    shield: 40,
+    word: "text-[1.625rem] tracking-[0.2em] sm:text-[2rem] lg:text-[2.375rem]",
+  },
 } as const;
+
+const tones: Record<Tone, string> = {
+  ink: "text-ink",
+  cream: "text-cream",
+  wine: "text-burgundy",
+};
 
 export function Shield({
   size = 34,
@@ -47,9 +62,9 @@ export function Wordmark({
   return (
     <span
       className={cn(
-        "font-display leading-none uppercase",
+        "font-wordmark leading-none uppercase",
         sizes[size].word,
-        tone === "cream" ? "text-cream" : "text-ink",
+        tones[tone],
         className,
       )}
     >
@@ -72,8 +87,16 @@ export function Logo({
   priority?: boolean;
 }) {
   const content = (
-    <span className={cn("inline-flex items-center gap-3", className)}>
-      <Shield size={sizes[size].shield} priority={priority} />
+    <span className={cn("inline-flex items-center gap-2.5 sm:gap-3.5", className)}>
+      <span
+        className={cn(
+          // El escudo del encabezado se reduce en teléfono para dejar sitio
+          // al texto sin cambiar de archivo.
+          size === "header" && "[&_img]:max-sm:w-7!",
+        )}
+      >
+        <Shield size={sizes[size].shield} priority={priority} />
+      </span>
       <Wordmark tone={tone} size={size} />
     </span>
   );

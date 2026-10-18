@@ -7,19 +7,22 @@ import type { SpecBlock, SpecRow } from "@/lib/vehicle-display";
  * Solo dibuja lo que recibe, y `src/lib/vehicle-display.ts` solo construye
  * filas que tienen valor: no hay ninguna rama en este archivo capaz de
  * escribir "N/A". Un bloque sin filas no llega hasta aquí.
+ *
+ * Es una tabla de datos de verdad, y por eso lleva filetes entre filas: es
+ * lo que deja seguir el ojo de la etiqueta a su valor.
  */
 export function SpecTable({ rows }: { rows: SpecRow[] }) {
   if (rows.length === 0) return null;
 
   return (
-    <dl className="divide-y divide-stone border-t border-stone">
+    <dl className="divide-y divide-ink/12 border-t border-ink/12">
       {rows.map(({ label, value }) => (
         <div
           key={label}
           className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] items-baseline gap-x-5 py-3.5"
         >
-          <dt className="font-serif text-[0.9375rem] text-ink-muted">{label}</dt>
-          <dd className="font-serif text-[0.9375rem] text-ink">{value}</dd>
+          <dt className="text-[1.125rem] text-ink-muted">{label}</dt>
+          <dd className="text-[1.125rem] text-ink">{value}</dd>
         </div>
       ))}
     </dl>
@@ -27,9 +30,9 @@ export function SpecTable({ rows }: { rows: SpecRow[] }) {
 }
 
 /**
- * Varios bloques encadenados. El título de cada uno va en `eyebrow`, que es
- * como el resto del sitio nombra una subsección sin competir con los títulos
- * de sección en display.
+ * Varios bloques encadenados. El título de cada uno va en un peso medio y
+ * tamaño de texto: nombra una subsección sin competir con los títulos de
+ * sección.
  */
 export function VehicleSpecs({
   blocks,
@@ -52,7 +55,7 @@ export function VehicleSpecs({
   return (
     <div
       className={cn(
-        "grid gap-9",
+        "grid gap-10",
         // `items-start` evita que un grupo corto estire su filete hasta la
         // altura del largo que tiene al lado.
         columns && "lg:grid-cols-2 lg:items-start lg:gap-x-14",
@@ -60,7 +63,9 @@ export function VehicleSpecs({
     >
       {blocks.map((block) => (
         <section key={block.title}>
-          <h3 className="eyebrow mb-3 text-ink-muted">{block.title}</h3>
+          <h3 className="mb-3 text-[1.25rem] leading-snug font-medium text-ink">
+            {block.title}
+          </h3>
           <SpecTable rows={block.rows} />
         </section>
       ))}

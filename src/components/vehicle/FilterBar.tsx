@@ -75,14 +75,14 @@ function Select({
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "label-caps h-10 w-full appearance-none rounded-none border-0 border-b bg-transparent pr-7 pl-0 transition-colors",
+          "h-12 w-full appearance-none rounded-md border bg-transparent pr-10 pl-4 text-base transition-colors",
           disabled
-            ? "cursor-not-allowed border-stone text-ink-muted/70"
+            ? "cursor-not-allowed border-ink/10 text-ink-muted/60"
             : "cursor-pointer",
           !disabled &&
             (active
-              ? "border-burgundy text-burgundy"
-              : "border-stone-strong text-ink-soft hover:border-ink/50 hover:text-ink"),
+              ? "border-burgundy bg-burgundy/4 text-burgundy"
+              : "border-ink/25 text-ink-soft hover:border-ink/60 hover:text-ink"),
         )}
       >
         {children}
@@ -91,7 +91,7 @@ function Select({
         aria-hidden
         strokeWidth={1.5}
         className={cn(
-          "pointer-events-none absolute top-1/2 right-1 size-3.5 -translate-y-1/2",
+          "pointer-events-none absolute top-1/2 right-4 size-4 -translate-y-1/2",
           disabled
             ? "text-ink-muted/40"
             : active
@@ -113,7 +113,7 @@ function RangeField({
 }) {
   return (
     <fieldset className="min-w-0">
-      <legend className="eyebrow mb-1.5 text-ink-muted/80">{legend}</legend>
+      <legend className="mb-1.5 text-sm text-ink-muted">{legend}</legend>
       <div className="flex items-center gap-2">{children}</div>
     </fieldset>
   );
@@ -561,7 +561,9 @@ export function FilterBar({
   // The sheet batches edits so a phone does not navigate on every tap.
   const [draft, setDraft] = useState<InventoryFilters>(filters);
   const activeCount = activeFilterCount(filters);
-  const showType = filters.tipo === "all";
+  // El tipo ya se elige con las píldoras de arriba de la página: ofrecerlo
+  // otra vez como desplegable era el mismo control dos veces.
+  const showType = false;
 
   const go = (next: InventoryFilters) => {
     startTransition(() => router.push(inventoryHref(next), { scroll: false }));
@@ -609,7 +611,7 @@ export function FilterBar({
             className="flex flex-wrap items-end gap-x-8 gap-y-4"
           />
           <div className="shrink-0">
-            <p className="eyebrow mb-1.5 text-ink-muted/80">Ordenar</p>
+            <p className="mb-1.5 text-sm text-ink-muted">Ordenar</p>
             {sort}
           </div>
         </div>
@@ -618,7 +620,7 @@ export function FilterBar({
           type="button"
           onClick={() => setMoreOpen((open) => !open)}
           aria-expanded={moreOpen}
-          className="label-caps mt-5 inline-flex items-center gap-2 text-ink-muted transition-colors hover:text-burgundy"
+          className="mt-5 inline-flex min-h-11 items-center gap-2 text-[0.9375rem] text-ink-muted transition-colors hover:text-burgundy"
         >
           {moreOpen ? "Menos filtros" : "Más filtros"}
           <ChevronDown
@@ -631,7 +633,7 @@ export function FilterBar({
         {moreOpen ? (
           <SecondaryFields
             {...fieldProps}
-            className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-4 border-t border-stone pt-5"
+            className="mt-2 flex flex-wrap items-end gap-x-6 gap-y-4 pt-2"
           />
         ) : null}
       </div>
@@ -644,7 +646,7 @@ export function FilterBar({
             setDraft(filters);
             setSheetOpen(true);
           }}
-          className="label-caps inline-flex h-10 items-center gap-2.5 border-b border-stone-strong text-ink"
+          className="press inline-flex h-12 items-center gap-2.5 rounded-md border border-ink/25 px-5 text-[0.9375rem] text-ink"
         >
           <SlidersHorizontal aria-hidden className="size-4" strokeWidth={1.5} />
           Filtros
@@ -655,7 +657,7 @@ export function FilterBar({
           ) : null}
         </button>
         <div className="min-w-0">
-          <p className="eyebrow mb-1.5 text-right text-ink-muted/80">Ordenar</p>
+          <p className="mb-1.5 text-right text-sm text-ink-muted">Ordenar</p>
           {sort}
         </div>
       </div>
@@ -686,7 +688,7 @@ export function FilterBar({
             // The bottom padding clears the iPhone home indicator so the
             // action row is never half under it.
             style={{ paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}
-            className="absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto overscroll-contain bg-cream"
+            className="absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto overscroll-contain rounded-t-2xl bg-cream"
           >
             <div className="sticky top-0 flex items-center justify-between border-b border-stone bg-cream px-5 py-4">
               <h2 className="font-display text-xl text-ink">Filtros</h2>
@@ -862,7 +864,7 @@ function ActiveChips({
           key={chip.key}
           type="button"
           onClick={() => onPatch(chip.clear)}
-          className="label-caps inline-flex items-center gap-2 rounded-xs border border-stone px-2.5 py-1.5 text-[10px] text-ink-soft transition-colors hover:border-burgundy/50 hover:text-burgundy"
+          className="press inline-flex min-h-9 items-center gap-2 rounded-full border border-ink/20 px-3.5 py-1.5 text-sm text-ink-soft hover:border-burgundy/60 hover:text-burgundy"
         >
           {chip.label}
           <X aria-hidden className="size-3" strokeWidth={1.6} />
@@ -872,7 +874,7 @@ function ActiveChips({
       <button
         type="button"
         onClick={onClear}
-        className="label-caps ml-1 text-[10px] text-ink-muted underline underline-offset-4 transition-colors hover:text-burgundy"
+        className="ml-1 text-sm text-ink-muted underline underline-offset-4 transition-colors hover:text-burgundy"
       >
         Limpiar todo
       </button>

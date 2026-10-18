@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { AboutMille } from "@/components/home/about/AboutMille";
-import { CategoryBand } from "@/components/home/CategoryBand";
+import { ClosingCta } from "@/components/home/ClosingCta";
+import { Culture } from "@/components/home/Culture";
 import { FeaturedVehicles } from "@/components/home/FeaturedVehicles";
 import { Hero } from "@/components/home/Hero";
-import { InventoryIntro } from "@/components/home/InventoryIntro";
+import { SellCampaign } from "@/components/home/SellCampaign";
+import { Story } from "@/components/home/Story";
 import {
   SITE_DESCRIPTION,
   SITE_TITLE,
@@ -28,17 +29,20 @@ export const metadata: Metadata = {
 };
 
 /**
- * The story runs first and the inventory second, on purpose: the reader
- * should know why MILLE exists before being shown what is for sale.
+ * La portada manda y el producto va primero: una frase, los vehículos, y
+ * solo después la historia de por qué existe MILLE. Cada sección tiene su
+ * ancla —`#vehiculos`, `#mille`, `#vender`, `#cultura`— porque el menú salta
+ * a ellas.
  */
 export default function HomePage() {
   return (
     <>
       <Hero />
-      <AboutMille />
-      <InventoryIntro />
-      <CategoryBand />
       <FeaturedVehicles />
+      <Story />
+      <SellCampaign />
+      <Culture />
+      <ClosingCta />
     </>
   );
 }

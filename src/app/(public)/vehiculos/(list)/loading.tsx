@@ -1,55 +1,43 @@
-import { Container } from "@/components/ui/Container";
-import { Eyebrow } from "@/components/ui/Eyebrow";
-import { Rule } from "@/components/ui/Rule";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { VehicleGridSkeleton } from "@/components/vehicle/VehicleCardSkeleton";
 
+/**
+ * El esqueleto del inventario: el mismo titular que la página real, que no
+ * depende de ningún dato, y las siluetas de lo que va a llegar. Nada de esto
+ * se anima al entrar: es un estado de espera, no una entrada.
+ */
 export default function InventoryLoading() {
   return (
     <>
-      <section className="bg-cream pt-12 pb-10 lg:pt-16">
-        <Container width="wide">
-          <Eyebrow>Inventario</Eyebrow>
-          <h1 className="mt-5 max-w-2xl font-display text-[clamp(2.125rem,4.6vw,3.25rem)] leading-[1.06] text-ink uppercase">
-            Encuentra lo que te mueve.
+      <section className="bg-cream pt-[clamp(2.5rem,5vw,5rem)] pb-[clamp(2rem,4vw,3.5rem)]">
+        <div className="wrap">
+          <h1 className="text-title">
+            Encuentra
+            <br className="hidden sm:block" /> lo que te mueve.
           </h1>
-          <Rule className="mt-7" />
-        </Container>
+        </div>
       </section>
 
-      <section className="bg-cream pb-12">
-        <Container width="wide">
-          <div className="grid grid-cols-2 gap-3 sm:gap-5">
-            <Skeleton className="h-[6.5rem] rounded-none sm:h-[7.5rem]" />
-            <Skeleton className="h-[6.5rem] rounded-none sm:h-[7.5rem]" />
-          </div>
-          <div className="mt-4 flex justify-center">
-            <Skeleton className="h-4 w-44" />
-          </div>
-        </Container>
-      </section>
-
-      <section className="border-t border-stone bg-cream pt-10">
-        <Container width="wide">
-          <Skeleton className="h-4 w-full max-w-md" />
-          <div className="mt-8 flex gap-7">
-            {Array.from({ length: 5 }, (_, i) => (
-              <Skeleton key={i} className="h-4 w-20" />
+      <section className="bg-cream pb-6">
+        <div className="wrap">
+          <div className="flex flex-wrap gap-3">
+            {Array.from({ length: 3 }, (_, i) => (
+              <Skeleton key={i} className="h-12 w-28 rounded-full" />
             ))}
           </div>
-          <div className="mt-8 flex flex-wrap gap-x-8 gap-y-4 border-t border-stone pt-6">
+          <div className="mt-8 flex flex-wrap gap-3">
             {Array.from({ length: 4 }, (_, i) => (
-              <Skeleton key={i} className="h-10 w-32" />
+              <Skeleton key={i} className="h-12 w-36 rounded-md" />
             ))}
           </div>
-        </Container>
+        </div>
       </section>
 
-      <section className="bg-cream pt-10 pb-20 lg:pb-28">
-        <Container width="wide">
-          <Skeleton className="mb-8 h-3 w-28" />
+      <section className="bg-cream pt-6 pb-[clamp(4rem,8vw,8rem)]">
+        <div className="wrap">
+          <Skeleton className="mb-8 h-4 w-28" />
           <VehicleGridSkeleton count={6} />
-        </Container>
+        </div>
       </section>
     </>
   );

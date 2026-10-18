@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Check } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { Check } from "lucide-react";
+import { Button, ButtonArrow } from "@/components/ui/Button";
 import { PrivacyNotice } from "@/components/forms/PrivacyNotice";
 import { Input, Select, Textarea } from "@/components/ui/Field";
 import { honeypotProps, submitInquiry } from "@/lib/inquiry-client";
@@ -44,6 +44,7 @@ export function ContactForm({ vehicles }: { vehicles: Vehicle[] }) {
       message: String(data.get("mensaje") ?? ""),
       vehicleSlug: vehiculo || undefined,
       source: "contacto",
+      privacyConsent: data.get("privacyConsent") === "on",
       website: String(data.get("website") ?? ""),
     });
 
@@ -61,14 +62,12 @@ export function ContactForm({ vehicles }: { vehicles: Vehicle[] }) {
 
   if (sent) {
     return (
-      <div className="border border-stone bg-paper px-6 py-8 sm:px-10 sm:py-10">
+      <div className="rounded-2xl bg-paper px-6 py-8 sm:px-10 sm:py-10">
         <span className="inline-flex size-12 items-center justify-center rounded-full bg-sand text-burgundy">
           <Check aria-hidden className="size-5" strokeWidth={1.5} />
         </span>
-        <h2 className="mt-6 font-display text-[1.75rem] leading-tight text-ink">
-          Recibimos tu mensaje.
-        </h2>
-        <p className="mt-3 max-w-md font-serif text-[0.9375rem] leading-relaxed text-ink-soft">
+        <h2 className="text-heading mt-6">Recibimos tu mensaje.</h2>
+        <p className="mt-3 max-w-md text-[1.125rem] leading-relaxed text-ink-soft">
           Quedó registrado y lo estamos revisando. Te contactamos con los datos
           que nos dejaste.
         </p>
@@ -85,11 +84,9 @@ export function ContactForm({ vehicles }: { vehicles: Vehicle[] }) {
   }
 
   return (
-    <div className="border border-stone bg-paper px-6 py-8 sm:px-10 sm:py-10">
-      <h2 className="font-display text-[1.75rem] leading-tight text-ink">
-        Envíanos un mensaje
-      </h2>
-      <p className="mt-3 font-serif text-[0.9375rem] leading-relaxed text-ink-soft">
+    <div className="rounded-2xl bg-paper px-6 py-8 sm:px-10 sm:py-10">
+      <h2 className="text-heading">Envíanos un mensaje</h2>
+      <p className="mt-3 text-[1.125rem] leading-relaxed text-ink-soft">
         Completa tus datos y cuéntanos qué estás buscando.
       </p>
 
@@ -107,7 +104,6 @@ export function ContactForm({ vehicles }: { vehicles: Vehicle[] }) {
           type="tel"
           inputMode="tel"
           autoComplete="tel"
-          required
           error={fieldErrors.phone}
         />
         <Input
@@ -115,9 +111,9 @@ export function ContactForm({ vehicles }: { vehicles: Vehicle[] }) {
           name="correo"
           type="email"
           autoComplete="email"
-          required
           error={fieldErrors.email}
         />
+        <p className="-mt-3 text-[0.9375rem] text-ink-muted">Indica al menos un teléfono o un correo para que podamos responderte.</p>
         <Select label="Vehículo de interés" name="vehiculo" defaultValue="">
           <option value="">Aún no lo tengo definido</option>
           {vehicles.map((vehicle) => (
@@ -137,17 +133,15 @@ export function ContactForm({ vehicles }: { vehicles: Vehicle[] }) {
             nunca la ve ni la tabula. */}
         <input name="website" {...honeypotProps} />
 
-        <Button type="submit" size="lg" disabled={sending} className="mt-1">
+        <PrivacyNotice error={fieldErrors.privacyConsent} />
+
+        <Button type="submit" size="lg" disabled={sending} className="mt-1 justify-between gap-8">
           {sending ? "Enviando…" : "Enviar mensaje"}
-          {sending ? null : (
-            <ArrowRight aria-hidden className="size-4" strokeWidth={1.5} />
-          )}
+          {sending ? null : <ButtonArrow />}
         </Button>
 
-        <PrivacyNotice />
-
         {error ? (
-          <p role="alert" className="text-xs text-burgundy">
+          <p role="alert" className="text-sm text-burgundy">
             {error}
           </p>
         ) : null}

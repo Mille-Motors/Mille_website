@@ -16,6 +16,8 @@ export const WHATSAPP_CLICK_SOURCES = [
   "vehicle-bar", // barra fija de la ficha (móvil)
   "vehicle-page", // botón dentro de la ficha
   "footer",
+  "menu", // menú de pantalla completa
+  "home", // botones de la home (vender con MILLE)
   "contact", // página de contacto
   "not-found",
 ] as const;

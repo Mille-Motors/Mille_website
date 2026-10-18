@@ -2,38 +2,23 @@ import { objectPosition } from "@/lib/focal-point";
 import { VEHICLE_FRAME_CLASS } from "@/lib/vehicle-frame";
 import Image from "next/image";
 import Link from "next/link";
+import { RoundArrow } from "@/components/ui/Arrow";
+import { badgeClass, badgeFor } from "@/components/vehicle/vehicle-badge";
 import { cn } from "@/lib/cn";
 import { formatCOP, formatMileage } from "@/lib/format";
 import type { Vehicle } from "@/types/vehicle";
 
 /** Sizes tell the image optimiser what widths a card actually renders at. */
-const CARD_SIZES = "(min-width: 1024px) 31vw, (min-width: 640px) 46vw, 92vw";
+const CARD_SIZES = "(min-width: 1024px) 28vw, (min-width: 640px) 44vw, 92vw";
 
 /**
- * A badge only when it says something. Most cars carry none — if every card
- * has one, none of them mean anything.
+ * Una tarjeta del inventario: la fotografía manda, el texto la acompaña.
+ *
+ * Sin marco ni filetes: la fotografía tiene esquinas generosas y la
+ * información va debajo, sobre el mismo fondo de la página. Toda la tarjeta
+ * es el enlace —el título lleva el área clicable— y el foco se dibuja aquí
+ * para que el teclado aterrice sobre la tarjeta entera.
  */
-function badgeFor(vehicle: Vehicle) {
-  if (vehicle.availability === "sold") {
-    return { label: "Vendido", className: "bg-ink/85 text-cream" };
-  }
-  if (vehicle.availability === "reserved") {
-    return { label: "Reservado", className: "bg-burgundy text-cream" };
-  }
-  if (vehicle.fuelType === "Eléctrico") {
-    return { label: "Eléctrico", className: "bg-cream/92 text-ink" };
-  }
-  if (vehicle.fuelType === "Híbrido enchufable") {
-    return { label: "Enchufable", className: "bg-cream/92 text-ink" };
-  }
-  if (vehicle.fuelType === "Híbrido") {
-    return { label: "Híbrido", className: "bg-cream/92 text-ink" };
-  }
-  // Un MHEV no lleva distintivo: un 48 V que no mueve el carro por sí solo
-  // no es lo que alguien entiende al leer "Híbrido" en una card.
-  return null;
-}
-
 export function VehicleCard({
   vehicle,
   priority,
@@ -48,21 +33,24 @@ export function VehicleCard({
   const badge = badgeFor(vehicle);
   const cover = vehicle.images[0];
   const sold = vehicle.availability === "sold";
-  const name = [vehicle.model, vehicle.version].filter(Boolean).join(" ");
+  const name = [vehicle.make, vehicle.model, vehicle.version]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <article
       className={cn(
-        // Warm paper, not a dark slab: the card belongs to the page rather
-        // than sitting on it. The whole thing is the link target, and the
-        // focus ring is drawn here so the keyboard lands on the card.
-        "group relative flex h-full w-full flex-col overflow-hidden border border-stone bg-paper",
-        "transition-colors duration-300 hover:border-stone-strong",
-        "has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-burgundy",
+        "group relative flex h-full w-full flex-col",
+        "has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-8 has-[a:focus-visible]:outline-burgundy",
         className,
       )}
     >
-      <div className={cn("relative overflow-hidden bg-sand", VEHICLE_FRAME_CLASS)}>
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-xl bg-sand",
+          VEHICLE_FRAME_CLASS,
+        )}
+      >
         <Image
           src={cover.src}
           alt={cover.alt}
@@ -70,7 +58,7 @@ export function VehicleCard({
           sizes={sizes}
           priority={priority}
           className={cn(
-            "object-cover transition-transform duration-[700ms] ease-out group-hover:scale-[1.015]",
+            "object-cover transition-transform duration-900 ease-out-strong [@media(hover:hover)]:group-hover:scale-[1.04]",
             sold && "opacity-55 saturate-[0.45]",
           )}
           // El mismo encuadre que la ficha: la tarjeta usa esta misma
@@ -81,8 +69,8 @@ export function VehicleCard({
         {badge ? (
           <span
             className={cn(
-              "label-caps absolute top-0 left-0 px-3 py-2 text-[10px]",
-              badge.className,
+              "absolute top-3 left-3 rounded-full px-3.5 py-1.5 text-sm leading-none",
+              badgeClass[badge.tone],
             )}
           >
             {badge.label}
@@ -90,41 +78,36 @@ export function VehicleCard({
         ) : null}
       </div>
 
-      {/* Hairline that warms up on hover, in place of a heavy border. */}
-      <span
-        aria-hidden
-        className="h-px w-full bg-burgundy/25 transition-colors duration-300 group-hover:bg-burgundy"
-      />
+      <div className="mt-5 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h3 className="text-[clamp(1.375rem,0.8vw+1.15rem,1.75rem)] leading-[1.15] text-ink">
+            <Link
+              href={`/vehiculos/${vehicle.slug}`}
+              className="after:absolute after:inset-0 focus-visible:outline-none"
+            >
+              {name}
+            </Link>
+          </h3>
 
-      <div className="flex flex-1 flex-col px-5 pt-4 pb-5">
-        <p className="label-caps text-ink-muted">{vehicle.make}</p>
-
-        <h3 className="mt-1.5 font-display text-[clamp(1.375rem,1.9vw,1.625rem)] leading-tight text-ink">
-          <Link
-            href={`/vehiculos/${vehicle.slug}`}
-            className="after:absolute after:inset-0 focus-visible:outline-none"
-          >
-            {name}
-          </Link>
-        </h3>
-
-        {/* Cada dato se une al anterior solo si existe: una card nunca
-            escribe "· ·" ni un precio en cero. */}
-        <p className="mt-2 font-serif text-[0.9375rem] leading-snug text-ink-muted tabular">
-          {[
-            String(vehicle.year),
-            vehicle.mileage === null ? null : formatMileage(vehicle.mileage),
-            vehicle.fuelType,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-
-        {vehicle.price !== null ? (
-          <p className="mt-auto pt-4 font-display text-[1.5rem] leading-none text-burgundy tabular">
-            {formatCOP(vehicle.price)}
+          {/* Cada dato se une al anterior solo si existe: una card nunca
+              escribe "· ·" ni un precio en cero. */}
+          <p className="mt-1.5 text-base leading-snug text-ink-muted tabular">
+            {[
+              String(vehicle.year),
+              vehicle.mileage === null ? null : formatMileage(vehicle.mileage),
+              vehicle.fuelType,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
-        ) : null}
+
+          {vehicle.price !== null ? (
+            <p className="mt-3 text-[1.375rem] leading-none text-burgundy tabular">
+              {formatCOP(vehicle.price)}
+            </p>
+          ) : null}
+        </div>
+        <RoundArrow className="mt-0.5" />
       </div>
     </article>
   );

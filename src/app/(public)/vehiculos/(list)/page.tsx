@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { ClosingCta } from "@/components/home/ClosingCta";
 import { ButtonLink } from "@/components/ui/Button";
-import { Container } from "@/components/ui/Container";
-import { Eyebrow } from "@/components/ui/Eyebrow";
-import { Rule } from "@/components/ui/Rule";
 import { CategoryNav } from "@/components/vehicle/CategoryNav";
 import { FilterBar } from "@/components/vehicle/FilterBar";
 import { InventoryAnchorScroll } from "@/components/vehicle/InventoryAnchorScroll";
@@ -25,6 +23,7 @@ import {
   type InventoryEmptyState,
 } from "@/lib/inventory-empty-state";
 import { getFilterFacets, getVehicles } from "@/lib/vehicles";
+import { REVEAL } from "@/lib/reveal";
 
 const LIST_TITLE = "Vehículos";
 const LIST_DESCRIPTION =
@@ -116,51 +115,48 @@ export default async function InventoryPage(props: PageProps<"/vehiculos">) {
     <>
       <InventoryAnchorScroll />
 
-      {/* Entry */}
-      <section className="bg-cream pt-12 pb-10 lg:pt-16">
-        <Container width="wide">
-          <Eyebrow>Inventario</Eyebrow>
-          <h1 className="mt-5 max-w-2xl font-display text-[clamp(2.125rem,4.6vw,3.25rem)] leading-[1.06] text-ink uppercase">
-            Encuentra lo que te mueve.
+      {/* Entry: one big sentence, and what this universe is about. */}
+      <section className="bg-cream pt-[clamp(2.5rem,5vw,5rem)] pb-[clamp(2rem,4vw,3.5rem)]">
+        <div className="wrap grid gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-end lg:gap-[8vw]">
+          <h1 className="text-title" {...REVEAL}>
+            Encuentra
+            <br className="hidden sm:block" /> lo que te mueve.
           </h1>
-          <Rule className="mt-7" />
-        </Container>
-      </section>
-
-      {/* The first decision of the page */}
-      <section className="bg-cream pb-12">
-        <Container width="wide">
-          <TypeSelector filters={filters} counts={facets.counts} />
-        </Container>
-      </section>
-
-      {/* Context + categories for the chosen universe. Anchor target for the
-          "Ver inventario" CTA: it lands here, past the Carros/Motos/Todo
-          choice, directly on filters + count + grid. */}
-      <section id="inventario" className="scroll-mt-20 border-t border-stone bg-cream pt-10">
-        <Container width="wide">
-          <p className="max-w-xl font-serif text-[1.0625rem] leading-[1.7] text-ink-soft">
+          <p
+            className="max-w-104 pb-2 text-[1.25rem] leading-snug text-ink-soft lg:justify-self-end"
+            {...REVEAL}
+            style={{ "--d": "120ms" } as React.CSSProperties}
+          >
             {context[filters.tipo]}
           </p>
+        </div>
+      </section>
+
+      {/* The first decision of the page. Anchor target for the "Ver
+          inventario" CTA: it lands here, directly on the choice, then the
+          filters and the grid. */}
+      <section id="inventario" className="scroll-mt-header bg-cream pb-6">
+        <div className="wrap">
+          <TypeSelector filters={filters} counts={facets.counts} />
 
           {filters.tipo !== "all" ? (
-            <div className="mt-8">
+            <div className="mt-5">
               <CategoryNav filters={filters} categories={facets.categories} />
             </div>
           ) : null}
 
-          <div className="mt-8 border-t border-stone pt-6">
+          <div className="mt-8">
             <FilterBar filters={filters} facets={facets} />
           </div>
-        </Container>
+        </div>
       </section>
 
       {/* Results */}
-      <section className="bg-cream pt-10 pb-20 lg:pb-28">
-        <Container width="wide">
+      <section className="bg-cream pt-6 pb-[clamp(4rem,8vw,8rem)]">
+        <div className="wrap">
           {results.length > 0 ? (
             <>
-              <p className="label-caps mb-8 text-ink-muted tabular">
+              <p className="mb-8 text-base text-ink-muted tabular">
                 {results.length} {results.length === 1 ? noun.one : noun.many}
               </p>
               <VehicleGrid vehicles={results} priorityCount={3} />
@@ -177,8 +173,13 @@ export default async function InventoryPage(props: PageProps<"/vehiculos">) {
               filters={filters}
             />
           )}
-        </Container>
+        </div>
       </section>
+
+      <ClosingCta
+        title="¿No ves el que buscas?"
+        body="Cuéntanos qué tienes en mente y lo buscamos contigo."
+      />
     </>
   );
 }
@@ -197,33 +198,27 @@ function NoResults({
   filters: ReturnType<typeof parseFilters>;
 }) {
   return (
-    <div className="border-y border-stone py-20 lg:py-28">
-      <div className="mx-auto max-w-2xl text-center">
-        <Eyebrow>{state.eyebrow}</Eyebrow>
-        <h2 className="mt-5 font-display text-[clamp(1.5rem,3.4vw,2.25rem)] leading-[1.15] text-ink uppercase">
-          {state.headline}
-        </h2>
-        <Rule className="mx-auto mt-7" />
-        <p className="mt-7 font-serif text-[1.0625rem] leading-[1.75] text-ink-soft">
-          {state.body}
-        </p>
-        <p className="mt-4 font-serif text-[0.9375rem] leading-[1.7] text-ink-muted">
-          {state.secondary}
-        </p>
-        <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-          <ButtonLink href={state.cta.href} size="lg">
-            {state.cta.label}
+    <div className="max-w-3xl py-8 lg:py-16">
+      <h2 className="text-heading">{state.headline}</h2>
+      <p className="mt-6 text-[1.25rem] leading-[1.5] text-ink-soft">
+        {state.body}
+      </p>
+      <p className="mt-4 text-base leading-[1.6] text-ink-muted">
+        {state.secondary}
+      </p>
+      <div className="mt-9 flex flex-wrap items-center gap-3">
+        <ButtonLink href={state.cta.href} size="lg">
+          {state.cta.label}
+        </ButtonLink>
+        {state.showClearFilters ? (
+          <ButtonLink
+            href={inventoryHref(clearedFilters(filters))}
+            variant="ghost"
+            size="lg"
+          >
+            Limpiar filtros
           </ButtonLink>
-          {state.showClearFilters ? (
-            <ButtonLink
-              href={inventoryHref(clearedFilters(filters))}
-              variant="ghost"
-              size="lg"
-            >
-              Limpiar filtros
-            </ButtonLink>
-          ) : null}
-        </div>
+        ) : null}
       </div>
     </div>
   );

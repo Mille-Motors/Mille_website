@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { ArrowRight, Mail, MapPin } from "lucide-react";
-import { WhatsappButtonLink } from "@/components/ui/Button";
+import { ButtonArrow, ButtonLink, WhatsappButtonLink } from "@/components/ui/Button";
 import { InstagramIcon, WhatsappIcon } from "@/components/ui/BrandIcons";
-import { Container } from "@/components/ui/Container";
-import { Eyebrow } from "@/components/ui/Eyebrow";
-import { Rule } from "@/components/ui/Rule";
 import { ContactPanel } from "@/components/brand/ContactPanel";
 import { ContactForm } from "@/components/forms/ContactForm";
 import { site } from "@/data/site";
@@ -14,6 +11,7 @@ import { generalWhatsappUrl } from "@/lib/whatsapp";
 import { objectPosition } from "@/lib/focal-point";
 import { getSiteMediaImage } from "@/server/site-media/service";
 import { getVehicles } from "@/lib/vehicles";
+import { REVEAL } from "@/lib/reveal";
 
 const CONTACT_TITLE = "Contacto";
 const CONTACT_DESCRIPTION =
@@ -32,19 +30,9 @@ export const metadata: Metadata = {
 
 const channels = [
   {
-    icon: WhatsappIcon,
-    label: "WhatsApp",
-    // El horario real de la línea: "respuesta inmediata" sería prometer lo
-    // que nadie puede cumplir a las 11 de la noche.
-    detail: site.phone ? site.phone.hours.label : "Disponible al lanzamiento",
-    href: generalWhatsappUrl(),
-    external: true,
-    whatsapp: true,
-  },
-  {
     icon: InstagramIcon,
     label: "Instagram",
-    detail: site.instagram ? "Síguenos" : "Disponible al lanzamiento",
+    detail: site.instagram ? site.instagram.handle : "Disponible al lanzamiento",
     href: site.instagram?.url ?? null,
     external: true,
     whatsapp: false,
@@ -75,134 +63,180 @@ export default async function ContactPage() {
 
   return (
     <>
-      <section className="border-b border-stone bg-cream">
-        <Container width="wide" className="lg:px-0">
-          <div className="grid items-stretch lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <div className="py-14 lg:py-20 lg:pr-14 lg:pl-12">
-              <Eyebrow className="leading-[1.9]">{site.tagline}</Eyebrow>
+      <section className="bg-cream pt-[clamp(2.5rem,5vw,5rem)] pb-[clamp(3rem,6vw,6rem)]">
+        <div className="wrap grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:gap-[7vw]">
+          <div>
+            <h1 className="text-display hero-rise" style={{ "--i": 0 } as React.CSSProperties}>
+              Hablemos<span className="text-burgundy">.</span>
+            </h1>
 
-              <h1 className="mt-7 font-display text-[clamp(3rem,7vw,5rem)] leading-[1] text-ink">
-                Hablemos<span className="text-burgundy">.</span>
-              </h1>
+            <p
+              className="hero-rise mt-8 max-w-120 text-[1.25rem] leading-[1.5] text-ink-soft"
+              style={{ "--i": 1 } as React.CSSProperties}
+            >
+              Cuéntanos qué estás buscando. Si está en nuestro inventario,
+              coordinamos el siguiente paso; si todavía no, podemos ayudarte a
+              encontrarlo.
+            </p>
 
-              <Rule className="mt-8" />
-
-              <p className="mt-7 max-w-md font-serif text-[1.0625rem] leading-[1.75] text-ink-soft">
-                Cuéntanos qué estás buscando. Si está en nuestro inventario,
-                coordinamos el siguiente paso; si todavía no, podemos
-                ayudarte a encontrarlo.
+            {/* La acción de la página: escribir ya. Sin línea de WhatsApp, lo
+                que queda es dejar un mensaje en el formulario, que sí funciona. */}
+            <div
+              className="hero-rise mt-9 flex flex-col gap-3 sm:flex-row sm:items-center"
+              style={{ "--i": 2 } as React.CSSProperties}
+            >
+              {site.phone ? (
+                <WhatsappButtonLink
+                  href={generalWhatsappUrl()}
+                  size="lg"
+                  className="justify-between gap-8"
+                  data-wa-source="contact"
+                  data-wa-intent="general"
+                >
+                  <span className="inline-flex items-center gap-3">
+                    <WhatsappIcon className="size-5" />
+                    Escribir por WhatsApp
+                  </span>
+                  <ButtonArrow />
+                </WhatsappButtonLink>
+              ) : null}
+              <ButtonLink
+                href="#mensaje"
+                variant={site.phone ? "ghost" : "primary"}
+                size="lg"
+                className="justify-between gap-8"
+              >
+                Dejar un mensaje
+                <ButtonArrow />
+              </ButtonLink>
+            </div>
+            {site.phone ? (
+              <p
+                className="hero-rise mt-3 text-base text-ink-muted"
+                style={{ "--i": 3 } as React.CSSProperties}
+              >
+                {site.phone.hours.label}
               </p>
+            ) : null}
 
-              <ul className="mt-12 grid grid-cols-2 gap-x-6 gap-y-9 sm:grid-cols-4">
-                {channels.map(({ icon: Icon, label, detail, href, external, whatsapp }) => {
-                  const inner = (
-                    <>
-                      <span className="inline-flex size-12 items-center justify-center rounded-full bg-sand text-burgundy transition-colors group-hover:bg-burgundy group-hover:text-cream">
-                        <Icon className="size-5" strokeWidth={1.4} />
-                      </span>
-                      <span className="mt-3.5 block font-serif text-[0.9375rem] text-ink">
+            <ul
+              className="hero-rise mt-10 max-w-120 divide-y divide-ink/12 border-y border-ink/12"
+              style={{ "--i": 4 } as React.CSSProperties}
+            >
+              {channels.map(({ icon: Icon, label, detail, href, external, whatsapp }) => {
+                const inner = (
+                  <>
+                    <Icon
+                      className="size-6 shrink-0 text-burgundy"
+                      strokeWidth={1.3}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[1.25rem] leading-tight text-ink">
                         {label}
                       </span>
-                      <span className="mt-1 block text-xs text-ink-muted">
+                      <span className="mt-0.5 block text-base text-ink-muted">
                         {detail}
                       </span>
-                    </>
-                  );
-                  return (
-                    <li key={label} className="text-center">
-                      {href ? (
-                        <a
-                          href={href}
-                          {...(external
-                            ? { target: "_blank", rel: "noreferrer noopener" }
-                            : {})}
-                          {...(whatsapp
-                            ? { "data-wa-source": "contact", "data-wa-intent": "general" }
-                            : {})}
-                          className="group inline-block"
-                        >
-                          {inner}
-                        </a>
-                      ) : (
-                        <span className="group inline-block">{inner}</span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-
-            <div className="relative order-first aspect-[4/3] w-full overflow-hidden bg-charcoal sm:aspect-[16/9] lg:order-none lg:aspect-auto lg:min-h-[34rem]">
-              <Image
-                src={heroImage.src}
-                alt={heroImage.alt}
-                fill
-                priority
-                // Como en la home: con object-cover el ancho que hace falta no
-                // es el del hueco, sino el que resulta de ampliar la foto hasta
-                // cubrirlo.
-                sizes="(min-width: 1024px) 70vw, 135vw"
-                quality={90}
-                className="object-cover"
-                style={{ objectPosition: objectPosition(heroImage.focal) }}
-              />
-            </div>
+                    </span>
+                    {href ? (
+                      <ArrowRight
+                        aria-hidden
+                        strokeWidth={1.3}
+                        className="arrow-slide-icon size-5 shrink-0 text-ink-muted"
+                      />
+                    ) : null}
+                  </>
+                );
+                return (
+                  <li key={label}>
+                    {href ? (
+                      <a
+                        href={href}
+                        {...(external
+                          ? { target: "_blank", rel: "noreferrer noopener" }
+                          : {})}
+                        {...(whatsapp
+                          ? { "data-wa-source": "contact", "data-wa-intent": "general" }
+                          : {})}
+                        className="group flex min-h-20 items-center gap-5 py-4 transition-colors hover:text-burgundy"
+                      >
+                        {inner}
+                      </a>
+                    ) : (
+                      <span className="flex min-h-20 items-center gap-5 py-4">
+                        {inner}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-        </Container>
+
+          <div className="relative aspect-4/3 w-full overflow-hidden rounded-xl bg-charcoal">
+            <Image
+              src={heroImage.src}
+              alt={heroImage.alt}
+              fill
+              priority
+              sizes="(min-width: 1024px) 45vw, 92vw"
+              quality={90}
+              className="photo-grade hero-settle object-cover"
+              style={{ objectPosition: objectPosition(heroImage.focal) }}
+            />
+          </div>
+        </div>
       </section>
 
-      <section className="bg-cream py-14 lg:py-20">
-        <Container width="wide">
-          <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] lg:gap-14">
+      <section id="mensaje" className="scroll-mt-header bg-cream pb-(--space)">
+        <div className="wrap grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] lg:gap-10">
+          <div {...REVEAL}>
             <ContactForm vehicles={vehicles} />
-
+          </div>
+          <div {...REVEAL} style={{ "--d": "120ms" } as React.CSSProperties}>
             <ContactPanel />
           </div>
-        </Container>
+        </div>
       </section>
 
-      {/* Este bloque promete respuesta inmediata por WhatsApp. Mientras no
-          exista la línea, prometerlo y rematar con un botón inerte sería
-          exactamente el placeholder falso que el proyecto viene evitando: se
-          oculta entero. El formulario de arriba sí funciona. Cuando
-          site.phone tenga valor, vuelve solo. */}
+      {/* Este bloque promete respuesta por WhatsApp. Mientras no exista la
+          línea, prometerlo y rematar con un botón inerte sería exactamente el
+          placeholder falso que el proyecto viene evitando: se oculta entero.
+          El formulario de arriba sí funciona. Cuando site.phone tenga valor,
+          vuelve solo. */}
       {site.phone ? (
-      <section className="bg-cream pb-16 lg:pb-24">
-        <Container width="wide">
-          <div className="relative overflow-hidden bg-black">
-            <Image
-              src="/images/vehicles/mercedes-benz-c-300/02.jpg"
-              alt=""
-              fill
-              sizes="(min-width: 1280px) 1280px, 100vw"
-              className="object-cover opacity-45"
-            />
-            <div className="relative flex flex-col gap-7 px-8 py-12 sm:px-12 lg:flex-row lg:items-center lg:justify-between lg:py-14">
-              <div>
-                <h2 className="font-display text-[clamp(1.6rem,3vw,2.125rem)] leading-tight text-cream">
-                  ¿Prefieres hablar ahora?
-                </h2>
-                <p className="mt-3 max-w-md font-serif text-[0.9375rem] leading-relaxed text-cream/70">
-                  Escríbenos por WhatsApp y te respondemos directamente,
-                  sin intermediarios.
-                </p>
-              </div>
+        <section className="bg-dark py-[clamp(4rem,8vw,8rem)] text-cream">
+          <div className="wrap grid items-center gap-8 lg:grid-cols-[1.4fr_1fr] lg:gap-[8vw]">
+            <h2 className="text-title" {...REVEAL}>
+              ¿Prefieres
+              <br className="hidden sm:block" /> hablar ahora?
+            </h2>
+            <div
+              className="max-w-96 lg:justify-self-end"
+              {...REVEAL}
+              style={{ "--d": "120ms" } as React.CSSProperties}
+            >
+              <p className="text-[1.375rem] leading-snug">
+                Escríbenos por WhatsApp y te respondemos directamente, sin
+                intermediarios.
+              </p>
               <WhatsappButtonLink
                 href={generalWhatsappUrl()}
-                variant="onDark"
+                variant="cream"
                 size="lg"
-                className="shrink-0"
+                className="mt-8 w-full justify-between gap-10 sm:w-auto"
                 data-wa-source="contact"
                 data-wa-intent="general"
               >
-                <WhatsappIcon className="size-4" />
-                Hablar por WhatsApp
-                <ArrowRight aria-hidden className="size-4" strokeWidth={1.5} />
+                <span className="inline-flex items-center gap-3">
+                  <WhatsappIcon className="size-5" />
+                  Hablar por WhatsApp
+                </span>
+                <ButtonArrow />
               </WhatsappButtonLink>
             </div>
           </div>
-        </Container>
-      </section>
+        </section>
       ) : null}
     </>
   );

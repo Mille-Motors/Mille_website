@@ -702,8 +702,8 @@ export interface Inquiry {
   type: InquiryType;
   status: InquiryStatus;
   name: string;
-  phone: string;
-  email: string;
+  phone: string | null;
+  email: string | null;
   message: string | null;
   source: string | null;
   vehicleId: string | null;

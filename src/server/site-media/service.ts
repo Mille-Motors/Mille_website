@@ -68,6 +68,15 @@ const loadRows = cache(async (): Promise<Map<string, Row>> => {
 
 function toImage(slot: SiteMediaSlot, row: Row | undefined): SiteMediaImage {
   if (!row) return legacyImage(slot);
+  // Una fila LEGACY dice "sigo apuntando al archivo original del sitio", no
+  // "esta es la imagen que quiero". Si el rediseño cambió ese archivo, la
+  // fila sembrada apunta a una fotografía que ya no es la del slot: manda el
+  // código. Un encuadre elegido para la fotografía anterior tampoco vale para
+  // la nueva, así que vuelve al centro. Si el archivo sigue siendo el mismo,
+  // la fila se respeta entera, encuadre incluido.
+  if (row.source === "LEGACY" && row.url !== slot.legacySrc) {
+    return legacyImage(slot);
+  }
   return {
     src: row.url,
     alt: row.alt,

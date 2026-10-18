@@ -9,6 +9,7 @@ import type {
   InquiryInput,
 } from "@/server/inquiries/schemas";
 import type { InquiryStatus, InquiryType, Inquiry } from "@/types/vehicle";
+import { PRIVACY_POLICY_VERSION } from "@/lib/legal-versions";
 import { inquiryViewStatuses } from "@/lib/inquiry-views";
 import type {
   InquiryStatus as DbInquiryStatus,
@@ -96,8 +97,8 @@ export async function createInquiry(
         type: input.type,
         status: "spam",
         name: input.name,
-        phone: input.phone,
-        email: input.email,
+        phone: input.phone ?? null,
+        email: input.email ?? null,
         message: input.message ?? null,
         source: input.source ?? null,
         vehicleId: null,
@@ -124,18 +125,32 @@ export async function createInquiry(
     }
   }
 
-  const record = await prisma.inquiry.create({
-    data: {
-      type: toDbType[input.type],
-      name: input.name,
-      phone: input.phone,
-      email: input.email.toLowerCase(),
-      message: input.message?.trim() || null,
-      source: input.source ?? null,
-      vehicleId,
-      vehicleLabel,
-    },
-    include: inquiryInclude,
+  const record = await prisma.$transaction(async (tx) => {
+    const inquiry = await tx.inquiry.create({
+      data: {
+        type: toDbType[input.type],
+        name: input.name,
+        phone: input.phone || null,
+        email: input.email?.toLowerCase() || null,
+        message: input.message?.trim() || null,
+        source: input.source ?? null,
+        vehicleId,
+        vehicleLabel,
+      },
+      include: inquiryInclude,
+    });
+
+    await tx.consentRecord.create({
+      data: {
+        inquiryId: inquiry.id,
+        privacyPolicyVersion: PRIVACY_POLICY_VERSION,
+        source: input.vehicleSlug
+          ? `vehiculo:${input.vehicleSlug}`
+          : "contacto",
+      },
+    });
+
+    return inquiry;
   });
 
   return { inquiry: toInquiryDto(record), discarded: false };

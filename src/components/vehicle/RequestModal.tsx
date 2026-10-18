@@ -70,6 +70,7 @@ export function RequestModal({
       message: String(data.get("mensaje") ?? ""),
       vehicleSlug: vehicle.slug,
       source: `vehiculo:${vehicle.slug}`,
+      privacyConsent: data.get("privacyConsent") === "on",
       website: String(data.get("website") ?? ""),
     });
 
@@ -91,24 +92,24 @@ export function RequestModal({
         aria-label="Cerrar"
         tabIndex={-1}
         onClick={onClose}
-        className="absolute inset-0 bg-black/45"
+        className="absolute inset-0 bg-dark/60"
       />
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="request-modal-title"
-        className="relative max-h-[92dvh] w-full overflow-y-auto border border-stone bg-cream sm:max-w-lg"
+        className="viewer-in relative max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl bg-cream sm:max-w-lg sm:rounded-2xl"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-stone px-6 py-5">
+        <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-2">
           <div>
             <h2
               id="request-modal-title"
-              className="font-display text-2xl leading-tight text-ink"
+              className="text-[1.75rem] leading-tight text-ink"
             >
               {sent ? "Solicitud recibida" : text.title}
             </h2>
-            <p className="mt-1.5 font-serif text-sm text-ink-muted">
+            <p className="mt-1.5 text-base text-ink-muted">
               {vehicleTitle(vehicle)} · {vehicle.year}
             </p>
           </div>
@@ -116,7 +117,7 @@ export function RequestModal({
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="-mt-1 -mr-2 inline-flex size-10 shrink-0 items-center justify-center text-ink-muted transition-colors hover:text-ink"
+            className="press -mt-1 -mr-2 inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink-muted hover:bg-ink/6 hover:text-ink"
           >
             <X aria-hidden className="size-5" strokeWidth={1.25} />
           </button>
@@ -127,7 +128,7 @@ export function RequestModal({
             <span className="inline-flex size-12 items-center justify-center rounded-full bg-sand text-burgundy">
               <Check aria-hidden className="size-5" strokeWidth={1.5} />
             </span>
-            <p className="mx-auto mt-6 max-w-sm font-serif text-[0.9375rem] leading-relaxed text-ink-soft">
+            <p className="mx-auto mt-6 max-w-sm text-[1.125rem] leading-relaxed text-ink-soft">
               Quedó registrada con los datos que nos dejaste. La estamos
               revisando.
             </p>
@@ -137,7 +138,7 @@ export function RequestModal({
           </div>
         ) : (
           <form onSubmit={onSubmit} className="grid gap-4 px-6 py-6">
-            <p className="font-serif text-[0.9375rem] leading-relaxed text-ink-soft">
+            <p className="text-[1.125rem] leading-relaxed text-ink-soft">
               {text.intro}
             </p>
             <Input
@@ -153,7 +154,6 @@ export function RequestModal({
               type="tel"
               inputMode="tel"
               autoComplete="tel"
-              required
               error={fieldErrors.phone}
             />
             <Input
@@ -161,9 +161,9 @@ export function RequestModal({
               name="correo"
               type="email"
               autoComplete="email"
-              required
               error={fieldErrors.email}
             />
+            <p className="-mt-2 text-[0.9375rem] text-ink-muted">Indica al menos un teléfono o un correo para que podamos responderte.</p>
             <Textarea
               label="Mensaje"
               name="mensaje"
@@ -178,14 +178,17 @@ export function RequestModal({
 
             <input name="website" {...honeypotProps} />
 
+            <PrivacyNotice
+              className="text-center"
+              error={fieldErrors.privacyConsent}
+            />
+
             <Button type="submit" size="lg" disabled={sending}>
               {sending ? "Enviando…" : text.cta}
             </Button>
 
-            <PrivacyNotice className="text-center" />
-
             {error ? (
-              <p role="alert" className="text-center text-xs text-burgundy">
+              <p role="alert" className="text-center text-sm text-burgundy">
                 {error}
               </p>
             ) : null}
