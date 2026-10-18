@@ -46,7 +46,7 @@ export async function Hero() {
         className="absolute inset-0 -z-10 bg-linear-to-b from-dark/30 via-transparent to-dark/65"
       />
 
-      <div className="wrap flex flex-1 flex-col justify-between gap-12 pt-[calc(var(--spacing-header)+clamp(2rem,8svh,6rem))] pb-[clamp(2.5rem,8svh,6rem)]">
+      <div className="wrap flex flex-1 flex-col justify-between gap-12 pt-[calc(var(--spacing-header)+clamp(2rem,8svh,6rem))] pb-[max(5.5rem,8svh)] lg:pb-[max(6.75rem,12svh)]">
         <h1 className="hero-lines text-display">
           <span className="line">
             <span style={{ "--i": 0 } as React.CSSProperties}>Nos mueve.</span>
