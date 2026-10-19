@@ -24,6 +24,7 @@ import {
 } from "@/lib/inventory-empty-state";
 import { getFilterFacets, getVehicles } from "@/lib/vehicles";
 import { REVEAL } from "@/lib/reveal";
+import { defaultOgImages } from "@/server/site-media/og";
 
 const LIST_TITLE = "Vehículos";
 const LIST_DESCRIPTION =
@@ -38,16 +39,19 @@ const LIST_DESCRIPTION =
  * entre ellas. Que esta metadata sea estática mientras la página sí lee los
  * parámetros es justo lo que lo garantiza: se filtra igual, se indexa una vez.
  */
-export const metadata: Metadata = {
-  title: LIST_TITLE,
-  description: LIST_DESCRIPTION,
-  alternates: canonical("/vehiculos"),
-  ...socialMetadata({
-    title: `${LIST_TITLE} | ${site.name}`,
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: LIST_TITLE,
     description: LIST_DESCRIPTION,
-    path: "/vehiculos",
-  }),
-};
+    alternates: canonical("/vehiculos"),
+    ...socialMetadata({
+      images: await defaultOgImages(),
+      title: `${LIST_TITLE} | ${site.name}`,
+      description: LIST_DESCRIPTION,
+      path: "/vehiculos",
+    }),
+  };
+}
 
 /** Context copy per universe. Short: the vehicles do the talking. */
 const context = {

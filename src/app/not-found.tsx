@@ -1,5 +1,5 @@
+import { SiteMediaPicture } from "@/components/media/SiteMediaPicture";
 import type { Metadata } from "next";
-import Image from "next/image";
 import { ButtonArrow, ButtonLink, WhatsappButtonLink } from "@/components/ui/Button";
 import { WhatsappIcon } from "@/components/ui/BrandIcons";
 import { Footer } from "@/components/layout/Footer";
@@ -8,7 +8,6 @@ import { InventoryCTALink } from "@/components/vehicle/InventoryCTALink";
 import { WhatsappClickTracker } from "@/components/whatsapp/WhatsappClickTracker";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
 import { site } from "@/data/site";
-import { objectPosition } from "@/lib/focal-point";
 import { NOINDEX_ROBOTS } from "@/lib/seo";
 import { getSiteMediaImage } from "@/server/site-media/service";
 
@@ -87,13 +86,12 @@ export default async function NotFound() {
             </div>
 
             <div className="relative hidden aspect-4/3 overflow-hidden rounded-xl bg-charcoal lg:block">
-              <Image
-                src={image.src}
+              <SiteMediaPicture
+                image={image}
                 // Decorativa: acompaña a un 404 que ya dice todo lo que hay
                 // que decir. Describirla solo alargaría el camino de quien usa
                 // un lector de pantalla.
                 alt=""
-                fill
                 // Con object-cover el ancho necesario no es el del hueco sino
                 // el que resulta de ampliar la foto hasta cubrirlo. Por debajo
                 // de lg la imagen no se pinta, así que ahí se pide lo mínimo
@@ -101,7 +99,6 @@ export default async function NotFound() {
                 sizes="(min-width: 1024px) 60vw, 1px"
                 quality={90}
                 className="photo-grade object-cover"
-                style={{ objectPosition: objectPosition(image.focal) }}
               />
             </div>
           </div>

@@ -1,8 +1,7 @@
-import Image from "next/image";
+import { SiteMediaPicture } from "@/components/media/SiteMediaPicture";
 import { ArrowDown } from "lucide-react";
 import { ButtonArrow } from "@/components/ui/Button";
 import { InventoryCTALink } from "@/components/vehicle/InventoryCTALink";
-import { objectPosition } from "@/lib/focal-point";
 import { getSiteMediaImage } from "@/server/site-media/service";
 
 /**
@@ -27,15 +26,15 @@ export async function Hero() {
       className="relative isolate -mt-header flex min-h-svh flex-col overflow-hidden bg-dark text-cream"
     >
       <div className="hero-settle absolute inset-0 -z-10">
-        <Image
-          src={image.src}
-          alt={image.alt}
-          fill
-          priority
+        {/* La fotografía LCP de la home. Ocupa el viewport entero en los
+            dos tamaños, así que `100vw` es literal. La variante de teléfono
+            —si está subida— es la única que baja un móvil. */}
+        <SiteMediaPicture
+          image={image}
           sizes="100vw"
+          priority
           quality={90}
           className="hero-grade object-cover"
-          style={{ objectPosition: objectPosition(image.focal) }}
         />
       </div>
 

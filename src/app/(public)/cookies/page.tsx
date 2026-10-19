@@ -2,18 +2,26 @@ import type { Metadata } from "next";
 import { LegalDocument, LegalSection } from "@/components/legal/LegalDocument";
 import { site } from "@/data/site";
 import { canonical, socialMetadata } from "@/lib/seo";
+import { defaultOgImages } from "@/server/site-media/og";
 
 const TITLE = "Política de Cookies";
 const DESCRIPTION = "Tecnologías de almacenamiento que usa el sitio de MILLE Motor Culture.";
 const UPDATED = "17 de octubre de 2026";
 const VERSION = "2026-10-17";
 
-export const metadata: Metadata = {
-  title: TITLE,
-  description: DESCRIPTION,
-  alternates: canonical("/cookies"),
-  ...socialMetadata({ title: `${TITLE} | ${site.name}`, description: DESCRIPTION, path: "/cookies" }),
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: TITLE,
+    description: DESCRIPTION,
+    alternates: canonical("/cookies"),
+    ...socialMetadata({
+      images: await defaultOgImages(),
+      title: `${TITLE} | ${site.name}`,
+      description: DESCRIPTION,
+      path: "/cookies",
+    }),
+  };
+}
 
 export default function CookiesPage() {
   return (

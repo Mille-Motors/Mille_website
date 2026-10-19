@@ -1,6 +1,5 @@
-import Image from "next/image";
+import { SiteMediaPicture } from "@/components/media/SiteMediaPicture";
 import { ButtonArrow, ButtonLink, ExternalButtonLink } from "@/components/ui/Button";
-import { objectPosition } from "@/lib/focal-point";
 import { intentWhatsappUrl } from "@/lib/whatsapp";
 import { getSiteMediaImage } from "@/server/site-media/service";
 import { REVEAL } from "@/lib/reveal";
@@ -41,14 +40,14 @@ export async function SellCampaign() {
           <div
             className="drift absolute inset-0"
           >
-            <Image
-              src={image.src}
-              alt={image.alt}
-              fill
+            {/* A todo el ancho en los dos tamaños, pero con composiciones
+                muy distintas: 1.95 apaisada arriba, casi cuadrada en el
+                teléfono. Por eso tiene variante propia. */}
+            <SiteMediaPicture
+              image={image}
               sizes="100vw"
               quality={75}
               className="photo-grade object-cover"
-              style={{ objectPosition: objectPosition(image.focal) }}
             />
           </div>
         </div>

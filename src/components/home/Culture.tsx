@@ -1,7 +1,6 @@
-import Image from "next/image";
+import { SiteMediaPicture } from "@/components/media/SiteMediaPicture";
 import { TextLink } from "@/components/ui/Arrow";
 import { site } from "@/data/site";
-import { objectPosition } from "@/lib/focal-point";
 import { getSiteMediaImage } from "@/server/site-media/service";
 import { REVEAL, REVEAL_IMAGE } from "@/lib/reveal";
 
@@ -40,14 +39,11 @@ export async function Culture() {
               {...REVEAL_IMAGE}
               style={{ "--reveal-radius": "0.875rem" } as React.CSSProperties}
             >
-              <Image
-                src={image.src}
-                alt={image.alt}
-                fill
+              <SiteMediaPicture
+                image={image}
                 sizes="(min-width: 1024px) 38vw, 92vw"
                 quality={90}
                 className="photo-grade object-cover"
-                style={{ objectPosition: objectPosition(image.focal) }}
               />
             </div>
           </figure>

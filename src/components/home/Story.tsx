@@ -1,5 +1,4 @@
-import Image from "next/image";
-import { objectPosition } from "@/lib/focal-point";
+import { SiteMediaPicture } from "@/components/media/SiteMediaPicture";
 import { getSiteMediaImage } from "@/server/site-media/service";
 import { REVEAL, REVEAL_IMAGE, TONE_ZONE } from "@/lib/reveal";
 
@@ -71,14 +70,11 @@ export async function Story() {
               {...REVEAL_IMAGE}
               style={{ "--reveal-radius": "0.875rem" } as React.CSSProperties}
             >
-              <Image
-                src={image.src}
-                alt={image.alt}
-                fill
+              <SiteMediaPicture
+                image={image}
                 sizes="(min-width: 1024px) 52vw, 92vw"
                 quality={90}
                 className="photo-grade object-cover"
-                style={{ objectPosition: objectPosition(image.focal) }}
               />
             </div>
             <figcaption className="tone-muted mt-4 text-[0.9375rem]">

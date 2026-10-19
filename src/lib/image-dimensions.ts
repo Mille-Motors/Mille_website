@@ -37,14 +37,32 @@ const u32 = (b: Uint8Array, at: number) =>
   ((b[at] << 24) | (b[at + 1] << 16) | (b[at + 2] << 8) | b[at + 3]) >>> 0;
 
 /**
+ * Las ocho orientaciones de EXIF. De la 5 a la 8 la fotografía está girada un
+ * cuarto de vuelta, así que lo que se ve tiene el ancho y el alto al revés de
+ * lo que dice la cabecera del JPEG.
+ *
+ * Es la razón de que esto exista: un teléfono guarda casi siempre el sensor
+ * en horizontal —4032 × 3024— y anota "gírala". El navegador obedece y
+ * enseña 3024 × 4032, pero el servidor leía los números crudos y validaba
+ * contra una fotografía que nadie llega a ver.
+ */
+const SWAPS_AXES = new Set([5, 6, 7, 8]);
+
+/**
  * JPEG: se recorren los segmentos hasta dar con un marcador SOF, que es el
  * que lleva las dimensiones. Los SOF de 0xC4, 0xC8 y 0xCC NO son de inicio
  * de cuadro —son tablas Huffman y aritméticas— y confundirlos es el error
  * clásico de este parseo.
+ *
+ * Por el camino se recoge la orientación de EXIF, si la hay. El orden está
+ * garantizado por el formato: los segmentos APPn van inmediatamente después
+ * del inicio de imagen y siempre antes del SOF, así que una sola pasada
+ * basta y se lee en el mismo recorrido.
  */
 function readJpeg(b: Uint8Array): ImageDimensions | null {
   if (b[0] !== 0xff || b[1] !== 0xd8) return null;
 
+  let orientation: number | null = null;
   let i = 2;
   while (i + 9 < b.length) {
     if (b[i] !== 0xff) {
@@ -71,11 +89,89 @@ function readJpeg(b: Uint8Array): ImageDimensions | null {
       marker !== 0xcc;
 
     if (isStartOfFrame) {
-      return { height: u16(b, i + 5), width: u16(b, i + 7) };
+      const raw = { height: u16(b, i + 5), width: u16(b, i + 7) };
+      // El archivo NO se toca: lo único que cambia es cómo lo contamos.
+      return orientation !== null && SWAPS_AXES.has(orientation)
+        ? { width: raw.height, height: raw.width }
+        : raw;
     }
+
     const length = u16(b, i + 2);
     if (length < 2) return null;
+
+    // APP1 es donde vive EXIF. Se lee la primera que aparezca y se sigue.
+    if (marker === 0xe1 && orientation === null) {
+      orientation = readExifOrientation(b, i + 4, i + 2 + length);
+    }
+
     i += 2 + length;
+  }
+  return null;
+}
+
+/**
+ * La etiqueta Orientation de un bloque EXIF, o `null`.
+ *
+ * Se parsea a mano en vez de traer una librería de metadatos: son treinta
+ * líneas para leer UN entero corto de la primera IFD, y una dependencia que
+ * sabe de GPS, fabricante y miniaturas sería desproporcionada para eso. El
+ * parser no interpreta nada más del bloque, así que no hereda la superficie
+ * de fallo de un lector completo.
+ *
+ * Cada salto se comprueba contra el final del segmento, no contra el del
+ * archivo: un EXIF corrupto no puede llevarnos a leer fuera de su sitio.
+ * Y ante cualquier duda devuelve `null`, que significa "usa los números
+ * crudos" — nunca una excepción, porque una subida válida no puede caerse
+ * por unos metadatos mal escritos.
+ */
+function readExifOrientation(
+  b: Uint8Array,
+  start: number,
+  end: number,
+): number | null {
+  // "Exif\0\0"
+  const header = [0x45, 0x78, 0x69, 0x66, 0x00, 0x00];
+  if (start + header.length > end) return null;
+  if (header.some((byte, at) => b[start + at] !== byte)) return null;
+
+  // El encabezado TIFF manda el orden de bytes del resto del bloque, y los
+  // desplazamientos que vienen después son relativos a ÉL, no al archivo.
+  const tiff = start + header.length;
+  if (tiff + 8 > end) return null;
+
+  const little =
+    b[tiff] === 0x49 && b[tiff + 1] === 0x49
+      ? true
+      : b[tiff] === 0x4d && b[tiff + 1] === 0x4d
+        ? false
+        : null;
+  if (little === null) return null;
+
+  const short = (at: number) =>
+    little ? b[at] | (b[at + 1] << 8) : (b[at] << 8) | b[at + 1];
+  const long = (at: number) =>
+    little
+      ? (b[at] | (b[at + 1] << 8) | (b[at + 2] << 16) | (b[at + 3] << 24)) >>> 0
+      : u32(b, at);
+
+  if (short(tiff + 2) !== 0x002a) return null;
+
+  const ifd = tiff + long(tiff + 4);
+  if (ifd + 2 > end || ifd < tiff) return null;
+
+  const count = short(ifd);
+  // Un recuento disparatado es metadata corrupta, no una IFD gigante.
+  if (count <= 0 || count > 512) return null;
+  if (ifd + 2 + count * 12 > end) return null;
+
+  for (let entry = 0; entry < count; entry += 1) {
+    const at = ifd + 2 + entry * 12;
+    if (short(at) !== 0x0112) continue;
+    // Tipo SHORT y un solo valor: cabe en el propio campo, sin salto.
+    if (short(at + 2) !== 3 || long(at + 4) !== 1) return null;
+    const value = short(at + 8);
+    // Fuera del 1–8 no significa nada: se ignora y manda la cabecera.
+    return value >= 1 && value <= 8 ? value : null;
   }
   return null;
 }
@@ -175,17 +271,37 @@ export const MAX_VEHICLE_IMAGE_BYTES = 25 * 1024 * 1024;
 /** El mismo número, para los textos de la interfaz. */
 export const MAX_VEHICLE_IMAGE_LABEL = "25 MB";
 
-/** El motivo por el que una imagen no sirve, o `null` si sirve. */
-export function imageTooSmall(dimensions: ImageDimensions): string | null {
+/**
+ * El motivo por el que una imagen no sirve, o `null` si sirve.
+ *
+ * El suelo por defecto es el de una fotografía de vehículo. Quien llama
+ * puede pasar otro: los espacios del sitio tienen el suyo, y una imagen
+ * para compartir en redes es legítimamente más baja que una ficha
+ * —1200 × 630— así que medirla contra 700 de alto la rechazaría sin razón.
+ */
+export function imageTooSmall(
+  dimensions: ImageDimensions,
+  minimum: ImageDimensions = {
+    width: MIN_IMAGE_WIDTH,
+    height: MIN_IMAGE_HEIGHT,
+  },
+): string | null {
   if (
-    dimensions.width >= MIN_IMAGE_WIDTH &&
-    dimensions.height >= MIN_IMAGE_HEIGHT
+    dimensions.width >= minimum.width &&
+    dimensions.height >= minimum.height
   ) {
     return null;
   }
-  return (
-    `Esa imagen mide ${dimensions.width}×${dimensions.height} px y se vería borrosa en la ficha. ` +
-    `Hacen falta al menos ${MIN_IMAGE_WIDTH}×${MIN_IMAGE_HEIGHT} px; ` +
-    `lo ideal son ${RECOMMENDED_IMAGE_LONG_EDGE} px en el lado largo.`
-  );
+  const base =
+    `Esa imagen mide ${dimensions.width}×${dimensions.height} px y se vería borrosa. ` +
+    `Hacen falta al menos ${minimum.width}×${minimum.height} px.`;
+
+  // El consejo del lado largo describe una fotografía de vehículo. Para un
+  // espacio del sitio no aplica —cada uno tiene su propia recomendación, y
+  // el Admin ya la enseña— así que solo se añade con el suelo por defecto.
+  const isDefault =
+    minimum.width === MIN_IMAGE_WIDTH && minimum.height === MIN_IMAGE_HEIGHT;
+  return isDefault
+    ? `${base} Lo ideal son ${RECOMMENDED_IMAGE_LONG_EDGE} px en el lado largo.`
+    : base;
 }

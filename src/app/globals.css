@@ -198,6 +198,33 @@
    Public layout and type
 ------------------------------------------------------------------ */
 
+/*
+ * Dos encuadres en una sola fotografía.
+ *
+ * Cuando un slot no tiene variante de teléfono, el archivo es el mismo en
+ * los dos viewports pero la parte que interesa no: en vertical suele haber
+ * que mirar más arriba o más al centro. Un `style` en línea solo admite un
+ * valor, así que habría que elegir el del viewport inicial — y eso se queda
+ * viejo al girar el teléfono o abrir un plegable.
+ *
+ * Con dos variables y una consulta de medios lo decide el navegador en cada
+ * repintado, sin JavaScript y sin estado de React que sincronizar. El
+ * respaldo es el centro, que es lo que `object-fit: cover` hace por su
+ * cuenta.
+ *
+ * El corte es el `md` de Tailwind (768 px) y está también en
+ * `MOBILE_BREAKPOINT_PX`; los dos describen el mismo escalón.
+ */
+.focal-art {
+  object-position: var(--focal-m, 50% 50%);
+}
+
+@media (min-width: 48rem) {
+  .focal-art {
+    object-position: var(--focal-d, 50% 50%);
+  }
+}
+
 /* The page column: wide margins that breathe, capped on very large screens. */
 @utility wrap {
   width: calc(100% - 2 * var(--safe));

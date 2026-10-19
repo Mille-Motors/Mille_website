@@ -7,6 +7,8 @@ import {
   SITE_MEDIA_SLOTS,
   getSlot,
   legacyImage,
+  type PixelSize,
+  type SiteMediaFile,
   type SiteMediaImage,
   type SiteMediaSlot,
 } from "@/lib/site-media";
@@ -16,7 +18,7 @@ import {
   roundFocal,
   type FocalPoint,
 } from "@/lib/focal-point";
-import type { SiteMediaEntry } from "@/types/site-media";
+import type { SiteMediaEntry, SiteMediaVariantEntry } from "@/types/site-media";
 
 /**
  * Las imágenes estructurales del sitio.
@@ -25,6 +27,10 @@ import type { SiteMediaEntry } from "@/types/site-media";
  * el registro en código. Eso hace que la home siga en pie aunque la base no
  * responda, que es lo correcto aquí: el archivo de respaldo forma parte del
  * repositorio, no es inventario inventado.
+ *
+ * Cada slot tiene dos caras. La de escritorio es obligatoria. La de teléfono
+ * es opcional y, cuando no existe, el teléfono usa el archivo de escritorio
+ * con su propio encuadre: nunca se queda sin imagen.
  */
 type Row = {
   key: string;
@@ -34,28 +40,54 @@ type Row = {
   alt: string;
   focalX: number;
   focalY: number;
+  width: number | null;
+  height: number | null;
+  bytes: number | null;
+  contentType: string | null;
+  mobileUrl: string | null;
+  mobileStoragePath: string | null;
+  mobileWidth: number | null;
+  mobileHeight: number | null;
+  mobileBytes: number | null;
+  mobileContentType: string | null;
+  mobileFocalX: number;
+  mobileFocalY: number;
   updatedAt: Date;
 };
 
+const ROW_SELECT = {
+  key: true,
+  url: true,
+  storagePath: true,
+  source: true,
+  alt: true,
+  focalX: true,
+  focalY: true,
+  width: true,
+  height: true,
+  bytes: true,
+  contentType: true,
+  mobileUrl: true,
+  mobileStoragePath: true,
+  mobileWidth: true,
+  mobileHeight: true,
+  mobileBytes: true,
+  mobileContentType: true,
+  mobileFocalX: true,
+  mobileFocalY: true,
+  updatedAt: true,
+} as const;
+
 /**
- * Una sola consulta por petición para los cuatro slots. La home pinta tres y
- * el hero uno; sin memoizar serían cuatro viajes a la base para dibujar una
- * página que no cambia entre ellos.
+ * Una sola consulta por render para todos los slots. La home pinta cinco, el
+ * menú otras cinco y el layout la de compartir; sin memoizar serían once
+ * viajes a la base para dibujar una página que no cambia entre ellos.
  */
 const loadRows = cache(async (): Promise<Map<string, Row>> => {
   try {
     const rows = await prisma.siteMedia.findMany({
       where: { key: { in: SITE_MEDIA_SLOTS.map((slot) => slot.key) } },
-      select: {
-        key: true,
-        url: true,
-        storagePath: true,
-        source: true,
-        alt: true,
-        focalX: true,
-        focalY: true,
-        updatedAt: true,
-      },
+      select: ROW_SELECT,
     });
     return new Map(rows.map((row) => [row.key, row as Row]));
   } catch (error) {
@@ -65,6 +97,9 @@ const loadRows = cache(async (): Promise<Map<string, Row>> => {
     return new Map();
   }
 });
+
+const sizeOf = (width: number | null, height: number | null): PixelSize | null =>
+  width !== null && height !== null ? { width, height } : null;
 
 function toImage(slot: SiteMediaSlot, row: Row | undefined): SiteMediaImage {
   if (!row) return legacyImage(slot);
@@ -77,14 +112,36 @@ function toImage(slot: SiteMediaSlot, row: Row | undefined): SiteMediaImage {
   if (row.source === "LEGACY" && row.url !== slot.legacySrc) {
     return legacyImage(slot);
   }
-  return {
+
+  const desktop: SiteMediaFile = {
     src: row.url,
-    alt: row.alt,
     source: row.source === "LEGACY" ? "legacy" : "storage",
     // Se normaliza aunque la columna tenga CHECK: la fila podría venir de una
     // base sin la migración, y un encuadre ilegible no debe dejar la home en
     // blanco. Al centro, que es como se veía antes.
     focal: normalizeFocal({ x: row.focalX, y: row.focalY }),
+    size: sizeOf(row.width, row.height),
+    bytes: row.bytes,
+    contentType: row.contentType,
+  };
+
+  const mobileFocal = normalizeFocal({ x: row.mobileFocalX, y: row.mobileFocalY });
+
+  return {
+    alt: row.alt,
+    desktop,
+    mobile: row.mobileUrl
+      ? {
+          src: row.mobileUrl,
+          // Una variante de teléfono solo puede existir si se subió.
+          source: "storage",
+          focal: mobileFocal,
+          size: sizeOf(row.mobileWidth, row.mobileHeight),
+          bytes: row.mobileBytes,
+          contentType: row.mobileContentType,
+        }
+      : null,
+    mobileFocal,
   };
 }
 
@@ -98,6 +155,15 @@ export async function getSiteMediaImage(key: string): Promise<SiteMediaImage> {
   return toImage(slot, rows.get(key));
 }
 
+const toVariantEntry = (file: SiteMediaFile): SiteMediaVariantEntry => ({
+  src: file.src,
+  source: file.source,
+  focal: file.focal,
+  size: file.size,
+  bytes: file.bytes,
+  contentType: file.contentType,
+});
+
 /** Todos los slots con su estado actual, para /admin/contenido. */
 export async function listSiteMedia(): Promise<SiteMediaEntry[]> {
   const rows = await loadRows();
@@ -110,13 +176,12 @@ export async function listSiteMedia(): Promise<SiteMediaEntry[]> {
       description: slot.description,
       aspect: slot.aspect,
       frames: slot.frames,
-      recommendedWidth: slot.recommendedWidth,
+      mobileVariantRecommended: slot.mobileVariantRecommended,
       decorative: slot.decorative ?? false,
-      src: image.src,
       alt: image.alt,
-      source: image.source,
-      focal: image.focal,
-      storagePath: row?.storagePath ?? null,
+      desktop: toVariantEntry(image.desktop),
+      mobile: image.mobile ? toVariantEntry(image.mobile) : null,
+      mobileFocal: image.mobileFocal,
       updatedAt: row?.updatedAt.toISOString() ?? null,
     };
   });
@@ -133,19 +198,29 @@ export async function getSiteMediaRow(key: string) {
   return prisma.siteMedia.findUnique({ where: { key } });
 }
 
+/** Lo que se sabe de un archivo recién subido. */
+export interface UploadedFacts {
+  url: string;
+  storagePath: string;
+  bytes: number;
+  contentType: string;
+  size: PixelSize | null;
+}
+
 /**
- * Apunta un slot a una imagen nueva.
+ * Apunta la variante de ESCRITORIO de un slot a una imagen nueva.
  *
  * Devuelve la ruta de Storage que quedó huérfana, si la había, para que quien
  * llama la borre del bucket *después* de que la base ya apunte a la nueva. Si
  * se borrara antes y fallara la escritura, el sitio quedaría apuntando a un
  * archivo inexistente.
+ *
+ * No toca la variante de teléfono: son dos fotografías distintas y cambiar
+ * una no puede llevarse la otra por delante.
  */
 export async function setSiteMediaImage(
   key: string,
-  image: {
-    url: string;
-    storagePath: string;
+  image: UploadedFacts & {
     alt: string;
     /**
      * El encuadre elegido para *esta* fotografía. Se escribe siempre, y por
@@ -162,26 +237,23 @@ export async function setSiteMediaImage(
   });
 
   const focal = roundFocal(normalizeFocal(image.focal));
+  const data = {
+    url: image.url,
+    storagePath: image.storagePath,
+    source: "STORAGE" as const,
+    alt: image.alt,
+    focalX: focal.x,
+    focalY: focal.y,
+    width: image.size?.width ?? null,
+    height: image.size?.height ?? null,
+    bytes: image.bytes,
+    contentType: image.contentType,
+  };
 
   await prisma.siteMedia.upsert({
     where: { key },
-    create: {
-      key,
-      url: image.url,
-      storagePath: image.storagePath,
-      source: "STORAGE",
-      alt: image.alt,
-      focalX: focal.x,
-      focalY: focal.y,
-    },
-    update: {
-      url: image.url,
-      storagePath: image.storagePath,
-      source: "STORAGE",
-      alt: image.alt,
-      focalX: focal.x,
-      focalY: focal.y,
-    },
+    create: { key, ...data },
+    update: data,
   });
 
   return {
@@ -190,6 +262,95 @@ export async function setSiteMediaImage(
     previousStoragePath:
       previous?.source === "STORAGE" ? previous.storagePath : null,
   };
+}
+
+/**
+ * Sube o reemplaza la variante de TELÉFONO.
+ *
+ * Si el slot todavía no tenía fila se materializa conservando la fotografía
+ * heredada como escritorio: añadir una composición vertical no puede
+ * significar perder la que ya se veía.
+ */
+export async function setSiteMediaMobileImage(
+  key: string,
+  image: UploadedFacts & { focal: FocalPoint },
+): Promise<{ previousStoragePath: string | null }> {
+  const slot = await requireSlot(key);
+  const previous = await prisma.siteMedia.findUnique({
+    where: { key },
+    select: { mobileStoragePath: true },
+  });
+
+  const focal = roundFocal(normalizeFocal(image.focal));
+  const data = {
+    mobileUrl: image.url,
+    mobileStoragePath: image.storagePath,
+    mobileWidth: image.size?.width ?? null,
+    mobileHeight: image.size?.height ?? null,
+    mobileBytes: image.bytes,
+    mobileContentType: image.contentType,
+    mobileFocalX: focal.x,
+    mobileFocalY: focal.y,
+  };
+
+  await prisma.siteMedia.upsert({
+    where: { key },
+    create: {
+      key,
+      url: slot.legacySrc,
+      storagePath: null,
+      source: "LEGACY",
+      alt: slot.legacyAlt,
+      ...data,
+    },
+    update: data,
+  });
+
+  return { previousStoragePath: previous?.mobileStoragePath ?? null };
+}
+
+/**
+ * Quita la variante de teléfono.
+ *
+ * El slot vuelve solo al respaldo: la fotografía de escritorio con el
+ * encuadre de teléfono, que es exactamente lo que había antes de subirla. El
+ * encuadre NO se borra — describe cómo se ve en vertical y sigue sirviendo.
+ */
+export async function clearSiteMediaMobileImage(
+  key: string,
+): Promise<{ previousStoragePath: string | null }> {
+  const existing = await prisma.siteMedia.findUnique({
+    where: { key },
+    select: { mobileStoragePath: true, mobileUrl: true },
+  });
+  if (!existing?.mobileUrl) return { previousStoragePath: null };
+
+  await prisma.siteMedia.update({
+    where: { key },
+    data: {
+      mobileUrl: null,
+      mobileStoragePath: null,
+      mobileWidth: null,
+      mobileHeight: null,
+      mobileBytes: null,
+      mobileContentType: null,
+    },
+  });
+
+  return { previousStoragePath: existing.mobileStoragePath };
+}
+
+/** Materializa la fila de un slot que sigue con su fotografía original. */
+async function materialize(slot: SiteMediaSlot, alt?: string) {
+  return prisma.siteMedia.create({
+    data: {
+      key: slot.key,
+      url: slot.legacySrc,
+      storagePath: null,
+      source: "LEGACY",
+      alt: alt ?? slot.legacyAlt,
+    },
+  });
 }
 
 /** Cambia solo el texto alternativo, sin tocar el archivo. */
@@ -204,15 +365,7 @@ export async function setSiteMediaAlt(key: string, alt: string): Promise<void> {
 
   // El slot sigue con su imagen original y solo se está corrigiendo el texto:
   // se materializa la fila conservando la imagen heredada.
-  await prisma.siteMedia.create({
-    data: {
-      key,
-      url: slot.legacySrc,
-      storagePath: null,
-      source: "LEGACY",
-      alt,
-    },
-  });
+  await materialize(slot, alt);
 }
 
 /**
@@ -223,20 +376,26 @@ export async function setSiteMediaAlt(key: string, alt: string): Promise<void> {
  * materializa la fila conservándola —igual que al corregir el texto
  * alternativo—, porque encuadrar la imagen heredada es tan legítimo como
  * encuadrar una subida.
+ *
+ * `variant` decide cuál de los dos encuadres se guarda. El de teléfono se
+ * puede ajustar aunque no haya variante propia: entonces describe cómo se
+ * recorta en vertical la fotografía de escritorio, que es el caso más común.
  */
 export async function setSiteMediaFocal(
   key: string,
   focal: FocalPoint,
+  variant: "desktop" | "mobile" = "desktop",
 ): Promise<void> {
   const slot = await requireSlot(key);
   const value = roundFocal(normalizeFocal(focal));
-  const existing = await prisma.siteMedia.findUnique({ where: { key } });
+  const data =
+    variant === "mobile"
+      ? { mobileFocalX: value.x, mobileFocalY: value.y }
+      : { focalX: value.x, focalY: value.y };
 
+  const existing = await prisma.siteMedia.findUnique({ where: { key } });
   if (existing) {
-    await prisma.siteMedia.update({
-      where: { key },
-      data: { focalX: value.x, focalY: value.y },
-    });
+    await prisma.siteMedia.update({ where: { key }, data });
     return;
   }
 
@@ -247,8 +406,7 @@ export async function setSiteMediaFocal(
       storagePath: null,
       source: "LEGACY",
       alt: slot.legacyAlt,
-      focalX: value.x,
-      focalY: value.y,
+      ...data,
     },
   });
 }
@@ -259,10 +417,10 @@ export async function setSiteMediaFocal(
  */
 export async function resetSiteMedia(
   key: string,
-): Promise<{ previousStoragePath: string | null }> {
+): Promise<{ previousStoragePaths: string[] }> {
   const slot = await requireSlot(key);
   const existing = await prisma.siteMedia.findUnique({ where: { key } });
-  if (!existing) return { previousStoragePath: null };
+  if (!existing) return { previousStoragePaths: [] };
 
   await prisma.siteMedia.update({
     where: { key },
@@ -277,11 +435,27 @@ export async function resetSiteMedia(
       // esta.
       focalX: CENTER_FOCAL.x,
       focalY: CENTER_FOCAL.y,
+      width: null,
+      height: null,
+      bytes: null,
+      contentType: null,
+      // Y también la variante de teléfono: restaurar deja el slot como
+      // estaba, no a medias.
+      mobileUrl: null,
+      mobileStoragePath: null,
+      mobileWidth: null,
+      mobileHeight: null,
+      mobileBytes: null,
+      mobileContentType: null,
+      mobileFocalX: CENTER_FOCAL.x,
+      mobileFocalY: CENTER_FOCAL.y,
     },
   });
 
   return {
-    previousStoragePath:
+    previousStoragePaths: [
       existing.source === "STORAGE" ? existing.storagePath : null,
+      existing.mobileStoragePath,
+    ].filter((path): path is string => path !== null),
   };
 }

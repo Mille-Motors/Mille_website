@@ -43,10 +43,13 @@ export const SITE_DESCRIPTION =
   "MILLE es una House of Motor Culture en Bogotá. Carros y motos seleccionados, cultura automotriz y una experiencia construida alrededor de las máquinas.";
 
 /**
- * La imagen que acompaña a cada enlace compartido. Es una fotografía que ya
- * está en el repositorio —la misma del hero de contacto y de la 404—, no una
- * generada para esto: apaisada, 1800 px de ancho, que es lo que piden las
- * previsualizaciones. Las fichas de vehículo la sustituyen por su foto real.
+ * El RESPALDO de la imagen que acompaña a un enlace compartido.
+ *
+ * La de verdad vive en el espacio administrable `seo.defaultOg` y se
+ * resuelve con `defaultOgImages()`. Esta constante es lo que se sirve si la
+ * base no responde: un enlace sin imagen es peor que una imagen vieja.
+ *
+ * Las fichas de vehículo la sustituyen por su fotografía real.
  */
 export const OG_IMAGE = {
   url: absoluteUrl("/images/brand/night.jpg"),

@@ -1,5 +1,5 @@
+import { SiteMediaPicture } from "@/components/media/SiteMediaPicture";
 import type { Metadata } from "next";
-import Image from "next/image";
 import { ArrowRight, Mail, MapPin } from "lucide-react";
 import { ButtonArrow, ButtonLink, WhatsappButtonLink } from "@/components/ui/Button";
 import { InstagramIcon, WhatsappIcon } from "@/components/ui/BrandIcons";
@@ -8,25 +8,28 @@ import { ContactForm } from "@/components/forms/ContactForm";
 import { site } from "@/data/site";
 import { canonical, socialMetadata } from "@/lib/seo";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
-import { objectPosition } from "@/lib/focal-point";
 import { getSiteMediaImage } from "@/server/site-media/service";
 import { getVehicles } from "@/lib/vehicles";
 import { REVEAL } from "@/lib/reveal";
+import { defaultOgImages } from "@/server/site-media/og";
 
 const CONTACT_TITLE = "Contacto";
 const CONTACT_DESCRIPTION =
   "Escríbenos. MILLE es una House of Motor Culture en Bogotá: cuéntanos qué estás buscando y coordinamos el siguiente paso.";
 
-export const metadata: Metadata = {
-  title: CONTACT_TITLE,
-  description: CONTACT_DESCRIPTION,
-  alternates: canonical("/contacto"),
-  ...socialMetadata({
-    title: `${CONTACT_TITLE} | ${site.name}`,
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: CONTACT_TITLE,
     description: CONTACT_DESCRIPTION,
-    path: "/contacto",
-  }),
-};
+    alternates: canonical("/contacto"),
+    ...socialMetadata({
+      images: await defaultOgImages(),
+      title: `${CONTACT_TITLE} | ${site.name}`,
+      description: CONTACT_DESCRIPTION,
+      path: "/contacto",
+    }),
+  };
+}
 
 const channels = [
   {
@@ -174,15 +177,12 @@ export default async function ContactPage() {
           </div>
 
           <div className="relative aspect-4/3 w-full overflow-hidden rounded-xl bg-charcoal">
-            <Image
-              src={heroImage.src}
-              alt={heroImage.alt}
-              fill
+            <SiteMediaPicture
+              image={heroImage}
               priority
               sizes="(min-width: 1024px) 45vw, 92vw"
               quality={90}
               className="photo-grade hero-settle object-cover"
-              style={{ objectPosition: objectPosition(heroImage.focal) }}
             />
           </div>
         </div>

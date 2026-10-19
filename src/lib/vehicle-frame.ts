@@ -1,4 +1,5 @@
 import { CENTER_FOCAL, type FocalPoint } from "@/lib/focal-point";
+import { MIN_IMAGE_HEIGHT, MIN_IMAGE_WIDTH } from "@/lib/image-dimensions";
 import type { SiteMediaFrames } from "@/lib/site-media";
 
 /**
@@ -35,7 +36,14 @@ export const VEHICLE_FRAME_CLASS = "aspect-[4/3]";
  * en escritorio. Con un solo marco, el editor esconde el selector solo.
  */
 export const VEHICLE_FRAMES: SiteMediaFrames = {
-  desktop: { label: "Horizontal", ratio: VEHICLE_FRAME_RATIO },
+  desktop: {
+    label: "Horizontal",
+    ratio: VEHICLE_FRAME_RATIO,
+    // Los mismos números que la escalera de calidad de `image-quality`: lo
+    // que sale de una cámara, no el tamaño de un hueco.
+    recommended: { width: 3000, height: 2250 },
+    minimum: { width: MIN_IMAGE_WIDTH, height: MIN_IMAGE_HEIGHT },
+  },
   mobile: null,
 };
 

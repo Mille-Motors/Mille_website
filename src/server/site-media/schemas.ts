@@ -33,7 +33,16 @@ export const siteMediaPatchSchema = z
   .object({
     alt: siteMediaAltSchema.optional(),
     focal: focalSchema.optional(),
+    /**
+     * El encuadre de teléfono. Se puede guardar sin variante propia: con una
+     * sola fotografía sigue siendo útil decir qué parte se ve en vertical.
+     */
+    mobileFocal: focalSchema.optional(),
   })
-  .refine((value) => value.alt !== undefined || value.focal !== undefined, {
-    message: "No hay nada que cambiar.",
-  });
+  .refine(
+    (value) =>
+      value.alt !== undefined ||
+      value.focal !== undefined ||
+      value.mobileFocal !== undefined,
+    { message: "No hay nada que cambiar." },
+  );

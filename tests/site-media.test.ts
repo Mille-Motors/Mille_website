@@ -21,7 +21,7 @@ import {
  * escribir filas que ninguna página lee.
  */
 describe("registro de slots", () => {
-  it("son exactamente los ocho documentados", () => {
+  it("son exactamente los catorce documentados", () => {
     assert.deepEqual(
       SITE_MEDIA_SLOTS.map((slot) => slot.key),
       [
@@ -33,6 +33,14 @@ describe("registro de slots", () => {
         "home.about.future",
         "contact.hero",
         "error.404",
+        // El menú dejó de depender de los assets de otros espacios.
+        "nav.vehicles",
+        "nav.mille",
+        "nav.sell",
+        "nav.culture",
+        "nav.contact",
+        // Y compartir un enlace dejó de depender de la foto de contacto.
+        "seo.defaultOg",
       ],
     );
   });
@@ -42,7 +50,7 @@ describe("registro de slots", () => {
     assert.ok(contact);
     assert.equal(contact.legacySrc, "/images/brand/night.jpg");
     assert.equal(contact.legacyAlt, "Vehículo de MILLE fotografiado de noche");
-    assert.deepEqual(legacyImage(contact).focal, { x: 50, y: 50 });
+    assert.deepEqual(legacyImage(contact).desktop.focal, { x: 50, y: 50 });
   });
 
   it("cada slot trae su imagen de respaldo y su texto", () => {
@@ -57,9 +65,12 @@ describe("registro de slots", () => {
   it("el respaldo apunta a la imagen original y se marca como heredada", () => {
     const hero = getSlot("home.hero")!;
     const image = legacyImage(hero);
-    assert.equal(image.src, "/images/brand/hero.jpg");
-    assert.equal(image.source, "legacy");
+    assert.equal(image.desktop.src, "/images/brand/hero.jpg");
+    assert.equal(image.desktop.source, "legacy");
     assert.equal(image.alt, hero.legacyAlt);
+    // Sin variante propia, pero con su encuadre vertical listo.
+    assert.equal(image.mobile, null);
+    assert.deepEqual(image.mobileFocal, { x: 50, y: 50 });
   });
 
   it("reconoce los slots conocidos y solo esos", () => {
@@ -88,9 +99,19 @@ describe("validación del endpoint", () => {
     assert.throws(() => siteMediaAltSchema.parse("x".repeat(400)));
   });
 
-  it("el patch solo admite el texto alternativo", () => {
+  it("el patch admite texto y los dos encuadres", () => {
     const parsed = siteMediaPatchSchema.parse({ alt: "Una fotografía" });
     assert.equal(parsed.alt, "Una fotografía");
+    assert.equal(
+      siteMediaPatchSchema.safeParse({ focal: { x: 10, y: 20 } }).success,
+      true,
+    );
+    // El encuadre de teléfono se puede guardar solo: es el caso normal
+    // cuando no hay variante propia.
+    assert.equal(
+      siteMediaPatchSchema.safeParse({ mobileFocal: { x: 50, y: 20 } }).success,
+      true,
+    );
     assert.throws(() => siteMediaPatchSchema.parse({}));
   });
 });
@@ -110,7 +131,7 @@ describe("la fotografía del 404", () => {
 
   it("nace centrada, como todas", () => {
     assert.ok(slot);
-    assert.deepEqual(legacyImage(slot).focal, { x: 50, y: 50 });
+    assert.deepEqual(legacyImage(slot).desktop.focal, { x: 50, y: 50 });
   });
 
   it("es decorativa: se publica sin texto alternativo", () => {
@@ -124,14 +145,26 @@ describe("la fotografía del 404", () => {
     assert.ok(slot.frames.desktop.ratio > 0);
   });
 
-  it("declara un ancho recomendado utilizable", () => {
+  it("declara unas medidas utilizables", () => {
     for (const each of SITE_MEDIA_SLOTS) {
-      assert.ok(
-        Number.isInteger(each.recommendedWidth) &&
-          each.recommendedWidth >= 1200 &&
-          each.recommendedWidth <= 4000,
-        `${each.key}: ${each.recommendedWidth}`,
-      );
+      for (const frame of [each.frames.desktop, each.frames.mobile]) {
+        if (!frame) continue;
+        assert.ok(frame.ratio > 0, `${each.key}: proporción`);
+        // Lo recomendado tiene que ser mayor que el mínimo o el escalón no
+        // significa nada, y los dos tienen que respetar la proporción.
+        assert.ok(
+          frame.recommended.width >= frame.minimum.width &&
+            frame.recommended.height >= frame.minimum.height,
+          `${each.key}: recomendado por debajo del mínimo`,
+        );
+        for (const size of [frame.recommended, frame.minimum]) {
+          const declared = size.width / size.height;
+          assert.ok(
+            Math.abs(declared - frame.ratio) / frame.ratio < 0.05,
+            `${each.key}: ${size.width}×${size.height} no es ${frame.ratio}`,
+          );
+        }
+      }
     }
   });
 });

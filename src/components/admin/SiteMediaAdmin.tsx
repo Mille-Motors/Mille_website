@@ -1,127 +1,41 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Crosshair, RotateCcw, Upload } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { FocalPointEditor } from "@/components/admin/FocalPointEditor";
+import { SiteMediaVariantPanel } from "@/components/admin/SiteMediaVariantPanel";
 import { Button } from "@/components/ui/Button";
-import { adminJson, adminRequest } from "@/lib/admin-client";
+import { adminJson } from "@/lib/admin-client";
 import { cn } from "@/lib/cn";
-import {
-  CENTER_FOCAL,
-  roundFocal,
-  sameFocal,
-  type FocalPoint,
-} from "@/lib/focal-point";
 import { formatDate } from "@/lib/format";
 import type { SiteMediaEntry } from "@/types/site-media";
 
-const MAX_BYTES = 10 * 1024 * 1024;
-const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "image/avif"];
-
 /**
- * Una tarjeta por slot. Cada una enseña la imagen que está viva ahora mismo,
- * de dónde sale y qué proporción ocupa en la página, porque recortar bien una
- * fotografía es la mitad del trabajo.
+ * Una tarjeta por espacio. Cada una enseña lo que está vivo ahora mismo, de
+ * dónde sale y qué resolución necesita, porque recortar bien una fotografía
+ * es la mitad del trabajo y tener resolución de sobra es la otra mitad.
  *
- * El archivo elegido se previsualiza antes de subirlo: cambiar la portada del
- * sitio no debería ser un acto de fe.
+ * Los espacios con dos composiciones —la portada y «Vende con MILLE»— se
+ * ven aquí uno al lado del otro: la pregunta útil no es «¿se ve bien?» sino
+ * «¿se ve bien en los dos sitios?», y esa solo se puede contestar mirando
+ * las dos a la vez.
  */
 function SlotCard({ slot }: { slot: SiteMediaEntry }) {
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
   const [alt, setAlt] = useState(slot.alt);
-  const [focal, setFocal] = useState<FocalPoint>(slot.focal);
-  const [natural, setNatural] = useState<{ width: number; height: number } | null>(
-    null,
-  );
-  const [busy, setBusy] = useState<null | "upload" | "alt" | "focal" | "reset">(
-    null,
-  );
+  const [busy, setBusy] = useState<null | "alt" | "reset">(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
-  function choose(selected: File | null) {
+  const endpoint = `/api/admin/site-media/${encodeURIComponent(slot.key)}`;
+  const changed = slot.desktop.source === "storage" || slot.mobile !== null;
+  const mobileFrame = slot.frames.mobile;
+
+  function saved(message: string) {
+    setDone(message);
     setError(null);
-    setDone(null);
-    if (!selected) return;
-    if (!ACCEPTED.includes(selected.type)) {
-      setError("Solo JPG, PNG, WebP o AVIF.");
-      return;
-    }
-    if (selected.size > MAX_BYTES) {
-      setError("La imagen debe pesar menos de 10 MB.");
-      return;
-    }
-    if (preview) URL.revokeObjectURL(preview);
-    setFile(selected);
-    setPreview(URL.createObjectURL(selected));
-  }
-
-  function discard() {
-    if (preview) URL.revokeObjectURL(preview);
-    setFile(null);
-    setPreview(null);
-    // El encuadre que se estuviera ajustando describía el archivo que se
-    // acaba de descartar. Se vuelve al de la imagen que sigue publicada.
-    setFocal(slot.focal);
-  }
-
-  async function upload() {
-    if (!file || busy) return;
-    setBusy("upload");
-    setError(null);
-    setDone(null);
-
-    const chosen = roundFocal(focal);
-    const form = new FormData();
-    form.append("file", file);
-    form.append("alt", alt.trim() || slot.alt);
-    // Subir y encuadrar son un solo gesto: la imagen nueva llega ya con la
-    // parte que se quiere ver, sin un segundo guardado.
-    form.append("focal", JSON.stringify(chosen));
-
-    const result = await adminRequest(
-      `/api/admin/site-media/${encodeURIComponent(slot.key)}`,
-      { method: "POST", body: form },
-    );
-    setBusy(null);
-
-    if (!result.ok) {
-      setError(result.message);
-      return;
-    }
-    if (preview) URL.revokeObjectURL(preview);
-    setFile(null);
-    setPreview(null);
-    setFocal(chosen);
-    setDone("Imagen y encuadre actualizados. Ya se ven en el sitio.");
-    router.refresh();
-  }
-
-  async function saveFocal() {
-    if (busy || focalSaved) return;
-    setBusy("focal");
-    setError(null);
-    setDone(null);
-    const chosen = roundFocal(focal);
-    const result = await adminJson(
-      `/api/admin/site-media/${encodeURIComponent(slot.key)}`,
-      "PATCH",
-      { focal: chosen },
-    );
-    setBusy(null);
-    if (!result.ok) {
-      setError(result.message);
-      return;
-    }
-    setFocal(chosen);
-    setDone("Encuadre guardado. Ya se ve así en la página.");
     router.refresh();
   }
 
@@ -130,18 +44,13 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
     setBusy("alt");
     setError(null);
     setDone(null);
-    const result = await adminJson(
-      `/api/admin/site-media/${encodeURIComponent(slot.key)}`,
-      "PATCH",
-      { alt: alt.trim() },
-    );
+    const result = await adminJson(endpoint, "PATCH", { alt: alt.trim() });
     setBusy(null);
     if (!result.ok) {
       setError(result.message);
       return;
     }
-    setDone("Texto alternativo guardado.");
-    router.refresh();
+    saved("Texto alternativo guardado.");
   }
 
   async function reset() {
@@ -149,70 +58,56 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
     setBusy("reset");
     setError(null);
     setDone(null);
-    const result = await adminJson(
-      `/api/admin/site-media/${encodeURIComponent(slot.key)}`,
-      "DELETE",
-    );
+    const result = await adminJson(endpoint, "DELETE");
     setBusy(null);
     if (!result.ok) {
       setError(result.message);
       return;
     }
-    if (preview) URL.revokeObjectURL(preview);
-    setFile(null);
-    setPreview(null);
     setAlt(slot.alt);
-    setFocal({ ...CENTER_FOCAL });
-    setDone("Slot devuelto a su fotografía original, centrada.");
-    router.refresh();
+    saved("Espacio devuelto a su fotografía original, centrada.");
   }
-
-  const changed = slot.source === "storage";
-  const focalSaved = sameFocal(focal, slot.focal);
 
   return (
     <section
       className={cn(
-        "grid gap-6 border border-stone bg-paper p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]",
+        "border border-stone bg-paper p-5 sm:p-7",
         busy && "opacity-60",
       )}
       aria-busy={busy !== null}
     >
-      <div>
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
           <h2 className="font-display text-2xl text-ink">{slot.label}</h2>
-          <span
-            className={cn(
-              "label-caps rounded-xs border px-2.5 py-1.5 text-[10px]",
-              changed
-                ? "border-status-available/30 bg-status-available/10 text-status-available"
-                : "border-stone-strong/40 bg-sand text-ink-muted",
-            )}
-          >
-            {changed ? "Personalizada" : "Original"}
-          </span>
+          <p className="label-caps mt-1.5 text-ink-muted">{slot.key}</p>
         </div>
+        <span
+          className={cn(
+            "label-caps rounded-xs border px-2.5 py-1.5 text-[10px]",
+            changed
+              ? "border-status-available/30 bg-status-available/10 text-status-available"
+              : "border-stone-strong/40 bg-sand text-ink-muted",
+          )}
+        >
+          {changed ? "Personalizada" : "Original"}
+        </span>
+      </div>
 
-        <p className="mt-3 font-serif text-[0.9375rem] leading-relaxed text-ink-soft">
-          {slot.description}
+      <p className="mt-3 max-w-2xl font-serif text-[0.9375rem] leading-relaxed text-ink-soft">
+        {slot.description}
+      </p>
+      <p className="mt-2 max-w-2xl text-xs text-ink-muted">{slot.aspect}</p>
+      {slot.updatedAt ? (
+        <p className="mt-2 text-xs text-ink-muted">
+          Última actualización: {formatDate(slot.updatedAt)}
         </p>
-        <p className="mt-2 text-xs text-ink-muted">{slot.aspect}</p>
-        {slot.updatedAt ? (
-          <p className="mt-2 text-xs text-ink-muted">
-            Última actualización: {formatDate(slot.updatedAt)}
-          </p>
-        ) : null}
+      ) : null}
 
-        {/* Una fotografía decorativa se sirve con alt vacío a propósito, así
-            que ofrecer el campo sería ofrecer un control que no cambia nada. */}
-        {slot.decorative ? (
-          <p className="mt-6 text-xs text-ink-muted">
-            Esta fotografía es decorativa: acompaña a un texto que ya lo explica
-            todo, así que se publica sin texto alternativo para no alargar el
-            camino de quien usa un lector de pantalla.
-          </p>
-        ) : (
-          <label className="mt-6 grid gap-2">
+      {/* Una fotografía decorativa se sirve con alt vacío a propósito, así
+          que ofrecer el campo sería ofrecer un control que no cambia nada. */}
+      {slot.decorative ? null : (
+        <div className="mt-5 max-w-2xl">
+          <label className="grid gap-2">
             <span className="label-caps text-ink-soft">Texto alternativo</span>
             <textarea
               value={alt}
@@ -225,10 +120,7 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
               nombre del archivo.
             </span>
           </label>
-        )}
-
-        <div className="mt-4 flex flex-wrap gap-3">
-          {slot.decorative ? null : (
+          <div className="mt-3">
             <Button
               type="button"
               variant="ghost"
@@ -240,177 +132,128 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
             >
               {busy === "alt" ? "Guardando…" : "Guardar texto"}
             </Button>
-          )}
-          {changed ? (
-            <ConfirmButton
-              question="Se volverá a la fotografía original del sitio y la que subiste se eliminará definitivamente."
-              confirmLabel="Sí, restaurar"
-              disabled={busy !== null}
-              onConfirm={() => void reset()}
-              className="label-caps inline-flex h-9 items-center justify-center gap-2.5 rounded-xs border border-stone px-4 text-[10px] text-ink transition-colors hover:border-ink/40 disabled:pointer-events-none disabled:opacity-50"
-            >
-              <RotateCcw aria-hidden className="size-3.5" strokeWidth={1.5} />
-              {busy === "reset" ? "Restaurando…" : "Restaurar original"}
-            </ConfirmButton>
-          ) : null}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div>
-        <p className="label-caps mb-3 text-ink-soft">
-          {preview ? "Vista previa del archivo elegido" : "Imagen actual"}
-        </p>
-
-        <FocalPointEditor
-          src={preview ?? slot.src}
-          alt={preview ? "Vista previa" : slot.alt}
-          frames={slot.frames}
-          focal={focal}
-          onChange={setFocal}
-          onNatural={setNatural}
-          unoptimized={Boolean(preview)}
+      <div
+        className={cn(
+          "mt-7 grid gap-7 border-t border-stone pt-6",
+          mobileFrame && "lg:grid-cols-2 lg:gap-x-10",
+        )}
+      >
+        <SiteMediaVariantPanel
+          slotKey={slot.key}
+          variant="desktop"
+          frame={slot.frames.desktop}
+          file={slot.desktop}
+          focal={slot.desktop.focal}
+          inherited={false}
+          recommendedVariant={false}
           disabled={busy !== null}
+          onSaved={saved}
         />
 
-        {/* El aviso que faltaba. Una fotografía por debajo de este ancho se
-            estira para cubrir el hueco, y eso se ve blando en pantallas
-            Retina por mucho que se suba la calidad de compresión: los
-            píxeles no están. Es lo único que no se puede arreglar desde el
-            código. */}
-        {natural ? (
-          natural.width < slot.recommendedWidth ? (
-            <p className="mt-3 text-xs text-burgundy">
-              Esta fotografía mide {natural.width} px de ancho y este espacio
-              necesita al menos {slot.recommendedWidth} px para verse nítida en
-              pantallas Retina. Se verá algo blanda.
-            </p>
-          ) : (
-            <p className="mt-3 text-xs text-ink-muted">
-              {natural.width} × {natural.height} px. Resolución suficiente para
-              este espacio.
-            </p>
-          )
+        {/* Sin marco de teléfono el espacio recorta igual en los dos
+            tamaños: no hay segunda composición que revisar ni variante que
+            subir, y ofrecerla sería inventar una decisión. */}
+        {mobileFrame ? (
+          <SiteMediaVariantPanel
+            slotKey={slot.key}
+            variant="mobile"
+            frame={mobileFrame}
+            file={slot.mobile ?? slot.desktop}
+            focal={slot.mobileFocal}
+            inherited={slot.mobile === null}
+            recommendedVariant={slot.mobileVariantRecommended}
+            disabled={busy !== null}
+            onSaved={saved}
+          />
         ) : null}
-
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={busy !== null || sameFocal(focal, CENTER_FOCAL)}
-            onClick={() => setFocal({ ...CENTER_FOCAL })}
-          >
-            <Crosshair aria-hidden className="size-3.5" strokeWidth={1.5} />
-            Centrar imagen
-          </Button>
-
-          {/* Con un archivo elegido no hay dos guardados: el encuadre viaja
-              con la imagen y ofrecer un botón aparte invitaría a guardar un
-              encuadre de una fotografía que todavía no está subida. */}
-          {preview ? (
-            <span className="text-xs text-ink-muted">
-              El encuadre se guarda junto con la imagen.
-            </span>
-          ) : (
-            <>
-              <Button
-                type="button"
-                size="sm"
-                disabled={busy !== null || focalSaved}
-                onClick={() => void saveFocal()}
-              >
-                {busy === "focal" ? "Guardando…" : "Guardar encuadre"}
-              </Button>
-              {focalSaved ? null : (
-                <span className="label-caps rounded-xs border border-burgundy/30 bg-burgundy/5 px-2.5 py-1.5 text-[10px] text-burgundy">
-                  Ajuste sin guardar
-                </span>
-              )}
-            </>
-          )}
-        </div>
-
-        <input
-          ref={inputRef}
-          type="file"
-          accept={ACCEPTED.join(",")}
-          className="sr-only"
-          onChange={(event) => {
-            choose(event.target.files?.[0] ?? null);
-            event.target.value = "";
-          }}
-        />
-
-        <div className="mt-4 flex flex-wrap gap-3">
-          {preview ? (
-            <>
-              <Button
-                type="button"
-                size="sm"
-                disabled={busy !== null}
-                onClick={() => void upload()}
-              >
-                <Check aria-hidden className="size-3.5" strokeWidth={1.6} />
-                {busy === "upload" ? "Subiendo…" : "Guardar imagen"}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={busy !== null}
-                onClick={discard}
-              >
-                Descartar
-              </Button>
-            </>
-          ) : (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={busy !== null}
-              onClick={() => inputRef.current?.click()}
-            >
-              <Upload aria-hidden className="size-3.5" strokeWidth={1.5} />
-              Cambiar imagen
-            </Button>
-          )}
-        </div>
-
-        <p className="mt-3 text-xs text-ink-muted">
-          JPG, PNG, WebP o AVIF. Máx. 10 MB. Para este espacio, al menos{" "}
-          {slot.recommendedWidth} px de ancho.
-        </p>
-
-        {error ? (
-          <p role="alert" className="mt-3 text-xs text-burgundy">
-            {error}
-          </p>
-        ) : null}
-        {done ? <p className="mt-3 text-xs text-ink-muted">{done}</p> : null}
       </div>
+
+      <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-stone pt-5">
+        <p className="mr-auto text-xs text-ink-muted">
+          JPG, PNG, WebP o AVIF. Máx. 25 MB. El archivo se guarda entero: el
+          recorte es solo de presentación.
+        </p>
+        {changed ? (
+          <ConfirmButton
+            question="Se volverá a la fotografía original del sitio y las que subiste se eliminarán definitivamente, incluida la variante de teléfono."
+            confirmLabel="Sí, restaurar"
+            disabled={busy !== null}
+            onConfirm={() => void reset()}
+            className="label-caps inline-flex h-9 items-center justify-center gap-2.5 rounded-xs border border-stone px-4 text-[10px] text-ink transition-colors hover:border-ink/40 disabled:pointer-events-none disabled:opacity-50"
+          >
+            <RotateCcw aria-hidden className="size-3.5" strokeWidth={1.5} />
+            {busy === "reset" ? "Restaurando…" : "Restaurar original"}
+          </ConfirmButton>
+        ) : null}
+      </div>
+
+      {error ? (
+        <p role="alert" className="mt-3 text-xs text-burgundy">
+          {error}
+        </p>
+      ) : null}
+      {done ? <p className="mt-3 text-xs text-ink-muted">{done}</p> : null}
     </section>
   );
 }
+
+/** Los espacios agrupados como se piensan, no como están en el array. */
+const GROUPS: { title: string; hint: string; match: (key: string) => boolean }[] =
+  [
+    {
+      title: "Páginas",
+      hint: "Las fotografías grandes de la home, contacto y la página de error.",
+      match: (key) => key.startsWith("home.") || key.startsWith("contact.") || key.startsWith("error."),
+    },
+    {
+      title: "Menú",
+      hint: "La fotografía que acompaña a cada enlace al abrir el menú en escritorio. Cada una es independiente.",
+      match: (key) => key.startsWith("nav."),
+    },
+    {
+      title: "Compartir",
+      hint: "Lo que se ve al pegar un enlace del sitio en WhatsApp o redes.",
+      match: (key) => key.startsWith("seo."),
+    },
+  ];
 
 export function SiteMediaAdmin({ media }: { media: SiteMediaEntry[] }) {
   return (
     <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
       <AdminPageHeader
         title="Imágenes del sitio"
-        subtitle="Las fotografías de la home que no pertenecen a ningún vehículo"
+        subtitle="Todas las fotografías que no pertenecen a un vehículo"
       />
 
       <p className="mb-8 max-w-2xl font-serif text-[0.9375rem] leading-relaxed text-ink-soft">
-        Estos cuatro espacios están definidos en el diseño del sitio. Puedes
-        cambiar la fotografía de cada uno y su texto alternativo; el cambio se
-        ve en el sitio público de inmediato, sin volver a publicar.
+        Estos espacios están definidos en el diseño. Puedes cambiar la
+        fotografía de cada uno, su encuadre y su texto alternativo; el cambio
+        se ve en el sitio público de inmediato, sin volver a publicar. El
+        archivo se guarda tal como lo subes: el recorte nunca lo modifica.
       </p>
 
-      <div className="grid gap-6">
-        {media.map((slot) => (
-          <SlotCard key={slot.key} slot={slot} />
-        ))}
+      <div className="grid gap-10">
+        {GROUPS.map((group) => {
+          const slots = media.filter((slot) => group.match(slot.key));
+          if (slots.length === 0) return null;
+          return (
+            <div key={group.title}>
+              <h2 className="font-display text-xl text-ink">{group.title}</h2>
+              <p className="mt-1.5 mb-5 max-w-2xl text-xs text-ink-muted">
+                {group.hint}
+              </p>
+              <div className="grid gap-6">
+                {slots.map((slot) => (
+                  <SlotCard key={slot.key} slot={slot} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

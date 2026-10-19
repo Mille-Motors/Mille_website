@@ -2,12 +2,13 @@ import { CENTER_FOCAL, type FocalPoint } from "@/lib/focal-point";
 import type { SiteMediaSource } from "@/types/site-media";
 
 /**
- * Los cuatro slots visuales estructurales del sitio público.
+ * Los espacios fotográficos del sitio público.
  *
- * La lista no se inventa aquí: viene de docs/FRONTEND_VISUAL_TODO.md, donde
- * quedó anotada como requisito pendiente "cuando exista backend". Son las
- * cuatro fotografías de la home que no pertenecen a ningún vehículo del
- * inventario, sino a la identidad del sitio.
+ * Este archivo es la ÚNICA fuente de verdad del sistema de imágenes: de aquí
+ * salen a la vez las recomendaciones del Admin, las validaciones del
+ * servidor, los marcos del editor de encuadre y los `sizes` que el frontend
+ * declara. Que estuvieran en dos sitios es lo que permitió que el Admin
+ * pidiera 1.300 px para un hueco que ya necesitaba 2.048.
  *
  * No es un CMS. Las claves son fijas y viven en el código: el admin puede
  * cambiar la fotografía de un slot, no crear slots nuevos ni renombrarlos.
@@ -15,19 +16,69 @@ import type { SiteMediaSource } from "@/types/site-media";
  *
  * `legacySrc` es la imagen con la que el sitio se construyó, y sigue siendo
  * la red de seguridad: si falta la fila o la base no responde, el slot cae a
- * ella. Aquí sí es correcto —el archivo es parte del código del sitio— al
+ * ella. Aquí sí es correcto —el archivo es parte del repositorio— al
  * contrario que con el inventario, donde inventar vehículos escondería una
  * caída de producción.
+ *
+ * Dos slots pueden arrancar apuntando al mismo archivo de `/public` y seguir
+ * siendo independientes: el respaldo es un valor inicial, no un vínculo.
+ * Cambiar `nav.contact` no toca `contact.hero` aunque hoy enseñen la misma
+ * fotografía.
  */
+
+/** Ancho y alto en píxeles. */
+export interface PixelSize {
+  width: number;
+  height: number;
+}
+
+/**
+ * Un marco real del sitio: la forma en que una página recorta la fotografía
+ * y qué resolución hace falta para llenarlo sin estirar nada.
+ *
+ * `ratio` es ancho/alto y describe la COMPOSICIÓN, no una caja rígida: el
+ * contenedor puede crecer o encoger con el viewport mientras el recorte
+ * mantenga esa proporción.
+ *
+ * `recommended` es lo que hay que buscar; `minimum`, lo que se acepta sin
+ * que la fotografía se vea blanda en una pantalla Retina. Los dos salen del
+ * ancho real del hueco multiplicado por 2, redondeado a algo que se pueda
+ * pedir en una sesión de fotos.
+ */
+export interface SiteMediaFrame {
+  label: string;
+  /** Ancho / alto. */
+  ratio: number;
+  recommended: PixelSize;
+  minimum: PixelSize;
+}
+
+/**
+ * Los dos marcos de un slot.
+ *
+ * `mobile` en `null` significa que el teléfono recorta IGUAL que el
+ * escritorio —la mayoría de los slots—, así que no hay segunda composición
+ * que revisar ni variante que subir. Cuando existe, el teléfono tiene su
+ * propia forma y conviene una fotografía pensada para ella.
+ */
+export interface SiteMediaFrames {
+  desktop: SiteMediaFrame;
+  mobile: SiteMediaFrame | null;
+}
+
 export interface SiteMediaSlot {
   key: string;
   label: string;
   /** Dónde se ve, en lenguaje de quien administra. */
   description: string;
-  /** Proporción que ocupa en la página, para orientar el recorte. */
+  /** Una frase sobre la composición, para orientar la sesión de fotos. */
   aspect: string;
-  /** Los marcos reales en los que se recorta. Ver `SiteMediaFrames`. */
   frames: SiteMediaFrames;
+  /**
+   * El teléfono recorta tan distinto que una sola fotografía no puede
+   * resolver bien las dos composiciones. El Admin lo dice en voz alta.
+   */
+  mobileVariantRecommended: boolean;
   /**
    * La superficie pública donde aparece, para saber qué invalidar al
    * cambiarla. `NOT_FOUND_SURFACE` para la página de error, que no tiene una
@@ -41,48 +92,8 @@ export interface SiteMediaSlot {
    * ofrece editarlo.
    */
   decorative?: boolean;
-  /**
-   * Ancho mínimo en píxeles que debería tener el archivo para verse nítido.
-   *
-   * No es una cifra de gusto: es el ancho al que `object-cover` amplía la
-   * fotografía en el marco de escritorio, multiplicado por 2 por las
-   * pantallas Retina. Por debajo de esto el navegador está estirando píxeles
-   * que no existen, y no hay ajuste de calidad que lo arregle.
-   */
-  recommendedWidth: number;
   legacySrc: string;
   legacyAlt: string;
-}
-
-/**
- * El marco en el que la página recorta una fotografía, para poder enseñar en
- * el admin el mismo encuadre que verá el visitante.
- *
- * `ratio` es ancho/alto. No sale de una preferencia: se calcula del layout
- * público con dos viewports de referencia, 1440 px en escritorio y 390 px en
- * teléfono, que es donde el diseño se decidió. La derivación de cada número
- * está anotada junto al slot.
- *
- * Una salvedad honesta sobre escritorio: tres de los cuatro marcos son
- * `min-h` con `aspect-auto`, así que su altura real la manda la columna de
- * texto de al lado y crece si ese texto crece. Aquí se usa la altura mínima
- * garantizada por el código, que es el recorte más exigente: un encuadre que
- * funciona con ella funciona también cuando el marco se estira.
- */
-export interface SiteMediaFrame {
-  label: string;
-  /** Ancho / alto. */
-  ratio: number;
-}
-
-export interface SiteMediaFrames {
-  desktop: SiteMediaFrame;
-  /**
-   * Null cuando la fotografía no se muestra en pantallas pequeñas. Es el caso
-   * de la 404, que oculta la imagen por debajo de `lg`: ofrecer una pestaña
-   * "Teléfono" ahí sería enseñar un recorte que nadie va a ver nunca.
-   */
-  mobile: SiteMediaFrame | null;
 }
 
 /**
@@ -92,158 +103,302 @@ export interface SiteMediaFrames {
  */
 export const NOT_FOUND_SURFACE = "__not-found__";
 
+/**
+ * El ancho a partir del cual manda la composición de escritorio.
+ *
+ * Es el `md` de Tailwind, que ya es el escalón del proyecto. Se define una
+ * vez para que la consulta de medios del `<picture>`, el CSS del encuadre y
+ * la vista previa del Admin no puedan desincronizarse. La decisión depende
+ * del ESPACIO disponible y de nada más: ni del modelo del aparato, ni del
+ * user agent, ni de la orientación. Un plegable que se abre cruza este
+ * número y el navegador cambia de fuente solo.
+ */
+export const MOBILE_BREAKPOINT_PX = 768;
+export const MOBILE_MEDIA_QUERY = `(max-width: ${MOBILE_BREAKPOINT_PX - 0.02}px)`;
+
+/** Marcos que se repiten, para no copiar los mismos números. */
+const PORTRAIT_4_5: SiteMediaFrame = {
+  label: "Vertical 4:5",
+  ratio: 4 / 5,
+  recommended: { width: 1600, height: 2000 },
+  minimum: { width: 1200, height: 1500 },
+};
+
 export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
   {
     key: "home.hero",
-    label: "Portada de la home",
+    label: "Home · Portada",
     description:
       "La fotografía a pantalla completa que abre la home, detrás de «Nos mueve.».",
     aspect:
-      "Horizontal y grande. Ocupa toda la pantalla: apaisada en escritorio y casi vertical en teléfono, así que conviene que el vehículo esté cerca del centro.",
+      "En escritorio es muy apaisada y en teléfono casi vertical: son dos composiciones distintas, no un recorte de la misma.",
     frames: {
-      // 100svh de alto con la barra transparente por encima: 1440 × 900 en
-      // un portátil, que es 1,6.
-      desktop: { label: "Escritorio", ratio: 1.6 },
-      // En teléfono llena la pantalla: 390 × ~700 una vez descontada la barra
-      // de direcciones del navegador.
-      mobile: { label: "Teléfono", ratio: 0.56 },
+      desktop: {
+        label: "Escritorio",
+        ratio: 1.6,
+        recommended: { width: 3200, height: 2000 },
+        minimum: { width: 2400, height: 1500 },
+      },
+      mobile: {
+        label: "Teléfono",
+        ratio: 0.56,
+        recommended: { width: 1400, height: 2500 },
+        minimum: { width: 1080, height: 1920 },
+      },
     },
-    // Ancho de la pantalla × 2 (Retina): 1440 × 2 = 2880, y por encima de
-    // 2400 px la mejora ya no se nota en un recorte a pantalla completa.
+    mobileVariantRecommended: true,
     surface: "/",
-    recommendedWidth: 2400,
     legacySrc: "/images/brand/hero.jpg",
     legacyAlt:
       "BMW M3 con la identidad de MILLE frente a los cerros de Bogotá",
   },
   {
     key: "home.featured.a",
-    label: "Destacados: primera fotografía",
+    label: "Home · Destacados, primera",
     description:
-      "La fotografía grande de la izquierda en «Nos hacen mirar dos veces». Solo se ve mientras no haya dos vehículos destacados en el inventario; cuando los hay, la sección enseña esos vehículos.",
-    aspect: "Horizontal 4:3, igual en escritorio y en teléfono.",
+      "La fotografía de la izquierda en «Nos hacen mirar dos veces». Solo se ve mientras no haya dos vehículos destacados en el inventario; cuando los hay, la sección enseña esos vehículos.",
+    aspect: "Horizontal 4:3, la misma composición en escritorio y en teléfono.",
     frames: {
-      // Columna de 1.2fr de 2.2fr dentro del ancho de página, con aspect-[4/3].
-      desktop: { label: "Escritorio", ratio: 4 / 3 },
-      mobile: { label: "Teléfono", ratio: 4 / 3 },
+      desktop: {
+        label: "Escritorio y teléfono",
+        ratio: 4 / 3,
+        recommended: { width: 2048, height: 1536 },
+        minimum: { width: 1600, height: 1200 },
+      },
+      mobile: null,
     },
-    // ≈ 630 px de ancho en escritorio × 2.
+    mobileVariantRecommended: false,
     surface: "/",
-    recommendedWidth: 1300,
     legacySrc: "/images/vehicles/bmw-m4-competition/01.jpg",
     legacyAlt: "BMW M4 Competition verde frente a un edificio de ladrillo",
   },
   {
     key: "home.featured.b",
-    label: "Destacados: segunda fotografía",
+    label: "Home · Destacados, segunda",
     description:
-      "La fotografía de la derecha, más baja, en «Nos hacen mirar dos veces». Misma regla que la primera.",
-    aspect: "Horizontal 4:3, igual en escritorio y en teléfono.",
+      "La fotografía de la derecha en «Nos hacen mirar dos veces». Misma regla que la primera.",
+    aspect: "Horizontal 4:3, la misma composición en escritorio y en teléfono.",
     frames: {
-      // Columna de 1fr de 2.2fr dentro del ancho de página, con aspect-[4/3].
-      desktop: { label: "Escritorio", ratio: 4 / 3 },
-      mobile: { label: "Teléfono", ratio: 4 / 3 },
+      desktop: {
+        label: "Escritorio y teléfono",
+        ratio: 4 / 3,
+        recommended: { width: 2048, height: 1536 },
+        minimum: { width: 1600, height: 1200 },
+      },
+      mobile: null,
     },
-    // ≈ 525 px de ancho en escritorio × 2.
+    mobileVariantRecommended: false,
     surface: "/",
-    recommendedWidth: 1200,
     legacySrc: "/images/vehicles/audi-rs-5-sportback/02.jpg",
     legacyAlt: "Audi RS 5 Sportback gris junto a un edificio moderno",
   },
   {
     key: "home.about.origin",
-    label: "Historia: «Nos pasa desde siempre»",
+    label: "Home · Historia",
     description:
       "Acompaña el texto donde David y Nicolás cuentan cómo empezó MILLE.",
-    aspect: "Horizontal 5:4, igual en escritorio y en teléfono.",
+    aspect: "Horizontal 5:4, la misma composición en escritorio y en teléfono.",
     frames: {
-      // Columna de 1.15fr de 2fr dentro del ancho de página (1440 menos los
-      // márgenes de 8vw), con aspect-[5/4]: el marco no cambia con el texto.
-      desktop: { label: "Escritorio", ratio: 1.25 },
-      mobile: { label: "Teléfono", ratio: 1.25 },
+      desktop: {
+        label: "Escritorio y teléfono",
+        ratio: 5 / 4,
+        recommended: { width: 2400, height: 1920 },
+        minimum: { width: 1600, height: 1280 },
+      },
+      mobile: null,
     },
-    // ≈ 615 px de ancho en escritorio × 2.
+    mobileVariantRecommended: false,
     surface: "/",
-    recommendedWidth: 1400,
     legacySrc: "/images/vehicles/porsche-macan/02.jpg",
     legacyAlt:
       "Porsche Cayenne gris sobre un empedrado de piedra, frente a un muro claro",
   },
   {
     key: "home.about.house",
-    label: "Vende con MILLE",
+    label: "Home · Vende con MILLE",
     description:
       "La fotografía a todo el ancho de «Tu carro merece una buena presentación», con el texto encima, a la izquierda.",
     aspect:
-      "Muy apaisada en escritorio y más cuadrada en teléfono. El texto va sobre la mitad izquierda: deja ahí un fondo tranquilo.",
+      "Muy apaisada en escritorio y casi cuadrada en teléfono. El texto va sobre la mitad izquierda: deja ahí un fondo tranquilo.",
     frames: {
-      // 1440 de ancho contra min-h = clamp(32rem, 82svh, 58rem): 738 px de
-      // alto en una pantalla de 900.
-      desktop: { label: "Escritorio", ratio: 1.95 },
-      // 390 de ancho contra 32rem = 512 px de alto, que es el mínimo.
-      mobile: { label: "Teléfono", ratio: 0.76 },
+      desktop: {
+        label: "Escritorio",
+        ratio: 1.95,
+        recommended: { width: 3200, height: 1640 },
+        minimum: { width: 2400, height: 1230 },
+      },
+      mobile: {
+        label: "Teléfono",
+        ratio: 0.76,
+        recommended: { width: 1400, height: 1840 },
+        minimum: { width: 1080, height: 1420 },
+      },
     },
-    // Ancho completo × 2, igual que la portada.
+    mobileVariantRecommended: true,
     surface: "/",
-    recommendedWidth: 2400,
     legacySrc: "/images/vehicles/jeep-grand-cherokee-limited/01.jpg",
-    legacyAlt:
-      "Jeep Grand Cherokee gris en un valle de montaña con nieve",
+    legacyAlt: "Jeep Grand Cherokee gris en un valle de montaña con nieve",
   },
   {
     key: "home.about.future",
-    label: "Cultura: «Fuera del garaje»",
+    label: "Home · Cultura",
     description:
       "Junto a «El plan es encontrarnos», en la sección de rutas y encuentros.",
-    aspect: "Vertical 4:5, igual en escritorio y en teléfono.",
+    aspect: "Vertical 4:5, la misma composición en escritorio y en teléfono.",
     frames: {
-      // Columna de 0.8fr con tope de 35rem (560 px) y aspect-[4/5].
-      desktop: { label: "Escritorio", ratio: 0.8 },
-      mobile: { label: "Teléfono", ratio: 0.8 },
+      desktop: {
+        label: "Escritorio y teléfono",
+        ratio: 4 / 5,
+        recommended: { width: 1600, height: 2000 },
+        minimum: { width: 1200, height: 1500 },
+      },
+      mobile: null,
     },
-    // 560 px de ancho × 2.
+    mobileVariantRecommended: false,
     surface: "/",
-    recommendedWidth: 1200,
     legacySrc: "/images/vehicles/bmw-r-1250-gs-adventure/01.jpg",
     legacyAlt:
       "Motociclista en una BMW R 1250 GS Adventure en una carretera de montaña",
   },
   {
     key: "contact.hero",
-    label: "Contacto",
+    label: "Contacto · Portada",
     description: "La fotografía principal de la página de contacto.",
-    aspect: "Horizontal 4:3, igual en escritorio y en teléfono.",
+    aspect: "Horizontal 4:3, la misma composición en escritorio y en teléfono.",
     frames: {
-      // Columna de 0.9fr de 1.9fr dentro del ancho de página (1440 menos los
-      // márgenes de 8vw y el hueco), con aspect-[4/3]: el marco no cambia con
-      // el texto de al lado.
-      desktop: { label: "Escritorio", ratio: 4 / 3 },
-      mobile: { label: "Teléfono", ratio: 4 / 3 },
+      desktop: {
+        label: "Escritorio y teléfono",
+        ratio: 4 / 3,
+        recommended: { width: 2400, height: 1800 },
+        minimum: { width: 1600, height: 1200 },
+      },
+      mobile: null,
     },
-    // ≈ 520 px de ancho en escritorio × 2.
+    mobileVariantRecommended: false,
     surface: "/contacto",
-    recommendedWidth: 1200,
     legacySrc: "/images/brand/night.jpg",
     legacyAlt: "Vehículo de MILLE fotografiado de noche",
   },
   {
     key: "error.404",
     label: "Error 404",
-    description: "La fotografía que acompaña la página de error 404.",
+    description:
+      "La fotografía que acompaña la página de error. Normalmente no hay que tocarla.",
     aspect: "Horizontal 4:3. Solo se muestra en escritorio.",
     frames: {
-      // Ancho de página (1440 menos los márgenes de 8vw) repartido 1fr / 0.85fr
-      // → ≈ 510 px de ancho, y aspect-[4/3] de alto.
-      desktop: { label: "Escritorio", ratio: 4 / 3 },
-      // `hidden lg:block`: por debajo de 1024 px la fotografía no se pinta.
+      desktop: {
+        label: "Escritorio",
+        ratio: 4 / 3,
+        recommended: { width: 2400, height: 1800 },
+        minimum: { width: 1600, height: 1200 },
+      },
+      // Por debajo de `lg` la fotografía no se pinta: no hay composición de
+      // teléfono que revisar ni variante que subir.
       mobile: null,
     },
+    mobileVariantRecommended: false,
     surface: NOT_FOUND_SURFACE,
-    // ≈ 510 px de ancho efectivo × 2 (Retina).
-    recommendedWidth: 1200,
     legacySrc: "/images/brand/night.jpg",
     // Acompaña al 404 y no aporta información: se sirve con alt vacío.
     decorative: true,
+    legacyAlt: "Vehículo de MILLE fotografiado de noche",
+  },
+
+  // --- Menú de navegación --------------------------------------------------
+  //
+  // Cada enlace del menú tiene su propia fotografía. Arrancan apuntando al
+  // mismo archivo que usaba el código, pero son slots independientes: cambiar
+  // la del menú de Contacto ya no cambia la portada de Contacto ni la 404.
+  {
+    key: "nav.vehicles",
+    label: "Menú · Vehículos",
+    description:
+      "La fotografía que aparece al pasar por «Vehículos» en el menú de escritorio.",
+    aspect: "Vertical 4:5. Solo se ve en escritorio, al abrir el menú.",
+    frames: { desktop: { ...PORTRAIT_4_5, label: "Escritorio" }, mobile: null },
+    mobileVariantRecommended: false,
+    surface: "/",
+    decorative: true,
+    legacySrc: "/images/vehicles/bmw-m4-competition/01.jpg",
+    legacyAlt: "BMW M4 Competition verde frente a un edificio de ladrillo",
+  },
+  {
+    key: "nav.mille",
+    label: "Menú · Nuestra historia",
+    description:
+      "La fotografía que aparece al pasar por «Nuestra historia» en el menú de escritorio.",
+    aspect: "Vertical 4:5. Solo se ve en escritorio, al abrir el menú.",
+    frames: { desktop: { ...PORTRAIT_4_5, label: "Escritorio" }, mobile: null },
+    mobileVariantRecommended: false,
+    surface: "/",
+    decorative: true,
+    legacySrc: "/images/brand/hero.jpg",
+    legacyAlt:
+      "BMW M3 con la identidad de MILLE frente a los cerros de Bogotá",
+  },
+  {
+    key: "nav.sell",
+    label: "Menú · Vender con MILLE",
+    description:
+      "La fotografía que aparece al pasar por «Vender con MILLE» en el menú de escritorio.",
+    aspect: "Vertical 4:5. Solo se ve en escritorio, al abrir el menú.",
+    frames: { desktop: { ...PORTRAIT_4_5, label: "Escritorio" }, mobile: null },
+    mobileVariantRecommended: false,
+    surface: "/",
+    decorative: true,
+    legacySrc: "/images/vehicles/porsche-macan/02.jpg",
+    legacyAlt:
+      "Porsche Cayenne gris sobre un empedrado de piedra, frente a un muro claro",
+  },
+  {
+    key: "nav.culture",
+    label: "Menú · Cultura motor",
+    description:
+      "La fotografía que aparece al pasar por «Cultura motor» en el menú de escritorio.",
+    aspect: "Vertical 4:5. Solo se ve en escritorio, al abrir el menú.",
+    frames: { desktop: { ...PORTRAIT_4_5, label: "Escritorio" }, mobile: null },
+    mobileVariantRecommended: false,
+    surface: "/",
+    decorative: true,
+    legacySrc: "/images/vehicles/bmw-r-1250-gs-adventure/01.jpg",
+    legacyAlt:
+      "Motociclista en una BMW R 1250 GS Adventure en una carretera de montaña",
+  },
+  {
+    key: "nav.contact",
+    label: "Menú · Contacto",
+    description:
+      "La fotografía que aparece al pasar por «Contacto» en el menú de escritorio.",
+    aspect: "Vertical 4:5. Solo se ve en escritorio, al abrir el menú.",
+    frames: { desktop: { ...PORTRAIT_4_5, label: "Escritorio" }, mobile: null },
+    mobileVariantRecommended: false,
+    surface: "/",
+    decorative: true,
+    legacySrc: "/images/brand/night.jpg",
+    legacyAlt: "Vehículo de MILLE fotografiado de noche",
+  },
+
+  // --- Compartir en redes --------------------------------------------------
+  {
+    key: "seo.defaultOg",
+    label: "Compartir · Imagen por defecto",
+    description:
+      "La fotografía que acompaña a un enlace del sitio en WhatsApp, Twitter o LinkedIn cuando la página no tiene una propia. Las fichas de vehículo usan la suya.",
+    aspect:
+      "Horizontal 1.91:1, el formato que piden las previsualizaciones. No se recorta en pantalla: la recortan ellas.",
+    frames: {
+      desktop: {
+        label: "Previsualización",
+        ratio: 1.91,
+        recommended: { width: 2400, height: 1260 },
+        minimum: { width: 1200, height: 630 },
+      },
+      mobile: null,
+    },
+    mobileVariantRecommended: false,
+    surface: "/",
+    decorative: true,
+    legacySrc: "/images/brand/night.jpg",
     legacyAlt: "Vehículo de MILLE fotografiado de noche",
   },
 ] as const;
@@ -284,22 +439,80 @@ export function isKnownSlot(key: string): boolean {
   return byKey.has(key);
 }
 
-/** Lo que el frontend necesita para pintar un slot. */
-export interface SiteMediaImage {
+/** Las dos variantes que puede tener un slot. */
+export type SiteMediaVariant = "desktop" | "mobile";
+
+/** Un archivo concreto: lo que hay que pintar. */
+export interface SiteMediaFile {
   src: string;
-  alt: string;
   source: SiteMediaSource;
   focal: FocalPoint;
+  /** Las del archivo, cuando se conocen. Las heredadas de /public no. */
+  size: PixelSize | null;
+  bytes: number | null;
+  contentType: string | null;
+}
+
+/**
+ * Lo que el frontend necesita para pintar un slot, con sus dos caras.
+ *
+ * `mobile` en `null` NO significa "no hay nada que enseñar en el teléfono":
+ * significa que el teléfono usa el mismo archivo que el escritorio. El
+ * encuadre de teléfono vive aparte y se aplica igual, porque elegir qué
+ * parte se ve en vertical es útil aunque la fotografía sea la misma.
+ */
+export interface SiteMediaImage {
+  alt: string;
+  desktop: SiteMediaFile;
+  /** Solo cuando se subió una fotografía propia para el teléfono. */
+  mobile: SiteMediaFile | null;
+  /** Se aplica en teléfono, exista o no variante propia. */
+  mobileFocal: FocalPoint;
 }
 
 /** El valor de respaldo de un slot, tal como el sitio se construyó. */
 export function legacyImage(slot: SiteMediaSlot): SiteMediaImage {
   return {
-    src: slot.legacySrc,
     alt: slot.legacyAlt,
-    source: "legacy",
-    // El sitio se construyó con las cuatro centradas; el respaldo tiene que
-    // verse igual que antes de que existiera el encuadre.
-    focal: { ...CENTER_FOCAL },
+    desktop: {
+      src: slot.legacySrc,
+      source: "legacy",
+      // El sitio se construyó con todas centradas; el respaldo tiene que
+      // verse igual que antes de que existiera el encuadre.
+      focal: { ...CENTER_FOCAL },
+      size: null,
+      bytes: null,
+      contentType: null,
+    },
+    mobile: null,
+    mobileFocal: { ...CENTER_FOCAL },
   };
 }
+
+/** El archivo que corresponde a un viewport. Nunca devuelve nada vacío. */
+export function fileForVariant(
+  image: SiteMediaImage,
+  variant: SiteMediaVariant,
+): SiteMediaFile {
+  if (variant === "desktop") return image.desktop;
+  // El orden del respaldo: variante propia, si no la de escritorio. Nunca
+  // una URL indefinida.
+  return image.mobile ?? { ...image.desktop, focal: image.mobileFocal };
+}
+
+/**
+ * Qué fotografía acompaña a cada enlace del menú.
+ *
+ * El menú tenía sus cinco rutas escritas a mano en el componente, y cuatro
+ * de ellas apuntaban al mismo archivo que usaba otro slot: cambiar la
+ * portada de Contacto cambiaba también la del menú y la de la 404, sin que
+ * nadie lo hubiera pedido. Ahora cada enlace tiene su propio slot y el
+ * componente solo sabe la correspondencia.
+ */
+export const NAV_MEDIA_BY_HREF: Readonly<Record<string, string>> = {
+  "/vehiculos": "nav.vehicles",
+  "/#mille": "nav.mille",
+  "/#vender": "nav.sell",
+  "/#cultura": "nav.culture",
+  "/contacto": "nav.contact",
+};

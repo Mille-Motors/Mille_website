@@ -445,6 +445,12 @@ model ConsentRecord {
 /// siga con su imagen original, el sitio la lee del registro en código. Por
 /// eso ninguna fila es obligatoria y quedarse sin base de datos no deja la
 /// home sin fotos.
+/// Una fotografía estructural del sitio: portada, historia, menú, 404…
+///
+/// Las columnas sin prefijo son la variante de ESCRITORIO, que es la única
+/// obligatoria. `mobile*` es una segunda fotografía opcional para cuando el
+/// teléfono recorta tan distinto que una sola composición no sirve: si es
+/// nula, el teléfono usa la de escritorio con su propio encuadre.
 model SiteMedia {
   id          String      @id @default(uuid()) @db.Uuid
   key         String      @unique
@@ -458,6 +464,29 @@ model SiteMedia {
   /// que nunca se haya encuadrado se sigue viendo exactamente igual.
   focalX      Float       @default(50)
   focalY      Float       @default(50)
+
+  /// Lo que mide y pesa el archivo de escritorio. Nulo en las filas que
+  /// siguen apuntando a /public y en las que se subieron antes de que esto
+  /// existiera: el Admin lo mide entonces en el navegador.
+  width       Int?
+  height      Int?
+  bytes       Int?
+  contentType String?
+
+  /// La variante de teléfono. Toda nula mientras nadie suba una: el sitio
+  /// funciona igual, usando la de escritorio.
+  mobileUrl         String?
+  mobileStoragePath String?
+  mobileWidth       Int?
+  mobileHeight      Int?
+  mobileBytes       Int?
+  mobileContentType String?
+  /// El encuadre de teléfono. Existe SIEMPRE, haya variante propia o no:
+  /// elegir qué parte se ve en vertical es útil aunque el archivo sea el
+  /// mismo. Arranca en el centro, que es como se veía antes.
+  mobileFocalX      Float   @default(50)
+  mobileFocalY      Float   @default(50)
+
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }

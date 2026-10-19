@@ -8,6 +8,7 @@ import {
   socialMetadata,
 } from "@/lib/seo";
 import "./globals.css";
+import { defaultOgImages } from "@/server/site-media/og";
 
 /**
  * Una sola familia para todo el texto del sitio: una grotesca semicondensada
@@ -39,23 +40,26 @@ const gilda = Gilda_Display({
  * la versión buena de sí mismo es la home. Cada página pública declara el
  * suyo.
  */
-export const metadata: Metadata = {
-  metadataBase: new URL(site.url),
-  title: {
-    default: SITE_TITLE,
-    template: `%s | ${site.name}`,
-  },
-  description: SITE_DESCRIPTION,
-  applicationName: site.name,
-  ...socialMetadata({
-    title: SITE_TITLE,
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    metadataBase: new URL(site.url),
+    title: {
+      default: SITE_TITLE,
+      template: `%s | ${site.name}`,
+    },
     description: SITE_DESCRIPTION,
-    path: "/",
-  }),
-  // El sitio público se indexa. El admin se excluye en su propio layout, la
-  // API por cabecera, y ambos además en /robots.txt.
-  robots: PUBLIC_ROBOTS,
-};
+    applicationName: site.name,
+    ...socialMetadata({
+      images: await defaultOgImages(),
+      title: SITE_TITLE,
+      description: SITE_DESCRIPTION,
+      path: "/",
+    }),
+    // El sitio público se indexa. El admin se excluye en su propio layout, la
+    // API por cabecera, y ambos además en /robots.txt.
+    robots: PUBLIC_ROBOTS,
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#f8f5ef",

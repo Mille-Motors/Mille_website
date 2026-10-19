@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { SiteMenu } from "@/components/layout/SiteMenu";
+import type { NavPreviews } from "@/components/layout/Navbar";
 import { cn } from "@/lib/cn";
 
 /**
@@ -18,7 +19,7 @@ import { cn } from "@/lib/cn";
  * desde el principio. La portada de la home se desliza por debajo de ella
  * con un margen negativo igual a la altura de la barra.
  */
-export function SiteHeader() {
+export function SiteHeader({ previews }: { previews: NavPreviews }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -105,7 +106,9 @@ export function SiteHeader() {
         </div>
       </header>
 
-      {open ? <SiteMenu onClose={() => setOpen(false)} /> : null}
+      {open ? (
+        <SiteMenu previews={previews} onClose={() => setOpen(false)} />
+      ) : null}
     </>
   );
 }

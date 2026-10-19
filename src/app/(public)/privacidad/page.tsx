@@ -4,17 +4,25 @@ import { site } from "@/data/site";
 import { canonical, socialMetadata } from "@/lib/seo";
 import { PRIVACY_POLICY_VERSION } from "@/lib/legal-versions";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
+import { defaultOgImages } from "@/server/site-media/og";
 
 const TITLE = "Política de Privacidad y Tratamiento de Datos";
 const DESCRIPTION = "Conoce qué datos trata MILLE Motor Culture, para qué los usa y cómo ejercer tus derechos en Colombia.";
 const UPDATED = "17 de octubre de 2026";
 
-export const metadata: Metadata = {
-  title: TITLE,
-  description: DESCRIPTION,
-  alternates: canonical("/privacidad"),
-  ...socialMetadata({ title: `${TITLE} | ${site.name}`, description: DESCRIPTION, path: "/privacidad" }),
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: TITLE,
+    description: DESCRIPTION,
+    alternates: canonical("/privacidad"),
+    ...socialMetadata({
+      images: await defaultOgImages(),
+      title: `${TITLE} | ${site.name}`,
+      description: DESCRIPTION,
+      path: "/privacidad",
+    }),
+  };
+}
 
 export default function PrivacyPage() {
   const whatsapp = generalWhatsappUrl();

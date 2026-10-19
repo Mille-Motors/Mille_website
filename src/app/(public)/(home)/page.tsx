@@ -11,22 +11,26 @@ import {
   canonical,
   socialMetadata,
 } from "@/lib/seo";
+import { defaultOgImages } from "@/server/site-media/og";
 
 /**
  * `title.absolute` y no una cadena suelta: la plantilla del layout raíz
  * —`%s | MILLE`— se aplica a cualquier título que declare una página hija, y
  * dejaría la home como "MILLE | Motor Culture | MILLE".
  */
-export const metadata: Metadata = {
-  title: { absolute: SITE_TITLE },
-  description: SITE_DESCRIPTION,
-  alternates: canonical("/"),
-  ...socialMetadata({
-    title: SITE_TITLE,
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: { absolute: SITE_TITLE },
     description: SITE_DESCRIPTION,
-    path: "/",
-  }),
-};
+    alternates: canonical("/"),
+    ...socialMetadata({
+      images: await defaultOgImages(),
+      title: SITE_TITLE,
+      description: SITE_DESCRIPTION,
+      path: "/",
+    }),
+  };
+}
 
 /**
  * La portada manda y el producto va primero: una frase, los vehículos, y

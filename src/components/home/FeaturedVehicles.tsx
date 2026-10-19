@@ -1,3 +1,4 @@
+import { SiteMediaPicture } from "@/components/media/SiteMediaPicture";
 import Image from "next/image";
 import Link from "next/link";
 import { CategoryBand } from "@/components/home/CategoryBand";
@@ -71,13 +72,17 @@ export async function FeaturedVehicles() {
               // fotografías se lean como una rejilla.
               className={cn(index === 1 && "lg:mt-[22%]")}
             >
+              {/* Sin `priority`: esta sección vive debajo de la portada, que
+                  ocupa la pantalla entera. Precargarla competía con la
+                  fotografía que de verdad es LCP y retrasaba justo la que
+                  decide la primera impresión. Se carga en diferido, que es
+                  lo que corresponde a lo que no se ve al llegar. */}
               {"id" in entry ? (
-                <VehicleFeature vehicle={entry} priority={index === 0} />
+                <VehicleFeature vehicle={entry} />
               ) : (
                 <EditorialFeature
                   image={editorialImages[index]}
                   line={entry.line}
-                  priority={index === 0}
                 />
               )}
             </li>
@@ -177,15 +182,12 @@ function EditorialFeature({
   return (
     <article className="group relative">
       <div className="relative aspect-4/3 overflow-hidden rounded-xl bg-charcoal">
-        <Image
-          src={image.src}
-          alt={image.alt}
-          fill
+        <SiteMediaPicture
+          image={image}
           priority={priority}
           sizes="(min-width: 1024px) 52vw, 92vw"
           quality={90}
           className="object-cover transition-transform duration-1200 ease-out-strong [@media(hover:hover)]:group-hover:scale-[1.035]"
-          style={{ objectPosition: objectPosition(image.focal) }}
         />
       </div>
 

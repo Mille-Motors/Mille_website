@@ -1,11 +1,12 @@
 "use client";
 
 import { useRef, useState, type MouseEvent } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowRight, X } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
+import type { NavPreviews } from "@/components/layout/Navbar";
+import { SiteMediaPicture } from "@/components/media/SiteMediaPicture";
 import { InstagramIcon, WhatsappIcon } from "@/components/ui/BrandIcons";
 import { useDialog } from "@/components/ui/use-dialog";
 import { mainNav, site } from "@/data/site";
@@ -25,21 +26,15 @@ import { generalWhatsappUrl } from "@/lib/whatsapp";
  *
  * En escritorio, cada enlace enseña a su lado una fotografía de adonde lleva.
  */
-const previews: Record<string, { src: string; alt: string }> = {
-  "/vehiculos": {
-    src: "/images/vehicles/bmw-m4-competition/01.jpg",
-    alt: "",
-  },
-  "/#mille": { src: "/images/brand/hero.jpg", alt: "" },
-  "/#vender": { src: "/images/vehicles/porsche-macan/02.jpg", alt: "" },
-  "/#cultura": {
-    src: "/images/vehicles/bmw-r-1250-gs-adventure/01.jpg",
-    alt: "",
-  },
-  "/contacto": { src: "/images/brand/night.jpg", alt: "" },
-};
 
-export function SiteMenu({ onClose }: { onClose: () => void }) {
+export function SiteMenu({
+  previews,
+  onClose,
+}: {
+  /** Una fotografía por enlace, ya resuelta en el servidor. */
+  previews: NavPreviews;
+  onClose: () => void;
+}) {
   const panel = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const [active, setActive] = useState<string>(mainNav[0].href);
@@ -143,17 +138,21 @@ export function SiteMenu({ onClose }: { onClose: () => void }) {
             const preview = previews[item.href];
             if (!preview) return null;
             return (
-              <Image
+              <div
                 key={item.href}
-                src={preview.src}
-                alt={preview.alt}
-                fill
-                sizes="36vw"
                 className={cn(
-                  "object-cover transition-opacity duration-500 ease-out",
+                  "absolute inset-0 transition-opacity duration-500 ease-out",
                   active === item.href ? "opacity-100" : "opacity-0",
                 )}
-              />
+              >
+                <SiteMediaPicture
+                  image={preview}
+                  // Decorativa: el enlace de al lado ya dice adónde lleva.
+                  alt=""
+                  sizes="36vw"
+                  className="object-cover"
+                />
+              </div>
             );
           })}
         </div>

@@ -4,17 +4,25 @@ import { site } from "@/data/site";
 import { canonical, socialMetadata } from "@/lib/seo";
 import { TERMS_VERSION } from "@/lib/legal-versions";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
+import { defaultOgImages } from "@/server/site-media/og";
 
 const TITLE = "Términos y Condiciones";
 const DESCRIPTION = "Reglas de uso del sitio y de la información sobre vehículos de MILLE Motor Culture.";
 const UPDATED = "17 de octubre de 2026";
 
-export const metadata: Metadata = {
-  title: TITLE,
-  description: DESCRIPTION,
-  alternates: canonical("/terminos"),
-  ...socialMetadata({ title: `${TITLE} | ${site.name}`, description: DESCRIPTION, path: "/terminos" }),
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: TITLE,
+    description: DESCRIPTION,
+    alternates: canonical("/terminos"),
+    ...socialMetadata({
+      images: await defaultOgImages(),
+      title: `${TITLE} | ${site.name}`,
+      description: DESCRIPTION,
+      path: "/terminos",
+    }),
+  };
+}
 
 export default function TermsPage() {
   const whatsapp = generalWhatsappUrl();

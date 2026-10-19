@@ -86,6 +86,17 @@ export async function uploadImage(
   bucket: StorageBucket,
   prefix: string,
   file: File,
+  options: {
+    /**
+     * El suelo de resolución de ESTE destino.
+     *
+     * Por defecto es el de una fotografía de vehículo. Los espacios del
+     * sitio tienen el suyo —una imagen para compartir en redes necesita
+     * 1200 × 630, más ancha y más baja que una ficha— y pasarlo aquí evita
+     * que un mínimo pensado para otra cosa rechace un archivo correcto.
+     */
+    minimum?: { width: number; height: number };
+  } = {},
 ): Promise<UploadedImage> {
   if (file.size === 0) throw badRequest("El archivo está vacío.");
   if (file.size > MAX_IMAGE_BYTES) {
@@ -133,7 +144,7 @@ export async function uploadImage(
    */
   const dimensions = readImageDimensions(buffer);
   if (dimensions) {
-    const tooSmall = imageTooSmall(dimensions);
+    const tooSmall = imageTooSmall(dimensions, options.minimum);
     if (tooSmall) throw badRequest(tooSmall);
   }
 
