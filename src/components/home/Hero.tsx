@@ -52,15 +52,14 @@ export async function Hero() {
             `text-wrap: balance` de los h1 reparte el corte en vez de dejar una
             palabra huérfana— y sigue leyéndose como un titular.
 
-            El tamaño es el único valor propio de este titular. La escala de
-            display —`clamp(2.5rem, 6.1vw + 0.9rem, 11.25rem)`— estaba
-            calibrada para dos palabras, y con una frase de cinco quedaba
-            demasiado grande en escritorio. Esta pendiente es la misma idea
-            un 14 % más contenida, con el suelo intacto: por debajo de los
-            ~520 px el valor sigue siendo 2,5rem, así que el corte en teléfono
-            es exactamente el de antes. Tipografía, peso, color e interlineado
-            no cambian. */}
-        <h1 className="hero-lines text-display [font-size:clamp(2.5rem,5.2vw_+_0.8rem,7.5rem)]">
+            Usa `text-title`, la misma escala que los títulos de sección
+            —«Nos hacen mirar dos veces»—, en vez de `text-display`. Esa
+            última estaba calibrada para dos palabras y con una frase de
+            cinco se iba de tamaño en escritorio. Compartir la escala evita
+            además tener que afinar un cuerpo propio pantalla por pantalla:
+            si algún día cambia el ritmo tipográfico del sitio, la portada
+            lo sigue. */}
+        <h1 className="hero-lines text-title">
           <span className="line">
             <span style={{ "--i": 0 } as React.CSSProperties}>
               La cultura del motor
