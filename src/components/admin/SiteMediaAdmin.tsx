@@ -10,7 +10,12 @@ import { Button } from "@/components/ui/Button";
 import { adminJson } from "@/lib/admin-client";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/format";
+import type { FocalPoint } from "@/lib/focal-point";
 import type { SiteMediaEntry } from "@/types/site-media";
+
+/** Qué archivo y con qué encuadre se está enseñando ahora mismo. */
+const variantKey = (src: string, focal: FocalPoint) =>
+  `${src}|${focal.x},${focal.y}`;
 
 /**
  * Una tarjeta por espacio. Cada una enseña lo que está vivo ahora mismo, de
@@ -143,6 +148,13 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
         )}
       >
         <SiteMediaVariantPanel
+          // La identidad de lo que se está viendo. Cuando el servidor
+          // devuelve otro archivo u otro encuadre tras guardar, el borrador
+          // local —encuadre a medias, archivo elegido, dimensiones medidas—
+          // describe la fotografía ANTERIOR y no hay nada que conservar.
+          // Montar de nuevo es la forma de React de decir eso, y solo pasa
+          // después de un guardado: mientras se edita, las props no cambian.
+          key={variantKey(slot.desktop.src, slot.desktop.focal)}
           slotKey={slot.key}
           variant="desktop"
           frame={slot.frames.desktop}
@@ -150,6 +162,7 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
           focal={slot.desktop.focal}
           inherited={false}
           recommendedVariant={false}
+          recommendedMaxBytes={slot.recommendedMaxBytes}
           disabled={busy !== null}
           onSaved={saved}
         />
@@ -159,6 +172,10 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
             subir, y ofrecerla sería inventar una decisión. */}
         {mobileFrame ? (
           <SiteMediaVariantPanel
+            key={variantKey(
+              (slot.mobile ?? slot.desktop).src,
+              slot.mobileFocal,
+            )}
             slotKey={slot.key}
             variant="mobile"
             frame={mobileFrame}
@@ -166,6 +183,7 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
             focal={slot.mobileFocal}
             inherited={slot.mobile === null}
             recommendedVariant={slot.mobileVariantRecommended}
+            recommendedMaxBytes={slot.recommendedMaxBytes}
             disabled={busy !== null}
             onSaved={saved}
           />
@@ -216,7 +234,7 @@ const GROUPS: { title: string; hint: string; match: (key: string) => boolean }[]
     },
     {
       title: "Compartir",
-      hint: "Lo que se ve al pegar un enlace del sitio en WhatsApp o redes.",
+      hint: "Lo que se ve al pegar un enlace del sitio en WhatsApp o redes. 1.200 × 630 px en JPG ya es el tamaño óptimo. Al cambiarla, el sitio sirve la nueva al instante, pero una previsualización que WhatsApp ya guardó puede tardar en renovarse.",
       match: (key) => key.startsWith("seo."),
     },
   ];

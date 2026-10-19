@@ -8,7 +8,7 @@ import { REVEAL } from "@/lib/reveal";
  * Para quien quiere vender: una fotografía a todo el ancho con una sola frase
  * y, debajo, lo que MILLE hace por el vehículo en tres pasos.
  *
- * El botón abre WhatsApp con el mensaje de "quiero hablar de mi vehículo" ya
+ * El botón abre WhatsApp con el mensaje de "quiero vender mi vehículo" ya
  * escrito, que es el camino más corto para un vendedor; mientras no haya
  * línea provisionada lleva a la página de contacto.
  *

@@ -94,6 +94,30 @@ export interface SiteMediaSlot {
   decorative?: boolean;
   legacySrc: string;
   legacyAlt: string;
+  /**
+   * Lo que mide el archivo de respaldo, cuando importa saberlo.
+   *
+   * Solo hace falta donde alguien lee las dimensiones sin poder medir la
+   * imagen: la metadata de compartir las necesita para que el rastreador
+   * sepa qué va a recibir. En los demás espacios no las lee nadie —el
+   * Admin las mide en el navegador— y declararlas sería mantener catorce
+   * números por nada.
+   */
+  legacySize?: PixelSize;
+  /**
+   * Los tipos que acepta ESTE espacio, si son menos que los del sitio.
+   *
+   * La previsualización social es el único caso: la recorta y la reencoda
+   * un rastreador ajeno, y ahí JPG y PNG son lo que todos entienden sin
+   * discusión. El resto del sitio sigue aceptando WebP y AVIF.
+   */
+  acceptedTypes?: readonly string[];
+  /**
+   * El peso por encima del cual conviene avisar, si para este espacio
+   * importa. Solo la previsualización social: la descarga un tercero antes
+   * de dibujar nada, y ahí el peso decide si se dibuja.
+   */
+  recommendedMaxBytes?: number;
 }
 
 /**
@@ -385,16 +409,36 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
     description:
       "La fotografía que acompaña a un enlace del sitio en WhatsApp, Twitter o LinkedIn cuando la página no tiene una propia. Las fichas de vehículo usan la suya.",
     aspect:
-      "Horizontal 1.91:1, el formato que piden las previsualizaciones. No se recorta en pantalla: la recortan ellas.",
+      "Horizontal 1.91:1, en JPG. 1.200 × 630 px ya es el tamaño óptimo: las previsualizaciones no aprovechan más. Al cambiarla, la metadata del sitio cambia en la siguiente visita, pero WhatsApp y las redes pueden seguir enseñando un rato la que ya tenían guardada.",
     frames: {
       desktop: {
         label: "Previsualización",
-        ratio: 1.91,
-        recommended: { width: 2400, height: 1260 },
+        ratio: 1200 / 630,
+        // No hay escalón: 1.200 × 630 es lo que piden los rastreadores y
+        // más resolución no mejora una previsualización. Recomendado y
+        // mínimo coinciden a propósito, para no hacer creer que hace falta
+        // el doble.
+        recommended: { width: 1200, height: 630 },
         minimum: { width: 1200, height: 630 },
       },
       mobile: null,
     },
+    // El respaldo es 1.800 × 1.200, que NO es 1.91:1. Se declara su medida
+    // real porque la metadata tiene que describir el archivo que recibe el
+    // rastreador, no el que nos gustaría tener. Mientras nadie suba una
+    // 1.200 × 630, las redes la recortan ellas.
+    legacySize: { width: 1800, height: 1200 },
+    /** Una previsualización social no es sitio para formatos nuevos. */
+    acceptedTypes: ["image/jpeg", "image/png"],
+    /**
+     * Lo que conviene que pese.
+     *
+     * Los rastreadores de previsualización descargan la imagen antes de
+     * dibujar la tarjeta y los hay que se rinden con archivos grandes. A
+     * 1.200 × 630 un JPG decente ronda los 150 kB; medio mega ya es señal
+     * de que sobra resolución o de que es un PNG donde debería ir un JPG.
+     */
+    recommendedMaxBytes: 500 * 1024,
     mobileVariantRecommended: false,
     surface: "/",
     decorative: true,
@@ -409,22 +453,54 @@ export function siteMediaSurfaces(): string[] {
 }
 
 /**
- * Qué hay que invalidar para que un cambio se vea en todas partes.
+ * La ruta interna con la que Next guarda el prerenderizado de `not-found`.
  *
- * Con una sola superficie bastaría su ruta. En cuanto hay varias —o una que
- * no tiene ruta, como la 404— sale más barato y más seguro invalidar el
- * layout raíz: cubre todo lo que cuelga de él, que es exactamente el conjunto
- * de páginas que pueden mostrar estas imágenes.
+ * No es una URL que nadie visite: es el único identificador que
+ * `revalidatePath` entiende para esa salida, que no cuelga de ninguna ruta
+ * normal.
  */
-export function siteMediaRevalidationTarget(): {
+export const NOT_FOUND_PATH = "/_not-found";
+
+/** Un destino de invalidación: la ruta y, si aplica, su alcance. */
+export interface RevalidationTarget {
   path: string;
   type?: "page" | "layout";
-} {
-  const surfaces = siteMediaSurfaces();
-  if (surfaces.length === 1 && surfaces[0] !== NOT_FOUND_SURFACE) {
-    return { path: surfaces[0] };
+}
+
+/**
+ * Qué hay que invalidar cuando cambia la fotografía de un espacio.
+ *
+ * Antes esto no recibía la clave y calculaba el destino a partir de TODAS
+ * las superficies declaradas: con más de una, invalidaba el layout raíz y
+ * ya. Funcionaba por cobertura, no por intención, y así era imposible decir
+ * qué se refresca de verdad al tocar un espacio concreto.
+ *
+ * Es una función pura para poder fijarla en una prueba: `revalidatePath` no
+ * devuelve nada que se pueda comprobar, pero la DECISIÓN sí.
+ */
+export function revalidationTargetsFor(key?: string): RevalidationTarget[] {
+  // Sin clave, lo conservador: todo. Vale para una operación que no sabe a
+  // qué espacio afectó.
+  if (!key) {
+    return [{ path: "/", type: "layout" }, { path: NOT_FOUND_PATH }];
   }
-  return { path: "/", type: "layout" };
+
+  // El menú y la imagen de compartir viven en el layout público: viajan en
+  // CADA página, así que no basta con refrescar una.
+  if (key.startsWith("nav.") || key.startsWith("seo.")) {
+    return [{ path: "/", type: "layout" }];
+  }
+
+  const slot = getSlot(key);
+  if (!slot) return [{ path: "/", type: "layout" }];
+
+  // La página de error no tiene ruta pública que invalidar; su salida vive
+  // aparte y se nombra con `NOT_FOUND_PATH`.
+  if (slot.surface === NOT_FOUND_SURFACE) {
+    return [{ path: NOT_FOUND_PATH }];
+  }
+
+  return [{ path: slot.surface }];
 }
 
 export type SiteMediaKey = (typeof SITE_MEDIA_SLOTS)[number]["key"];
@@ -480,7 +556,7 @@ export function legacyImage(slot: SiteMediaSlot): SiteMediaImage {
       // El sitio se construyó con todas centradas; el respaldo tiene que
       // verse igual que antes de que existiera el encuadre.
       focal: { ...CENTER_FOCAL },
-      size: null,
+      size: slot.legacySize ?? null,
       bytes: null,
       contentType: null,
     },

@@ -1,30 +1,24 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
-import { siteMediaRevalidationTarget } from "@/lib/site-media";
+import { revalidationTargetsFor } from "@/lib/site-media";
 
 /**
- * Invalida las páginas que muestran estas fotografías.
+ * Invalida lo que muestra la fotografía que se acaba de cambiar.
  *
- * Todas son estáticas: `/`, `/contacto` y la página de error se prerenderizan
- * en el build. Sin esto, una fotografía nueva no aparece hasta el siguiente
- * despliegue — que es exactamente lo que pasaba con `/contacto`, porque esta
- * función se escribió cuando los cuatro slots vivían solo en la home y nadie
- * la amplió al añadir el quinto.
+ * La regla que esto cumple es una sola: guardar en el Admin y que la
+ * SIGUIENTE petición pública vea el cambio, sin desplegar. Qué hay que
+ * refrescar para cada espacio lo decide `revalidationTargetsFor`, que es
+ * pura y está cubierta por pruebas; aquí solo se aplica.
  *
- * Para que no vuelva a pasar, el destino ya no está escrito aquí: sale del
- * registro de slots (`siteMediaRevalidationTarget`). Añadir un slot en una
- * página nueva ajusta la invalidación solo.
- *
- * Hoy ese destino es el layout raíz, porque la página de error no tiene una
- * ruta que se pueda invalidar por separado e invalidar el layout cubre todo
- * lo que cuelga de él.
+ * Lo que queda fuera de nuestro alcance es la caché de terceros: el
+ * rastreador de WhatsApp o de Meta guarda su propia previsualización y la
+ * renueva cuando le toca. Eso no es caché nuestra y no hay invalidación que
+ * la alcance.
  */
-export function revalidateSiteMedia(): void {
-  const target = siteMediaRevalidationTarget();
-  if (target.type) {
-    revalidatePath(target.path, target.type);
-    return;
+export function revalidateSiteMedia(key?: string): void {
+  for (const target of revalidationTargetsFor(key)) {
+    if (target.type) revalidatePath(target.path, target.type);
+    else revalidatePath(target.path);
   }
-  revalidatePath(target.path);
 }

@@ -35,6 +35,8 @@ export interface SiteMediaEntry {
   frames: SiteMediaFrames;
   /** El teléfono recorta tan distinto que conviene una segunda fotografía. */
   mobileVariantRecommended: boolean;
+  /** Peso a partir del cual el Admin avisa, si para este espacio importa. */
+  recommendedMaxBytes: number | null;
   /** Acompaña a un texto que ya lo dice todo: se sirve con `alt=""`. */
   decorative: boolean;
   alt: string;

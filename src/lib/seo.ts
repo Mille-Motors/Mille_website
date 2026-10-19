@@ -53,8 +53,14 @@ export const SITE_DESCRIPTION =
  */
 export const OG_IMAGE = {
   url: absoluteUrl("/images/brand/night.jpg"),
+  // Las medidas REALES del archivo. No son 1.91:1 —el espacio administrable
+  // sí lo pide— y declararlas como 1200 × 630 haría que un rastreador que
+  // se fía de la metadata dibujara la previsualización mal. Mientras nadie
+  // suba una 1.200 × 630, las redes la recortan ellas, que es lo que hacen
+  // de todas formas con cualquier proporción que no sea la suya.
   width: 1800,
   height: 1200,
+  type: "image/jpeg",
   alt: `${site.name} — ${site.tagline}`,
 } as const;
 
@@ -94,7 +100,14 @@ interface SocialInput {
   description: string;
   /** Ruta canónica de la página. */
   path: string;
-  images?: { url: string; width?: number; height?: number; alt?: string }[];
+  images?: {
+    url: string;
+    width?: number;
+    height?: number;
+    alt?: string;
+    /** `og:image:type`. Ayuda a los rastreadores que no adivinan. */
+    type?: string;
+  }[];
 }
 
 /**

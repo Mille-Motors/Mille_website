@@ -53,7 +53,7 @@ describe("la línea de WhatsApp", () => {
 describe("el mensaje de cada motivo", () => {
   const cases: [WhatsappIntent, RegExp[]][] = [
     ["buscar", [/estoy buscando un vehículo/, /Me interesa:/, /Presupuesto aprox\.:/, /Ciudad:/]],
-    ["vender", [/quiero hablar de mi vehículo/, /Marca\/modelo\/año:/, /Kilometraje:/, /Ciudad:/]],
+    ["vender", [/quiero vender mi vehículo/, /Marca\/modelo\/año:/, /Kilometraje:/, /Ciudad:/]],
     ["cita", [/agendar una cita/]],
     ["general", [/más información sobre los vehículos disponibles/]],
   ];

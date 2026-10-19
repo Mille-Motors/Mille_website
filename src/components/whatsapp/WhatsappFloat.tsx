@@ -48,8 +48,12 @@ const options: {
   {
     intent: "vender",
     icon: Car,
-    title: "Quiero hablar de mi vehículo",
-    hint: "Cuéntanos de tu carro o tu moto",
+    // La intención de esta opción siempre fue ofrecer un vehículo —el
+    // `intent` interno ya se llamaba "vender"— pero el texto decía "hablar
+    // de mi vehículo", que se lee como una consulta cualquiera. Ahora lo
+    // visible y lo registrado dicen lo mismo.
+    title: "Quiero vender mi carro o mi moto",
+    hint: "Te ayudamos a encontrarle comprador",
   },
   {
     intent: "cita",

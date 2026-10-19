@@ -9,6 +9,7 @@ import {
   readImageDimensions,
   type ImageDimensions,
 } from "@/lib/image-dimensions";
+import { effectiveSize, formatSize } from "@/lib/image-quality";
 import { sanitizeStoragePrefix } from "@/lib/storage-path";
 import {
   ALLOWED_IMAGE_TYPES,
@@ -88,14 +89,20 @@ export async function uploadImage(
   file: File,
   options: {
     /**
-     * El suelo de resolución de ESTE destino.
+     * El marco de ESTE destino: su proporción, su mínimo y cómo se llama.
      *
-     * Por defecto es el de una fotografía de vehículo. Los espacios del
-     * sitio tienen el suyo —una imagen para compartir en redes necesita
-     * 1200 × 630, más ancha y más baja que una ficha— y pasarlo aquí evita
-     * que un mínimo pensado para otra cosa rechace un archivo correcto.
+     * Sin él se usa el suelo de una fotografía de vehículo. Con él se mide
+     * lo que sobrevive al recorte, no el archivo crudo, y el motivo del
+     * rechazo puede nombrar la composición — que es la diferencia entre
+     * «hacen falta 1200 × 1500» sobre una foto de 1800 × 1200, que parece
+     * un error del sistema, y «es horizontal y este espacio es vertical»,
+     * que dice qué hacer.
      */
-    minimum?: { width: number; height: number };
+    frame?: {
+      label: string;
+      ratio: number;
+      minimum: { width: number; height: number };
+    };
   } = {},
 ): Promise<UploadedImage> {
   if (file.size === 0) throw badRequest("El archivo está vacío.");
@@ -144,8 +151,10 @@ export async function uploadImage(
    */
   const dimensions = readImageDimensions(buffer);
   if (dimensions) {
-    const tooSmall = imageTooSmall(dimensions, options.minimum);
-    if (tooSmall) throw badRequest(tooSmall);
+    const reason = options.frame
+      ? frameTooSmall(dimensions, options.frame)
+      : imageTooSmall(dimensions);
+    if (reason) throw badRequest(reason);
   }
 
   const extension = ALLOWED_IMAGE_TYPES[detected][0];
@@ -410,4 +419,54 @@ function totalBytes(response: Response): number | null {
     if (length && /^\d+$/.test(length)) return Number(length);
   }
   return null;
+}
+
+/**
+ * Por qué una fotografía no llena un marco del sitio, o `null` si lo llena.
+ *
+ * Mide lo que queda DESPUÉS del recorte, que es la cifra que decide cómo se
+ * va a ver. Y cuando el problema es la forma —una horizontal en un hueco
+ * vertical— lo dice, porque el número solo no se entiende: alguien con una
+ * foto de 1800 × 1200 que lee «hacen falta 1200 × 1500» concluye que el
+ * sistema está roto, cuando lo que le falta es una vertical.
+ */
+function frameTooSmall(
+  dimensions: ImageDimensions,
+  frame: { label: string; ratio: number; minimum: { width: number; height: number } },
+): string | null {
+  const kept = effectiveSize(dimensions, frame.ratio);
+  if (
+    kept.width >= frame.minimum.width &&
+    kept.height >= frame.minimum.height
+  ) {
+    return null;
+  }
+
+  const sourceRatio = dimensions.width / dimensions.height;
+  // Más de un 15 % de diferencia en la proporción y el problema es la forma,
+  // no el tamaño: ampliar la fotografía no lo arreglaría.
+  const shapeIsTheProblem =
+    Math.abs(sourceRatio - frame.ratio) / frame.ratio > 0.15;
+
+  const head =
+    `Esa imagen mide ${formatSize(dimensions)} y este espacio pide ` +
+    `${shapeOf(frame.ratio)}: al recortarla quedan ${formatSize(kept)}, ` +
+    `por debajo de los ${formatSize(frame.minimum)} que hacen falta.`;
+
+  return shapeIsTheProblem
+    ? `${head} La fotografía que buscas es ${shapeOf(frame.ratio)}.`
+    : head;
+}
+
+/**
+ * La forma de un marco, en palabras.
+ *
+ * Se deriva de la proporción y no de la etiqueta del marco, porque esa
+ * etiqueta nombra el viewport —«Escritorio», «Teléfono»— y aquí hace falta
+ * decir vertical u horizontal.
+ */
+function shapeOf(ratio: number): string {
+  if (ratio < 0.9) return "una fotografía vertical";
+  if (ratio > 1.1) return "una fotografía horizontal";
+  return "una fotografía cuadrada";
 }

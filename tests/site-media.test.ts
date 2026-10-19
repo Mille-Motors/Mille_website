@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  NOT_FOUND_PATH,
   NOT_FOUND_SURFACE,
   SITE_MEDIA_SLOTS,
   getSlot,
   isKnownSlot,
   legacyImage,
-  siteMediaRevalidationTarget,
+  revalidationTargetsFor,
   siteMediaSurfaces,
 } from "@/lib/site-media";
 import {
@@ -188,15 +189,64 @@ describe("invalidación", () => {
     assert.ok(surfaces.includes(NOT_FOUND_SURFACE));
   });
 
-  it("con varias superficies se invalida el layout raíz, que las cubre todas", () => {
-    const target = siteMediaRevalidationTarget();
-    assert.equal(target.path, "/");
-    assert.equal(target.type, "layout");
+  /**
+   * El destino se decide POR CLAVE. Antes no se recibía la clave y se
+   * calculaba a partir de todas las superficies declaradas: invalidaba el
+   * layout raíz y funcionaba por cobertura, no por intención.
+   */
+  it("una fotografía de la home refresca la home", () => {
+    for (const key of ["home.hero", "home.featured.a", "home.about.house"]) {
+      assert.deepEqual(revalidationTargetsFor(key), [{ path: "/" }], key);
+    }
   });
 
-  it("no se queda corta: hay más de una superficie que cubrir", () => {
-    // Si algún día vuelve a haber una sola, el destino puede ser esa ruta;
-    // mientras haya varias, invalidar solo la home es el bug de origen.
-    assert.ok(siteMediaSurfaces().length > 1);
+  it("la de contacto refresca /contacto y nada más", () => {
+    assert.deepEqual(revalidationTargetsFor("contact.hero"), [
+      { path: "/contacto" },
+    ]);
+  });
+
+  it("la de la 404 refresca su propia salida, que no es una ruta normal", () => {
+    assert.deepEqual(revalidationTargetsFor("error.404"), [
+      { path: NOT_FOUND_PATH },
+    ]);
+  });
+
+  it("el menú refresca el layout: viaja en todas las páginas", () => {
+    // La barra está en el layout público, así que la fotografía del menú
+    // aparece en cada página y refrescar una sola no bastaría.
+    for (const key of ["nav.contact", "nav.mille", "nav.vehicles"]) {
+      assert.deepEqual(
+        revalidationTargetsFor(key),
+        [{ path: "/", type: "layout" }],
+        key,
+      );
+    }
+  });
+
+  it("la de compartir también, porque la metadata la hereda cada página", () => {
+    assert.deepEqual(revalidationTargetsFor("seo.defaultOg"), [
+      { path: "/", type: "layout" },
+    ]);
+  });
+
+  it("sin clave se invalida todo, incluida la 404", () => {
+    const targets = revalidationTargetsFor();
+    assert.deepEqual(targets, [
+      { path: "/", type: "layout" },
+      { path: NOT_FOUND_PATH },
+    ]);
+  });
+
+  it("una clave desconocida no deja nada sin refrescar", () => {
+    assert.deepEqual(revalidationTargetsFor("no.existe"), [
+      { path: "/", type: "layout" },
+    ]);
+  });
+
+  it("todos los slots tienen al menos un destino", () => {
+    for (const slot of SITE_MEDIA_SLOTS) {
+      assert.ok(revalidationTargetsFor(slot.key).length > 0, slot.key);
+    }
   });
 });

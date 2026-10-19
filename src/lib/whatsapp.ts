@@ -31,7 +31,7 @@ const intentMessages: Record<WhatsappIntent, string> = {
     "Ciudad: ___",
   ].join("\n"),
   vender: [
-    "Hola MILLE, quiero hablar de mi vehículo.",
+    "Hola MILLE, quiero vender mi vehículo.",
     "Marca/modelo/año: ___",
     "Kilometraje: ___",
     "Ciudad: ___",

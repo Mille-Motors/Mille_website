@@ -5,6 +5,7 @@ import { SITE_MEDIA_BUCKET } from "@/server/auth/config";
 import { ApiError, badRequest } from "@/server/http/errors";
 import { fail, ok, readJson } from "@/server/http/respond";
 import { deleteStoredImage, uploadImage } from "@/server/storage/images";
+import { normalizeDeclaredType } from "@/lib/image-type";
 import { focalSchema } from "@/server/media/focal";
 import {
   siteMediaAltSchema,
@@ -76,6 +77,19 @@ export async function POST(request: Request, { params }: Params) {
     const file = form.get("file");
     if (!(file instanceof File)) throw badRequest("No llegó ninguna imagen.");
 
+    // Algunos espacios aceptan menos formatos que el sitio. Hoy solo la
+    // previsualización social, que la reencoda un rastreador ajeno y donde
+    // JPG y PNG son lo único que todos entienden sin discusión.
+    if (slot.acceptedTypes) {
+      const declared = normalizeDeclaredType(file.type);
+      if (declared && !slot.acceptedTypes.includes(declared)) {
+        throw new ApiError(
+          "UNSUPPORTED_MEDIA_TYPE",
+          "Para la imagen de compartir usa JPG o PNG: son los formatos que todas las redes leen.",
+        );
+      }
+    }
+
     // El encuadre viaja con el archivo para que subir y encuadrar sean un
     // solo gesto. Si no llega, la fotografía nueva nace centrada en vez de
     // heredar el encuadre de la que reemplaza.
@@ -91,7 +105,7 @@ export async function POST(request: Request, { params }: Params) {
       SITE_MEDIA_BUCKET,
       variant === "mobile" ? `${key}/mobile` : key,
       file,
-      { minimum: frame.minimum },
+      { frame },
     );
     const facts = {
       url: uploaded.url,
@@ -129,7 +143,7 @@ export async function POST(request: Request, { params }: Params) {
       width: uploaded.dimensions?.width ?? null,
       height: uploaded.dimensions?.height ?? null,
     });
-    revalidateSiteMedia();
+    revalidateSiteMedia(key);
 
     return ok({ media: await listSiteMedia() });
   } catch (error) {
@@ -181,7 +195,7 @@ export async function PATCH(request: Request, { params }: Params) {
       });
     }
 
-    revalidateSiteMedia();
+    revalidateSiteMedia(key);
 
     return ok({ media: await listSiteMedia() });
   } catch (error) {
@@ -211,7 +225,7 @@ export async function DELETE(request: Request, { params }: Params) {
       await recordAudit(session, "RESET_SITE_MEDIA", "SiteMedia", key, {
         variant: "mobile",
       });
-      revalidateSiteMedia();
+      revalidateSiteMedia(key);
       return ok({ media: await listSiteMedia() });
     }
 
@@ -221,7 +235,7 @@ export async function DELETE(request: Request, { params }: Params) {
     }
 
     await recordAudit(session, "RESET_SITE_MEDIA", "SiteMedia", key);
-    revalidateSiteMedia();
+    revalidateSiteMedia(key);
 
     return ok({ media: await listSiteMedia() });
   } catch (error) {

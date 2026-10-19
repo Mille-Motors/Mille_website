@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Crosshair, Trash2, Upload } from "lucide-react";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { FocalPointEditor } from "@/components/admin/FocalPointEditor";
@@ -55,6 +55,7 @@ export function SiteMediaVariantPanel({
   focal,
   inherited,
   recommendedVariant,
+  recommendedMaxBytes,
   disabled,
   onSaved,
 }: {
@@ -69,6 +70,8 @@ export function SiteMediaVariantPanel({
   inherited: boolean;
   /** El Admin recomienda subir una fotografía propia para el teléfono. */
   recommendedVariant: boolean;
+  /** Peso a partir del cual avisar, si para este espacio importa. */
+  recommendedMaxBytes: number | null;
   disabled: boolean;
   onSaved: (message: string) => void;
 }) {
@@ -79,6 +82,15 @@ export function SiteMediaVariantPanel({
   const [natural, setNatural] = useState<PixelSize | null>(file.size);
   const [busy, setBusy] = useState<null | "upload" | "focal" | "remove">(null);
   const [error, setError] = useState<string | null>(null);
+
+  // El panel puede desmontarse con un archivo elegido —tras guardar, el
+  // padre lo monta de nuevo— y la URL temporal no se libera sola.
+  useEffect(
+    () => () => {
+      if (preview) URL.revokeObjectURL(preview);
+    },
+    [preview],
+  );
 
   const isMobile = variant === "mobile";
   const endpoint = `/api/admin/site-media/${encodeURIComponent(slotKey)}`;
@@ -220,6 +232,11 @@ export function SiteMediaVariantPanel({
       </dl>
 
       <FocalPointEditor
+        // Sin esto, su `natural` conserva las dimensiones del archivo
+        // anterior hasta que el nuevo termina de cargar, y en esa ventana el
+        // escenario, el recuadro y el veredicto se calculan con la medida
+        // equivocada. `<Image key={src}>` remonta la imagen, no al padre.
+        key={preview ?? file.src}
         src={preview ?? file.src}
         alt=""
         frames={{ desktop: frame, mobile: null }}
@@ -241,6 +258,20 @@ export function SiteMediaVariantPanel({
         <p className="text-xs text-ink-muted">
           Este marco se queda con menos de dos tercios de la fotografía.
           Comprueba en el recuadro que no se corte nada importante.
+        </p>
+      ) : null}
+      {/* El peso solo importa donde alguien lo descarga antes de dibujar
+          nada: la previsualización social. Un archivo grande ahí no se ve
+          "más nítido", se queda sin dibujar. */}
+      {recommendedMaxBytes !== null &&
+      file.bytes !== null &&
+      file.bytes > recommendedMaxBytes &&
+      !pending ? (
+        <p className="text-xs text-status-sold">
+          Pesa {formatBytes(file.bytes)}. Para compartir conviene quedarse por
+          debajo de {formatBytes(recommendedMaxBytes)}: algunos
+          previsualizadores no descargan más y dejan la tarjeta sin imagen.
+          Un JPG de 1.200 × 630 ronda los 150 kB.
         </p>
       ) : null}
       {recommendedVariant && inherited && !pending ? (

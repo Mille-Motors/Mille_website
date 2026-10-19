@@ -177,6 +177,7 @@ export async function listSiteMedia(): Promise<SiteMediaEntry[]> {
       aspect: slot.aspect,
       frames: slot.frames,
       mobileVariantRecommended: slot.mobileVariantRecommended,
+      recommendedMaxBytes: slot.recommendedMaxBytes ?? null,
       decorative: slot.decorative ?? false,
       alt: image.alt,
       desktop: toVariantEntry(image.desktop),
