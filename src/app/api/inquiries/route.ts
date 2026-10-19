@@ -6,6 +6,7 @@ import {
 } from "@/server/http/rate-limit";
 import { inquiryInputSchema } from "@/server/inquiries/schemas";
 import { createInquiry } from "@/server/inquiries/service";
+import { requestEvidence } from "@/server/consent/service";
 
 /**
  * El único endpoint que acepta escrituras de gente anónima.
@@ -22,7 +23,13 @@ export async function POST(request: Request) {
 
     const body = await readJson(request, 16 * 1024);
     const input = inquiryInputSchema.parse(body);
-    const { inquiry, discarded } = await createInquiry(input);
+    // La IP sale de las cabeceras del proxy, aquí, en el servidor. El cuerpo
+    // del formulario no tiene ningún campo de IP ni de hora, y es
+    // deliberado: un dato que manda el navegador no prueba nada.
+    const { inquiry, discarded } = await createInquiry(
+      input,
+      requestEvidence(request),
+    );
 
     // Solo consume cupo lo que llegó a escribirse. Un formulario mal
     // rellenado no gasta los intentos de quien lo está rellenando bien, y un

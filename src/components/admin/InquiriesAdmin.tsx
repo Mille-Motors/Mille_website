@@ -88,18 +88,87 @@ const rowAction =
  * Borrar y "spam y eliminar" piden confirmación en la propia fila, igual que
  * el borrado de vehículos: es definitivo y no debe caber en un solo clic.
  */
+/**
+ * Registrar que esta persona revocó su autorización.
+ *
+ * Pide el canal porque el canal es parte de la evidencia: por dónde llegó la
+ * revocatoria es lo que permite encontrarla después, y el art. 2 de la Ley
+ * 2300 de 2023 gira precisamente sobre los canales que el consumidor
+ * autoriza.
+ *
+ * NO borra ni modifica nada. Añade un evento de consentimiento con acción
+ * «revocó»: el que dice que autorizó sigue ahí, porque eso también pasó.
+ */
+function RevocationControl({
+  inquiry,
+  busy,
+  onRevoke,
+}: {
+  inquiry: Inquiry;
+  busy: boolean;
+  onRevoke: (id: string, channel: "email" | "whatsapp" | "other") => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => setOpen(true)}
+        className={cn(rowAction, "hover:border-burgundy/40 hover:text-burgundy")}
+      >
+        Registrar revocatoria
+      </button>
+    );
+  }
+
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <span className="font-serif text-xs text-ink-soft">
+        ¿Por dónde llegó la revocatoria de {inquiry.name}?
+      </span>
+      {(
+        [
+          ["email", "Correo"],
+          ["whatsapp", "WhatsApp"],
+          ["other", "Otro"],
+        ] as const
+      ).map(([channel, label]) => (
+        <button
+          key={channel}
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            setOpen(false);
+            onRevoke(inquiry.id, channel);
+          }}
+          className="label-caps rounded-xs bg-burgundy px-3 py-1.5 text-[10px] text-cream disabled:opacity-40"
+        >
+          {label}
+        </button>
+      ))}
+      <button type="button" onClick={() => setOpen(false)} className={rowAction}>
+        Cancelar
+      </button>
+    </span>
+  );
+}
+
 function RowActions({
   inquiry,
   view,
   busy,
   onStatus,
   onDelete,
+  onRevoke,
 }: {
   inquiry: Inquiry;
   view: InquiryView;
   busy: boolean;
   onStatus: (id: string, status: InquiryStatus) => void;
   onDelete: (id: string, reason?: "spam") => void;
+  onRevoke: (id: string, channel: "email" | "whatsapp" | "other") => void;
 }) {
   const [confirming, setConfirming] = useState<null | "delete" | "spam">(null);
 
@@ -161,6 +230,11 @@ function RowActions({
         </button>
       ) : null}
 
+      {/* No en la bandeja de spam: un bot no revoca una autorización. */}
+      {view !== "spam" ? (
+        <RevocationControl inquiry={inquiry} busy={busy} onRevoke={onRevoke} />
+      ) : null}
+
       {allowsDeletion(view) ? (
         <button
           type="button"
@@ -212,6 +286,27 @@ export function InquiriesAdmin({
     setError(null);
     const result = await adminJson(`/api/admin/inquiries/${id}`, "PATCH", {
       status: next,
+    });
+    setBusy(null);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    router.refresh();
+  }
+
+  /**
+   * Registra una revocatoria. Escribe un evento NUEVO, no corrige el viejo:
+   * la tabla de consentimientos es append-only y la autorización anterior
+   * también ocurrió.
+   */
+  async function revoke(id: string, channel: "email" | "whatsapp" | "other") {
+    if (busy) return;
+    setBusy(id);
+    setError(null);
+    const result = await adminJson("/api/admin/consent-events/revocations", "POST", {
+      inquiryId: id,
+      channel,
     });
     setBusy(null);
     if (!result.ok) {
@@ -537,6 +632,7 @@ export function InquiriesAdmin({
                   busy={busy !== null}
                   onStatus={(id, status) => void setStatus(id, status)}
                   onDelete={(id, reason) => void remove(id, reason)}
+                  onRevoke={(id, channel) => void revoke(id, channel)}
                 />
               </li>
             ))}

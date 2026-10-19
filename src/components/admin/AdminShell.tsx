@@ -11,6 +11,8 @@ import {
   Menu,
   Plus,
   Settings,
+  ShieldCheck,
+  Scale,
   Layers,
   Car,
   X,
@@ -26,6 +28,11 @@ const nav = [
   { label: "Vehículos", href: "/admin/vehiculos", icon: Car, exact: true },
   { label: "Nuevo vehículo", href: "/admin/vehiculos/nuevo", icon: Plus, exact: true },
   { label: "Solicitudes", href: "/admin/solicitudes", icon: Inbox, exact: false },
+  // Dos entradas y no una: «Solicitudes de privacidad» son trámites con un
+  // plazo legal que se vence y «Consentimientos» es la evidencia de lo que
+  // alguien autorizó. Juntarlas escondería lo urgente dentro de un archivo.
+  { label: "Solicitudes de privacidad", href: "/admin/privacidad", icon: Scale, exact: false },
+  { label: "Consentimientos", href: "/admin/consentimientos", icon: ShieldCheck, exact: false },
   { label: "Imágenes del sitio", href: "/admin/contenido", icon: ImageIcon, exact: false },
   { label: "Categorías", href: "/admin/categorias", icon: Layers, exact: false },
   { label: "Configuración", href: "/admin/configuracion", icon: Settings, exact: false },

@@ -28,8 +28,9 @@ const copy = {
 
 /**
  * El envío es real: guarda una solicitud asociada al vehículo y solo dice
- * que la recibimos cuando la base lo confirma. El copy no promete un canal
- * de respuesta concreto porque MILLE todavía no tiene ninguno configurado.
+ * que la recibimos cuando la base lo confirma. El copy no promete un plazo
+ * de respuesta: la solicitud la lee alguien en /admin/solicitudes y no hay
+ * notificación automática que la anuncie.
  */
 export function RequestModal({
   vehicle,

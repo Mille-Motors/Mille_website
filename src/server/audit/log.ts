@@ -30,7 +30,27 @@ export type AuditAction =
   | "UPDATE_SITE_MEDIA"
   | "UPDATE_SITE_MEDIA_ALT"
   | "UPDATE_SITE_MEDIA_FOCAL"
-  | "RESET_SITE_MEDIA";
+  | "RESET_SITE_MEDIA"
+  // De dónde salió una fotografía. No cambia el archivo ni lo que se ve.
+  | "UPDATE_VEHICLE_PROVENANCE"
+  | "UPDATE_VEHICLE_IMAGE_PROVENANCE"
+  | "UPDATE_SITE_MEDIA_PROVENANCE"
+  // Trámites de derechos del Titular. La acción administrativa va aquí; la
+  // decisión del Titular va a `ConsentEvent`, que es otra cosa.
+  | "CREATE_PRIVACY_REQUEST"
+  | "UPDATE_PRIVACY_REQUEST"
+  /**
+   * Una revocatoria registrada por el equipo. Deja constancia de QUIÉN la
+   * registró; el evento de consentimiento deja constancia de que el Titular
+   * la pidió. Son dos hechos distintos y por eso están en dos sitios.
+   */
+  | "REGISTER_CONSENT_REVOCATION"
+  /**
+   * Quién se llevó la evidencia y con qué filtro. Exportar consentimientos
+   * es sacar IPs y datos de contacto del panel: es justo el tipo de acción
+   * que un registro de auditoría existe para recordar.
+   */
+  | "EXPORT_CONSENT_EVENTS";
 
 /**
  * Quién hizo qué. Nunca hace fallar la operación que registra: perder una

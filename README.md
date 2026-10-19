@@ -83,8 +83,11 @@ movimiento y lo que no se hace— está en [`DESIGN.md`](DESIGN.md).
 ## Lo que falta para producción
 
 - Fotografía propia — ver `public/images/README.md`.
-- Correo corporativo: todavía no existe, y el sitio no muestra ninguno
-  inventado. WhatsApp ya está activo (ver `docs/whatsapp.md`).
+- Identificación legal del Responsable del Tratamiento: falta el nombre
+  legal completo y una dirección física de notificaciones. Hasta que estén
+  confirmados, `/privacidad` lo dice en vez de publicar un dato deducido —ver
+  [`docs/legal.md`](docs/legal.md)—.
+- Archivar los acuerdos de tratamiento de datos de Supabase y Vercel.
 - Google Search Console: verificar la propiedad de dominio y enviar el
   sitemap. El sitio ya se indexa (`/robots.txt` y `/sitemap.xml` publicados).
 - Notificación por correo de las solicitudes. Hoy se leen en

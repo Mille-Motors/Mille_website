@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight, Plus, ShieldAlert } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
 import { StatCards } from "@/components/admin/StatCards";
 import { VehicleTable } from "@/components/admin/VehicleTable";
@@ -9,6 +9,7 @@ import { formatDate } from "@/lib/format";
 import { adminVehicleQuerySchema } from "@/server/vehicles/schemas";
 import { getInventoryStats, listAdminVehicles } from "@/server/vehicles/service";
 import { getWhatsappClickStats } from "@/server/whatsapp/service";
+import { getPrivacyRequestSummary } from "@/server/privacy/service";
 
 export const metadata = { title: "Dashboard" };
 
@@ -17,10 +18,11 @@ export const metadata = { title: "Dashboard" };
  * estado real del inventario, no una copia en memoria del navegador.
  */
 export default async function AdminDashboardPage() {
-  const [stats, recent, whatsapp] = await Promise.all([
+  const [stats, recent, whatsapp, privacy] = await Promise.all([
     getInventoryStats(),
     listAdminVehicles(adminVehicleQuerySchema.parse({ limit: 5, page: 1 })),
     getWhatsappClickStats(),
+    getPrivacyRequestSummary(),
   ]);
 
   return (
@@ -40,6 +42,46 @@ export default async function AdminDashboardPage() {
           </div>
         }
       />
+
+      {/* Un plazo legal corriendo se dice aquí y no en la pantalla donde hay
+          que entrar a buscarlo. Solo aparece cuando hay algo abierto: un
+          aviso permanente que casi siempre dice «cero» deja de leerse. */}
+      {privacy.open > 0 ? (
+        <Link
+          href="/admin/privacidad"
+          className={
+            privacy.overdue > 0
+              ? "mb-6 flex items-center gap-3 border border-status-sold/30 bg-status-sold/10 px-5 py-4 font-serif text-sm text-status-sold transition-colors hover:border-status-sold/60"
+              : "mb-6 flex items-center gap-3 border border-stone bg-sand/60 px-5 py-4 font-serif text-sm text-ink-soft transition-colors hover:border-ink/30"
+          }
+        >
+          <ShieldAlert aria-hidden className="size-4 shrink-0" strokeWidth={1.6} />
+          <span>
+            {privacy.overdue > 0 ? (
+              <>
+                <span className="tabular">{privacy.overdue}</span>{" "}
+                {privacy.overdue === 1
+                  ? "solicitud de privacidad VENCIDA"
+                  : "solicitudes de privacidad VENCIDAS"}
+                {" "}de <span className="tabular">{privacy.open}</span> abiertas.
+              </>
+            ) : (
+              <>
+                <span className="tabular">{privacy.open}</span>{" "}
+                {privacy.open === 1
+                  ? "solicitud de privacidad abierta"
+                  : "solicitudes de privacidad abiertas"}
+                , dentro de plazo.
+              </>
+            )}
+          </span>
+          <ArrowRight
+            aria-hidden
+            strokeWidth={1.4}
+            className="ml-auto size-4 shrink-0"
+          />
+        </Link>
+      ) : null}
 
       <StatCards stats={stats} />
 

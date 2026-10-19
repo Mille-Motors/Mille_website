@@ -20,7 +20,8 @@
     "test:concurrency": "tsx --conditions=react-server scripts/e2e-image-concurrency.ts",
     "test:cleanup": "tsx --conditions=react-server scripts/e2e-upload-cleanup.ts",
     "test:focal": "tsx --conditions=react-server scripts/e2e-image-focal.ts",
-    "test:media": "tsx --conditions=react-server scripts/e2e-site-media.ts"
+    "test:media": "tsx --conditions=react-server scripts/e2e-site-media.ts",
+    "test:legal": "tsx --conditions=react-server scripts/e2e-legal-evidence.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

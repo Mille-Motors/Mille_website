@@ -34,3 +34,19 @@ material de demostración.
 
 `vehicles/CREDITS.json` y `brand/CREDITS.json` registran autor y origen de
 cada archivo descargado, por si necesitas atribución mientras siguen en uso.
+
+### Procedencia y derechos
+
+Estos dos `CREDITS.json` son la **fuente** de la procedencia de los archivos
+del repositorio. De ellos se genera `REPOSITORY_IMAGE_RIGHTS` en
+`src/lib/image-provenance.ts`, que es lo que el Admin lee para responder «¿por
+qué podemos usar esta foto?».
+
+Si añades o reemplazas un archivo en `/public/images`, actualiza los dos
+sitios. Una prueba (`tests/image-provenance.test.ts`) comprueba que cada
+entrada de los CREDITS tenga su procedencia y que ningún espacio del sitio
+caiga a un archivo sin créditos registrados.
+
+La procedencia de lo que se **sube** desde el Admin no vive aquí: vive en la
+base, en el vehículo —el lote fotográfico— y, cuando hace falta, en la
+fotografía concreta. Ver `docs/legal.md`.

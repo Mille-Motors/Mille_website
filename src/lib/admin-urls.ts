@@ -1,5 +1,7 @@
 import type { AdminVehicleQuery } from "@/server/vehicles/schemas";
 import type { AdminInquiryQuery } from "@/server/inquiries/schemas";
+import type { AdminConsentQuery } from "@/server/consent/schemas";
+import type { AdminPrivacyQuery } from "@/server/privacy/schemas";
 
 /**
  * Las URLs canónicas de las pantallas del Admin.
@@ -51,4 +53,47 @@ export function adminInquiriesHref(query: Partial<AdminInquiryQuery>): string {
   if (query.page && query.page > 1) append(params, "page", query.page);
   const qs = params.toString();
   return `/admin/solicitudes${qs ? `?${qs}` : ""}`;
+}
+
+/**
+ * Los filtros de la pantalla de consentimientos, en la URL.
+ *
+ * Que el filtro viaje en la URL no es cosmética aquí: significa que un
+ * enlace a «las revocatorias de octubre» se puede guardar, compartir con un
+ * abogado y volver a abrir, y que la exportación en CSV recibe EXACTAMENTE
+ * el mismo filtro que la pantalla está mostrando.
+ */
+export function adminConsentHref(query: Partial<AdminConsentQuery>): string {
+  const params = new URLSearchParams();
+  append(params, "type", query.type);
+  append(params, "action", query.action);
+  append(params, "source", query.source);
+  append(params, "from", query.from);
+  append(params, "to", query.to);
+  append(params, "q", query.q);
+  if (query.page && query.page > 1) append(params, "page", query.page);
+  const qs = params.toString();
+  return `/admin/consentimientos${qs ? `?${qs}` : ""}`;
+}
+
+/** La misma URL, pero la descarga del CSV. */
+export function adminConsentExportHref(
+  query: Partial<AdminConsentQuery>,
+): string {
+  const href = adminConsentHref(query);
+  const qs = href.includes("?") ? href.slice(href.indexOf("?")) : "";
+  return `/api/admin/consent-events/export${qs}`;
+}
+
+export function adminPrivacyHref(query: Partial<AdminPrivacyQuery>): string {
+  const params = new URLSearchParams();
+  // La bandeja con el plazo corriendo es la de por defecto.
+  if (query.view && query.view !== "abiertas") append(params, "view", query.view);
+  append(params, "type", query.type);
+  append(params, "status", query.status);
+  append(params, "channel", query.channel);
+  append(params, "q", query.q);
+  if (query.page && query.page > 1) append(params, "page", query.page);
+  const qs = params.toString();
+  return `/admin/privacidad${qs ? `?${qs}` : ""}`;
 }

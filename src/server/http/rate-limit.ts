@@ -21,12 +21,15 @@ function recent(key: string, now: number): number[] {
   return (hits.get(key) ?? []).filter((at) => now - at < WINDOW_MS);
 }
 
-/** La IP del cliente según el proxy que tenga Vercel delante. */
-export function clientKey(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]!.trim();
-  return request.headers.get("x-real-ip") ?? "unknown";
-}
+/**
+ * La IP del cliente según el proxy de la plataforma.
+ *
+ * Delega en `clientRateLimitKey` para que el proyecto tenga UNA sola forma de
+ * averiguar la IP. Antes esto leía `x-forwarded-for` por su cuenta y la
+ * evidencia de consentimiento la leería por la suya: dos respuestas posibles
+ * a la misma pregunta, y la de la evidencia es la que tiene que ser exacta.
+ */
+export { clientRateLimitKey as clientKey } from "@/server/http/client-ip";
 
 /**
  * Comprueba el límite sin consumirlo.

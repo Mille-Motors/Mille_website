@@ -2,13 +2,41 @@ import type { Metadata } from "next";
 import { LegalDocument, LegalSection } from "@/components/legal/LegalDocument";
 import { site } from "@/data/site";
 import { canonical, socialMetadata } from "@/lib/seo";
-import { PRIVACY_POLICY_VERSION } from "@/lib/legal-versions";
+import {
+  LEGAL_CONTACT,
+  LEGAL_RESPONSIBLES,
+  LEGAL_VERSIONS,
+  formatLegalVersion,
+  responsibleIdentified,
+} from "@/lib/legal";
+import { DATA_PROCESSING_CONSENT } from "@/lib/consent";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
 import { defaultOgImages } from "@/server/site-media/og";
 
-const TITLE = "Política de Privacidad y Tratamiento de Datos";
-const DESCRIPTION = "Conoce qué datos trata MILLE Motor Culture, para qué los usa y cómo ejercer tus derechos en Colombia.";
-const UPDATED = "17 de octubre de 2026";
+/**
+ * La Política de Tratamiento de Datos Personales.
+ *
+ * Describe el tratamiento REAL y nada más. Cada categoría de datos que
+ * aparece aquí existe en una tabla o en una cabecera concreta, y lo que el
+ * proyecto NO hace —analítica, píxeles, mercadeo, pagos, perfilado— se dice
+ * en voz alta en vez de callarse: una política que enumera herramientas que
+ * no existen es tan falsa como una que esconde las que sí.
+ *
+ * El contenido mínimo sale del art. 13 del Decreto 1377 de 2013, compilado en
+ * el Decreto 1074 de 2015: identificación del Responsable, tratamiento y
+ * finalidad, derechos del Titular, área que atiende las solicitudes,
+ * procedimiento para ejercerlas, y fecha de entrada en vigencia junto con el
+ * período de vigencia de la base.
+ *
+ * La identificación del Responsable NO está escrita aquí: se lee de
+ * `LEGAL_RESPONSIBLES`, que hoy está vacío. Mientras lo esté, la sección 01
+ * lo dice. Es el mismo patrón que `site.phone` y `site.email` siguieron
+ * mientras no existían, y por el mismo motivo: el sitio no publica un dato
+ * que nadie ha confirmado.
+ */
+const TITLE = "Política de Tratamiento de Datos Personales";
+const DESCRIPTION =
+  "Qué datos personales trata MILLE Motor Culture, con qué finalidad, por cuánto tiempo y cómo ejercer tus derechos como titular en Colombia.";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
@@ -26,48 +54,553 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function PrivacyPage() {
   const whatsapp = generalWhatsappUrl();
+  const identified = responsibleIdentified();
+
+  /** El canal electrónico, escrito igual en todas las secciones. */
+  const mailLink = (
+    <a href={`mailto:${LEGAL_CONTACT.email}`}>{LEGAL_CONTACT.email}</a>
+  );
+
   return (
-    <LegalDocument title={TITLE} updated={UPDATED} version={PRIVACY_POLICY_VERSION}>
-      <LegalSection number="01" title="Responsable del tratamiento">
-        <p><strong className="text-ink">MILLE Motor Culture</strong> identifica la marca de este sitio. La identidad legal del responsable del tratamiento y sus datos de contacto deben confirmarse antes de publicar esta política como versión definitiva.</p>
-        <p>Para una consulta sobre tus datos puedes usar el WhatsApp de atención: {site.phone && whatsapp ? <a href={whatsapp} target="_blank" rel="noreferrer noopener">{site.phone.display}</a> : "canal de WhatsApp"}, o el <a href="/contacto">formulario de contacto</a>. Para ejercer derechos no necesitas enviar información adicional a la necesaria para ubicar tu solicitud.</p>
+    <LegalDocument title={TITLE} version={LEGAL_VERSIONS.privacy}>
+      <LegalSection number="01" title="Quién responde por tus datos">
+        <p>
+          <strong className="text-ink">MILLE Motor Culture</strong> es una marca
+          dedicada a la cultura automotriz que opera el sitio{" "}
+          <a href={site.url}>millemotorculture.com</a> desde{" "}
+          {LEGAL_CONTACT.domicile}. No es una sociedad constituida: la operan
+          personas naturales en asocio, figura que el artículo 3, literal e), de
+          la Ley 1581 de 2012 prevé expresamente al definir al Responsable del
+          Tratamiento como la persona natural o jurídica que, «por sí misma o en
+          asocio con otros», decide sobre la base de datos o su tratamiento.
+        </p>
+
+        {identified ? (
+          <ul>
+            {LEGAL_RESPONSIBLES.map((responsible) => (
+              <li key={responsible.identification}>
+                <strong className="text-ink">{responsible.legalName}</strong> —{" "}
+                {responsible.identification}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>
+            <strong className="text-ink">
+              Identificación pendiente de publicación.
+            </strong>{" "}
+            El artículo 12, literal d), de la Ley 1581 de 2012 y el artículo 13,
+            numeral 1, del Decreto 1377 de 2013 exigen informar el nombre, el
+            domicilio, la dirección, el correo y el teléfono del Responsable.
+            Los canales de contacto de esta política son reales y están
+            operativos, y el domicilio es {LEGAL_CONTACT.domicile}; lo que no
+            podemos publicar todavía es el nombre legal completo de las personas
+            responsables ni una dirección física de notificaciones, porque no
+            hay ninguna confirmada para el proyecto. No las deducimos de un
+            nombre abreviado ni publicamos la dirección de residencia de nadie
+            como si fuera la de una marca. Esta política se actualizará con esa
+            identificación, con una versión nueva, en cuanto esté confirmada.
+            Mientras tanto, nada de lo que sigue deja de aplicarse: los derechos
+            que se describen aquí se pueden ejercer hoy por los canales de la
+            sección 07.
+          </p>
+        )}
+
+        <p>
+          Contacto para asuntos de datos personales: {mailLink}
+          {site.phone && whatsapp ? (
+            <>
+              {" "}
+              y WhatsApp{" "}
+              <a href={whatsapp} target="_blank" rel="noreferrer noopener">
+                {site.phone.display}
+              </a>
+            </>
+          ) : null}
+          . Ese correo es hoy el canal general de MILLE y, a la vez, el canal
+          electrónico habilitado para consultas y reclamos de protección de
+          datos; si más adelante existe un buzón especializado, se anunciará
+          aquí.
+        </p>
       </LegalSection>
 
-      <LegalSection number="02" title="Datos que tratamos y de dónde vienen">
-        <ul className="list-disc space-y-2 pl-5">
-          <li><strong className="text-ink">Consultas y solicitudes de cita o información:</strong> nombre y al menos un canal de respuesta (teléfono o correo); el otro canal es opcional. También recibimos el mensaje opcional, vehículo consultado y página desde la que se envió. Los entregas en el formulario de contacto o en el formulario de una ficha de vehículo. Se guardan en la base de datos de la aplicación.</li>
-          <li><strong className="text-ink">Autorización de privacidad:</strong> versión de esta política, tipo de autorización, origen y hora generada por el servidor, asociadas al registro de la consulta. No almacenamos la IP ni el agente del navegador como prueba de autorización.</li>
-          <li><strong className="text-ink">Clics en enlaces de WhatsApp:</strong> página de origen, tipo de enlace, vehículo relacionado si aplica y hora del evento. Se guardan en la base de datos para contar interacciones; el sitio no añade nombre, correo ni teléfono al evento.</li>
-          <li><strong className="text-ink">Panel interno:</strong> correo de la cuenta autorizada y datos técnicos de sesión necesarios para iniciar sesión y proteger la administración del inventario.</li>
-          <li><strong className="text-ink">Control antispam:</strong> la dirección IP recibida en la solicitud se usa como clave en memoria del servidor para limitar envíos repetidos dentro de una ventana de diez minutos. El código no la escribe en la base de datos; su permanencia depende de la memoria temporal de la instancia.</li>
+      <LegalSection number="02" title="Qué datos tratamos y de dónde salen">
+        <p>
+          Todo lo que sigue existe de verdad en el sistema. No hay más
+          categorías que estas.
+        </p>
+        <ul>
+          <li>
+            <strong className="text-ink">
+              Datos de contacto de una consulta.
+            </strong>{" "}
+            Nombre y, como mínimo, un canal de respuesta: teléfono o correo. El
+            otro queda opcional. También el mensaje —si lo escribes—, el
+            vehículo por el que preguntas y la página desde la que enviaste el
+            formulario. Los entregas tú, en el formulario de contacto o en el de
+            una ficha de vehículo.
+          </li>
+          <li>
+            <strong className="text-ink">Prueba de tu autorización.</strong> La
+            fecha y hora que genera nuestro servidor, el origen del formulario,
+            la versión de esta política, el identificador y el texto exacto de
+            la autorización que marcaste, una huella criptográfica de ese texto,
+            la dirección IP desde la que se envió y el agente de tu navegador.
+            La IP y el agente los lee el servidor de las cabeceras de la
+            petición; el formulario no tiene ningún campo de IP ni de hora,
+            porque un dato que envía el navegador no probaría nada. Esto existe
+            para poder demostrar <em>qué autorizaste y cuándo</em>, que es lo
+            que exigen el artículo 9 y el artículo 17, literal b), de la Ley 1581
+            de 2012.
+          </li>
+          <li>
+            <strong className="text-ink">
+              Solicitudes sobre tus propios datos.
+            </strong>{" "}
+            Si escribes para ejercer un derecho, registramos tu nombre, el canal
+            por el que llegaste, al menos una forma de responderte, qué pediste,
+            si acreditaste tu identidad, el estado del trámite, nuestra
+            respuesta y la fecha de cierre. Sin esto no podríamos demostrar que
+            te atendimos.
+          </li>
+          <li>
+            <strong className="text-ink">
+              Clics en los enlaces de WhatsApp.
+            </strong>{" "}
+            De qué enlace salió, qué intención tenía, el vehículo relacionado si
+            lo había y la página, sin parámetros. Sirve para saber si el botón se
+            usa.{" "}
+            <strong className="text-ink">
+              No guarda IP, ni agente de navegador, ni ningún identificador de
+              persona
+            </strong>
+            : es un conteo, no un seguimiento, y no se puede vincular contigo.
+          </li>
+          <li>
+            <strong className="text-ink">
+              Datos de quien ofrece un vehículo o una fotografía.
+            </strong>{" "}
+            Cuando un propietario, un dealer o un fotógrafo nos entrega
+            material, registramos de dónde salió: la fuente, el nombre de quien
+            lo entregó, el autor de la fotografía, la licencia o autorización,
+            quién la dio y dónde está la prueba. Es trazabilidad de derechos:
+            nos permite responder por qué podemos usar una imagen. No se muestra
+            en el sitio público.
+          </li>
+          <li>
+            <strong className="text-ink">Acceso del equipo interno.</strong>{" "}
+            Correo y nombre de las cuentas autorizadas, su último acceso y un
+            registro de las acciones administrativas relevantes —quién cambió
+            qué y cuándo—. La contraseña nunca está en nuestra base de datos: la
+            gestiona Supabase Auth.
+          </li>
+          <li>
+            <strong className="text-ink">Control antispam.</strong> La IP de la
+            petición se usa como clave en la memoria del servidor para limitar
+            envíos repetidos en una ventana de diez minutos. No se escribe en la
+            base de datos y desaparece con la memoria temporal de la instancia.
+          </li>
         </ul>
-        <p>No hay campos para datos sensibles ni para datos de niñas, niños o adolescentes. No envíes esa información en el campo de mensaje.</p>
+        <p>
+          <strong className="text-ink">
+            No pedimos ni queremos datos sensibles
+          </strong>{" "}
+          —salud, origen étnico, convicciones, datos biométricos, vida sexual,
+          orientación política— y ningún formulario tiene un campo para ellos.
+          Tampoco tratamos deliberadamente datos de niñas, niños o adolescentes.
+          Responder cualquier pregunta sobre esas categorías es facultativo, y
+          lo mejor es simplemente no escribirlas en el campo de mensaje. Si nos
+          llegan por error, se eliminan.
+        </p>
       </LegalSection>
 
-      <LegalSection number="03" title="Finalidades y autorización">
-        <p>Usamos los datos del formulario para recibir, revisar y responder la consulta que la persona inicia; identificar el vehículo por el que pregunta; y coordinar, cuando se solicite, una visita. Usamos los datos de autorización para conservar evidencia de la autorización previa e informada. Los conteos de WhatsApp sirven para conocer qué páginas y fichas generan interés. Las credenciales internas sirven para autenticar al equipo autorizado.</p>
-        <p>Antes de enviar un formulario público, la persona debe marcar una casilla sin seleccionar previamente que autoriza el tratamiento descrito aquí. La autorización se solicita por separado de los Términos y de cualquier comunicación comercial. El sitio no ofrece suscripciones comerciales ni registra consentimiento de mercadeo. Si no autorizas, el formulario no se envía; puedes comunicarte por los canales que aparecen en contacto para consultar alternativas.</p>
-        <p>El tratamiento se rige por la Ley 1581 de 2012 y sus normas reglamentarias, incluida la autorización previa e informada cuando sea exigible. La base de este registro concreto es la autorización expresa otorgada al enviar el formulario.</p>
+      <LegalSection number="03" title="Para qué los usamos">
+        <p>
+          Cada finalidad es específica, y ninguna sirve de comodín para otra
+          cosa:
+        </p>
+        <ul>
+          <li>
+            Recibir, revisar y responder la consulta que tú inicias; identificar
+            el vehículo por el que preguntas; y coordinar una visita cuando la
+            pides.
+          </li>
+          <li>
+            Conservar la prueba de tu autorización, para poder acreditarla ante
+            ti o ante la autoridad.
+          </li>
+          <li>Atender, tramitar y responder las solicitudes sobre tus datos.</li>
+          <li>
+            Saber qué páginas y fichas generan interés, con conteos que no se
+            vinculan a ninguna persona.
+          </li>
+          <li>
+            Acreditar que podemos usar el material fotográfico que publicamos.
+          </li>
+          <li>
+            Autenticar al equipo interno y dejar constancia de las acciones
+            administrativas.
+          </li>
+          <li>Frenar el envío automatizado y abusivo de formularios.</li>
+        </ul>
+        <p>
+          <strong className="text-ink">
+            No hacemos perfilado, no hacemos publicidad, no vendemos ni
+            alquilamos datos
+          </strong>{" "}
+          y no los cedemos a terceros para sus propias finalidades. Tampoco hay
+          decisiones automatizadas sobre nada que te afecte.
+        </p>
       </LegalSection>
 
-      <LegalSection number="04" title="Almacenamiento, encargados y circulación">
-        <p>La configuración de la base de datos de la aplicación apunta a Supabase en East US (North Virginia, AWS us-east-1). Esto acredita la ubicación configurada para el almacenamiento de la base, pero por sí solo no determina si la operación constituye transferencia o transmisión internacional ni el rol jurídico de Supabase. Esa clasificación requiere revisar el contrato, el DPA, las instrucciones sobre fines y medios, y los subencargados que puedan acceder o tratar los datos. También deben confirmarse por separado las regiones aplicables a Auth y Storage. El proveedor de alojamiento de la aplicación debe confirmarse en la configuración del despliegue.</p>
-        <p>En términos generales, hay transmisión cuando un encargado trata los datos por cuenta del responsable; hay transferencia cuando se comunican a otro responsable que decide sus propios fines y medios. El almacenamiento o procesamiento técnico fuera de Colombia describe la ubicación del tratamiento, pero no basta para escoger entre esas figuras. La relación concreta con Supabase requiere confirmación contractual y jurídica. Al elegir un enlace de WhatsApp o Instagram, el navegador abre el servicio correspondiente y la información que compartas allí queda sujeta a las políticas de ese proveedor; el enlace no envía automáticamente el contenido de esta consulta.</p>
+      <LegalSection number="04" title="Tu autorización, y cuándo no hace falta">
+        <p>
+          Antes de enviar un formulario público tienes que marcar una casilla
+          que <strong className="text-ink">no viene preseleccionada</strong> y
+          cuyo texto es exactamente este:
+        </p>
+        <p>
+          <em>«{DATA_PROCESSING_CONSENT.text}»</em>
+        </p>
+        <p>
+          Esa casilla es una autorización de tratamiento, no la aceptación de un
+          documento: por eso enumera las finalidades en vez de remitirte a
+          leerlas. Va <strong className="text-ink">separada</strong> de los{" "}
+          <a href="/terminos">Términos y Condiciones</a>, que no se te piden
+          para enviar una consulta porque enviarla no celebra ningún contrato, y
+          separada de cualquier comunicación comercial. El silencio nunca
+          equivale a autorizar: el artículo 7 del Decreto 1377 de 2013 lo dice
+          expresamente. Guardamos el texto literal que viste, su versión y su
+          huella, de modo que después se puede comprobar carácter por carácter
+          qué autorizaste.
+        </p>
+        <p>
+          Si no autorizas, el formulario no se envía. Puedes escribirnos por
+          WhatsApp o al correo de la sección 01, y en ese caso el tratamiento se
+          limita a responderte lo que preguntaste.
+        </p>
+        <p>
+          Hay casos en que la ley no exige autorización —el artículo 10 de la
+          Ley 1581 de 2012 los enumera: requerimientos de autoridad en ejercicio
+          de sus funciones legales u orden judicial, datos de naturaleza
+          pública, urgencia médica, fines históricos, estadísticos o
+          científicos, y registro civil—. Si alguno llegara a aplicarse, seguimos
+          obligados por el resto de la ley.
+        </p>
       </LegalSection>
 
-      <LegalSection number="05" title="Conservación y seguridad">
-        <p>El proyecto no implementa una fecha automática de eliminación para las consultas ni una tabla de plazos de conservación. La pauta publicada es conservarlas mientras se atiende la solicitud y luego revisarlas para eliminarlas cuando dejen de ser necesarias, salvo deber legal o necesidad de atender una reclamación. La autorización vinculada a la consulta se elimina con ella. MILLE debe aprobar y aplicar un calendario concreto de conservación.</p>
-        <p>El acceso a consultas está limitado al panel autenticado y autorizado; la base de datos tiene controles de acceso, y el servidor valida los datos recibidos. Estas medidas reducen el riesgo, pero ningún sistema conectado a internet puede prometer seguridad absoluta.</p>
+      <LegalSection number="05" title="Quién más los trata, y dónde">
+        <p>
+          Hay tratamiento fuera de Colombia y lo decimos sin rodeos. Las figuras
+          del artículo 3 del Decreto 1377 de 2013 no son intercambiables: hay{" "}
+          <em>transmisión</em> cuando un encargado trata los datos por cuenta
+          del responsable, y <em>transferencia</em> cuando se comunican a otro
+          responsable que decide sus propios fines. No todos los proveedores
+          encajan en la misma casilla, así que no los metemos todos en una:
+        </p>
+        <ul>
+          <li>
+            <strong className="text-ink">Supabase</strong> — base de datos,
+            autenticación del panel y almacenamiento de las fotografías. Trata
+            los datos por cuenta de MILLE y conforme a nuestra configuración, lo
+            que corresponde a un <em>encargado</em> y a una transmisión
+            internacional. La base de datos de esta aplicación está alojada en
+            la región de Amazon Web Services <em>us-east-1</em> (Norte de
+            Virginia, Estados Unidos); las regiones aplicables a autenticación y
+            almacenamiento deben confirmarse por separado.
+          </li>
+          <li>
+            <strong className="text-ink">Vercel</strong> — alojamiento y entrega
+            del sitio. Procesa las peticiones por cuenta de MILLE —misma figura
+            de encargado— y de sus cabeceras lee el servidor la IP que queda en
+            la prueba de autorización.
+          </li>
+          <li>
+            <strong className="text-ink">Google</strong> — el correo oficial de
+            MILLE es una cuenta de Gmail, así que lo que escribas a ese buzón se
+            trata en la infraestructura de Google, bajo los términos y la
+            política de privacidad de Google aplicables a ese servicio. Siendo
+            una cuenta de uso general y no un servicio corporativo contratado,{" "}
+            <strong className="text-ink">
+              no afirmamos que Google actúe como encargado por cuenta de MILLE
+            </strong>
+            : Google determina aspectos propios de la operación de su servicio.
+            Lo que sí es nuestro, y de lo que respondemos, es el contenido de
+            los mensajes que conservamos y lo que hacemos con ellos.
+          </li>
+          <li>
+            <strong className="text-ink">Meta (WhatsApp)</strong> — la línea de
+            atención es WhatsApp. Meta <em>no</em> trata esos datos por cuenta
+            de MILLE: opera su propio servicio con sus propias finalidades y
+            políticas, así que respecto de ellas actúa por su cuenta y no bajo
+            nuestras instrucciones. MILLE responde por la conversación que
+            mantiene contigo y por lo que registre de ella.
+          </li>
+        </ul>
+        <p>
+          Dos precisiones honestas. La primera: que un servidor esté en Estados
+          Unidos describe dónde ocurre el tratamiento, no por sí solo su
+          calificación jurídica, que depende del rol real del proveedor y del
+          contrato aplicable. La segunda: el artículo 24, numeral 2, del Decreto
+          1377 de 2013 exime de informar y de pedir autorización aparte para las
+          transmisiones internacionales{" "}
+          <em>cuando existe el contrato de su artículo 25</em>. Esta política no
+          se apoya en esa exención: te informa aquí quiénes son los proveedores
+          y qué hace cada uno, que es más de lo que la exención exigiría.
+        </p>
+        <p>
+          Al tocar un enlace a WhatsApp o Instagram, tu navegador abre ese
+          servicio y lo que compartas allí se rige por las políticas de su
+          operador. El enlace <strong className="text-ink">no</strong> envía
+          automáticamente el contenido de ninguna consulta. Fuera de esto, no
+          entregamos tus datos a nadie, salvo a ti —o a tus causahabientes o
+          representantes debidamente acreditados— y a las autoridades que los
+          soliciten en ejercicio de sus funciones legales o por orden judicial,
+          como prevé el artículo 13 de la Ley 1581 de 2012.
+        </p>
       </LegalSection>
 
-      <LegalSection number="06" title="Derechos y solicitudes">
-        <p>Puedes conocer, actualizar y rectificar tus datos; solicitar prueba de la autorización y conocer el uso dado; presentar consultas o reclamos; y solicitar la revocatoria o supresión cuando proceda. También puedes acudir a la Superintendencia de Industria y Comercio después de agotar el trámite ante el responsable, según las reglas aplicables.</p>
-        <p>Envía tu solicitud por {site.phone && whatsapp ? <a href={whatsapp} target="_blank" rel="noreferrer noopener">WhatsApp ({site.phone.display})</a> : "WhatsApp"} e indica “datos personales”, cómo podemos ubicar tu consulta y el derecho que deseas ejercer. Las consultas se atienden en diez (10) días hábiles; si no es posible responder en ese plazo, se informará el motivo y el nuevo plazo, que no excederá cinco (5) días hábiles adicionales. Los reclamos se atienden en quince (15) días hábiles; la ampliación, cuando aplique, no excederá ocho (8) días hábiles adicionales.</p>
+      <LegalSection number="06" title="Cuánto tiempo los guardamos">
+        <p>
+          El artículo 11 del Decreto 1377 de 2013 permite conservar los datos
+          «durante el tiempo que sea razonable y necesario» para la finalidad
+          que los justificó, y obliga a suprimirlos cuando esa finalidad se
+          cumple. Ninguna norma colombiana fija un número de meses para lo que
+          trata este sitio, así que los plazos que siguen son decisiones{" "}
+          <strong className="text-ink">internas de MILLE</strong>, y los
+          distinguimos de los deberes legales a propósito:
+        </p>
+        <ul>
+          <li>
+            <strong className="text-ink">
+              Consultas y datos de contacto — 24 meses
+            </strong>{" "}
+            desde que la conversación se cierra, y antes si nos lo pides.{" "}
+            <em>Plazo interno.</em>
+          </li>
+          <li>
+            <strong className="text-ink">
+              Prueba de la autorización — 5 años
+            </strong>{" "}
+            desde el evento.{" "}
+            <em>
+              Plazo interno, pero con un deber legal detrás: el artículo 17,
+              literal b), de la Ley 1581 de 2012 obliga a conservar copia de la
+              autorización, y no fija cuánto. Cinco años cubren con holgura el
+              tiempo en que alguien podría reclamarnos o la autoridad
+              preguntarnos. Por eso una prueba de autorización no se borra
+              cuando se borra la consulta: se desvincula de ti y queda
+              acreditando que hubo una autorización de esa versión, a esa hora y
+              desde ese formulario, sin conservar a quién se refería.
+            </em>
+          </li>
+          <li>
+            <strong className="text-ink">
+              Trámites sobre tus datos — 5 años
+            </strong>{" "}
+            desde el cierre, para poder demostrar que los atendimos.{" "}
+            <em>Plazo interno.</em>
+          </li>
+          <li>
+            <strong className="text-ink">Conteos de WhatsApp — 24 meses.</strong>{" "}
+            <em>Plazo interno.</em> No contienen datos de contacto.
+          </li>
+          <li>
+            <strong className="text-ink">
+              Registro de acciones del equipo — 5 años.
+            </strong>{" "}
+            <em>Plazo interno.</em>
+          </li>
+          <li>
+            <strong className="text-ink">
+              Trazabilidad de derechos de fotografías
+            </strong>{" "}
+            — mientras la fotografía se use y mientras duren las obligaciones de
+            su licencia o autorización. <em>Plazo interno.</em>
+          </li>
+          <li>
+            <strong className="text-ink">
+              IP del control antispam — 10 minutos
+            </strong>
+            , en memoria del servidor y sin pasar por la base de datos.
+          </li>
+        </ul>
+        <p>
+          La revisión y supresión se hacen de forma controlada, no con un
+          proceso automático que borre solo: preferimos que la eliminación de
+          datos de personas sea una decisión verificada antes que un trabajo
+          desatendido que una madrugada borre lo que no debía.
+        </p>
+        <p>
+          <strong className="text-ink">
+            Período de vigencia de la base de datos:
+          </strong>{" "}
+          indefinido mientras MILLE opere y mantenga las finalidades descritas
+          aquí; los datos de cada persona, en cambio, no son indefinidos y se
+          conservan solo los plazos de arriba. Si MILLE dejara de operar, las
+          bases se suprimen salvo lo que haya que conservar por un deber legal.
+        </p>
       </LegalSection>
 
-      <LegalSection number="07" title="Menores de edad y cambios">
-        <p>El sitio no está dirigido a niñas, niños o adolescentes y no solicita deliberadamente sus datos personales. Si se reciben por error, contáctanos para revisar el caso y aplicar las reglas legales pertinentes, siempre con prevalencia de sus derechos.</p>
-        <p>Si cambia el tratamiento, se actualizará esta política y su versión. Si un cambio requiere una nueva autorización, se solicitará antes de realizar el tratamiento nuevo.</p>
+      <LegalSection number="07" title="Tus derechos y cómo ejercerlos">
+        <p>
+          Como titular, el artículo 8 de la Ley 1581 de 2012 te reconoce el
+          derecho a <strong className="text-ink">conocer</strong>,{" "}
+          <strong className="text-ink">actualizar</strong> y{" "}
+          <strong className="text-ink">rectificar</strong> tus datos;{" "}
+          <strong className="text-ink">
+            solicitar prueba de la autorización
+          </strong>{" "}
+          que otorgaste; ser informado, previa solicitud, del{" "}
+          <strong className="text-ink">uso</strong> que les hemos dado;{" "}
+          <strong className="text-ink">acceder gratuitamente</strong> a ellos;{" "}
+          <strong className="text-ink">revocar la autorización</strong> y{" "}
+          <strong className="text-ink">solicitar su supresión</strong> cuando
+          proceda; y presentar quejas ante la Superintendencia de Industria y
+          Comercio.
+        </p>
+        <p>
+          Puedes consultar tus datos gratis al menos una vez al mes y cada vez
+          que esta política cambie de forma sustancial, como señala el artículo
+          21 del Decreto 1377 de 2013.
+        </p>
+        <p>
+          <strong className="text-ink">Cómo pedirlo.</strong> Escribe a{" "}
+          {mailLink}
+          {site.phone && whatsapp ? (
+            <>
+              {" "}
+              o al WhatsApp{" "}
+              <a href={whatsapp} target="_blank" rel="noreferrer noopener">
+                {site.phone.display}
+              </a>
+            </>
+          ) : null}
+          , indica «datos personales», dinos qué derecho quieres ejercer y
+          danos algo con lo que podamos encontrar tu solicitud —el correo o el
+          teléfono que dejaste—. De las solicitudes se encarga directamente el
+          equipo de MILLE, que es quien atiende ese buzón; no necesitas enviar
+          más información que la necesaria para ubicarte.
+        </p>
+        <p>
+          <strong className="text-ink">Acreditación.</strong> Antes de
+          entregarte datos o borrarlos te pediremos verificar que eres tú, o que
+          representas al titular, como exige el artículo 20 del Decreto 1377 de
+          2013. No es burocracia: atender una supresión sin comprobarlo sería
+          borrarle los datos a alguien a petición de un tercero.
+        </p>
+        <p>
+          <strong className="text-ink">Plazos.</strong> Las{" "}
+          <em>consultas</em> se atienden en un máximo de diez (10) días hábiles;
+          si no es posible, te informamos el motivo y la nueva fecha, que no
+          pasará de cinco (5) días hábiles más (artículo 14 de la Ley 1581 de
+          2012). Los <em>reclamos</em> —corrección, actualización, supresión,
+          revocatoria, o el presunto incumplimiento de un deber— se atienden en
+          quince (15) días hábiles, prorrogables como máximo ocho (8) días
+          hábiles más (artículo 15). Si el reclamo llega incompleto, te lo
+          pediremos dentro de los cinco (5) días siguientes.
+        </p>
+        <p>
+          <strong className="text-ink">Límites, dichos con claridad.</strong>{" "}
+          Revocar la autorización o pedir la supresión procede en los términos
+          de la ley, y hay datos que no podemos borrar mientras exista un deber
+          legal de conservarlos o sean necesarios para atender una reclamación
+          en curso. Cuando sea el caso, te diremos cuál es el motivo en vez de
+          dejar la solicitud sin respuesta.
+        </p>
+        <p>
+          <strong className="text-ink">Ante la autoridad.</strong> Puedes
+          presentar queja ante la{" "}
+          <a
+            href="https://www.sic.gov.co/"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            Superintendencia de Industria y Comercio
+          </a>
+          . El artículo 16 de la Ley 1581 de 2012 pide agotar antes el trámite
+          de consulta o reclamo ante nosotros.
+        </p>
+      </LegalSection>
+
+      <LegalSection number="08" title="Comunicaciones comerciales">
+        <p>
+          <strong className="text-ink">
+            Hoy MILLE no envía comunicaciones comerciales ni publicitarias.
+          </strong>{" "}
+          No hay boletín, ni campañas, ni listas de difusión, ni mensajes
+          automáticos. Si escribes preguntando por un carro, te respondemos esa
+          pregunta: responder a tu propia solicitud no es publicidad, y el
+          artículo 8 de la Ley 2300 de 2023 exceptúa expresamente el envío de
+          «información solicitada por el consumidor».
+        </p>
+        <p>
+          Haber preguntado por un vehículo{" "}
+          <strong className="text-ink">no te suscribe a nada</strong>. Si algún
+          día MILLE quiere enviar novedades, hará falta tu consentimiento
+          aparte, voluntario y sin preseleccionar, negarlo no te impedirá enviar
+          una consulta, y esos envíos tendrán que respetar los canales que
+          autorices, los horarios del artículo 3 de la Ley 2300 de 2023 —lunes a
+          viernes de 7:00 a. m. a 7:00 p. m. y sábados de 8:00 a. m. a 3:00
+          p. m., sin domingos ni festivos—, su periodicidad y un mecanismo
+          sencillo para darse de baja en cualquier momento.
+        </p>
+      </LegalSection>
+
+      <LegalSection number="09" title="Seguridad">
+        <p>
+          Las solicitudes, las pruebas de autorización, las IP registradas y los
+          trámites sobre datos{" "}
+          <strong className="text-ink">no son públicos en ninguna parte</strong>
+          : viven detrás de sesión autenticada y rol autorizado, y solo los ve
+          el equipo de MILLE. La API de datos de la base está cerrada para
+          clientes anónimos y autenticados a nivel de la propia base, de modo
+          que no basta con conocer una URL. El servidor valida todo lo que
+          recibe, limita el tamaño de lo que acepta y frena los envíos
+          repetidos. Las pruebas de autorización, además, están protegidas
+          contra modificación y borrado por una restricción de la propia base
+          de datos, y no solo por el código de la aplicación: la aplicación no
+          puede alterarlas ni queriendo.
+        </p>
+        <p>
+          Estas medidas reducen el riesgo. Ningún sistema conectado a internet
+          puede prometer seguridad absoluta, y no se lo vamos a prometer. Si
+          detectamos un incidente que afecte tus datos, actuaremos conforme al
+          artículo 17, literal n), de la Ley 1581 de 2012, que obliga a informar
+          a la autoridad de protección de datos.
+        </p>
+      </LegalSection>
+
+      <LegalSection number="10" title="Cookies, menores y cambios">
+        <p>
+          El sitio público no usa cookies de analítica ni de publicidad, ni
+          almacenamiento local de seguimiento. El detalle está en la{" "}
+          <a href="/cookies">Política de Cookies</a>.
+        </p>
+        <p>
+          El sitio no está dirigido a niñas, niños o adolescentes y no solicita
+          deliberadamente sus datos. Si llegan por error, escríbenos para
+          revisarlo y aplicar las reglas del artículo 7 de la Ley 1581 de 2012 y
+          del artículo 12 del Decreto 1377 de 2013, con prevalencia de sus
+          derechos.
+        </p>
+        <p>
+          Esta política puede cambiar. La versión y la fecha vigentes están al
+          principio de la página, y cada versión queda vinculada a las
+          autorizaciones que se otorgaron mientras estaba en vigor: una versión
+          ya publicada no se reescribe. Un cambio sustancial —por ejemplo en la
+          identificación del Responsable o en las finalidades— se comunicará de
+          forma oportuna antes de aplicarlo, como pide el artículo 13 del
+          Decreto 1377 de 2013, y si cambia la finalidad del tratamiento
+          pediremos una autorización nueva antes de tratar los datos para ella.
+        </p>
+        <p>
+          Esta política se rige por la Constitución Política de Colombia
+          (artículo 15), la Ley 1581 de 2012, el Decreto 1377 de 2013 compilado
+          en el Decreto 1074 de 2015 y las demás normas que las modifiquen,
+          adicionen o reglamenten. Entra en vigencia el{" "}
+          {formatLegalVersion(LEGAL_VERSIONS.privacy)}.
+        </p>
       </LegalSection>
     </LegalDocument>
   );

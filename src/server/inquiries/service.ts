@@ -9,7 +9,14 @@ import type {
   InquiryInput,
 } from "@/server/inquiries/schemas";
 import type { InquiryStatus, InquiryType, Inquiry } from "@/types/vehicle";
-import { PRIVACY_POLICY_VERSION } from "@/lib/legal-versions";
+import {
+  CONSENT_SOURCE_CONTACT,
+  vehicleConsentSource,
+} from "@/lib/consent";
+import {
+  consentEventData,
+  type RequestEvidence,
+} from "@/server/consent/service";
 import { inquiryViewStatuses } from "@/lib/inquiry-views";
 import type {
   InquiryStatus as DbInquiryStatus,
@@ -83,9 +90,16 @@ function toInquiryDto(record: InquiryRecord): Inquiry {
  * de alguien por un enlace viejo sería peor que guardarlo suelto.
  *
  * El honeypot se resuelve arriba, antes de escribir nada.
+ *
+ * `evidence` es lo que el servidor averiguó de la petición —IP, de qué
+ * cabecera salió, agente, identificador de la traza— y llega como parámetro
+ * en vez de leerse aquí a propósito: este módulo no conoce la `Request`, y la
+ * única forma de que no se pueda escribir una solicitud sin su prueba es que
+ * la prueba sea un argumento obligatorio.
  */
 export async function createInquiry(
   input: InquiryInput,
+  evidence: RequestEvidence,
 ): Promise<{ inquiry: Inquiry; discarded: boolean }> {
   if (input.website && input.website.trim() !== "") {
     // Un bot. Se responde como si todo hubiera ido bien, pero no se escribe
@@ -140,14 +154,24 @@ export async function createInquiry(
       include: inquiryInclude,
     });
 
-    await tx.consentRecord.create({
-      data: {
-        inquiryId: inquiry.id,
-        privacyPolicyVersion: PRIVACY_POLICY_VERSION,
+    // La autorización y el dato que autoriza, en la MISMA transacción. Un
+    // dato guardado sin su prueba es un dato sin base legal, y una prueba
+    // sin su dato es una fila que no describe nada: o entran los dos, o no
+    // entra ninguno.
+    //
+    // El texto no viaja en `input`: lo resuelve el servidor de su propio
+    // registro. Si el navegador pudiera mandarlo, la prueba dejaría de decir
+    // qué mostró MILLE para decir qué escribió quien rellenó el formulario.
+    await tx.consentEvent.create({
+      data: consentEventData({
+        consentType: "data_processing",
+        action: "granted",
         source: input.vehicleSlug
-          ? `vehiculo:${input.vehicleSlug}`
-          : "contacto",
-      },
+          ? vehicleConsentSource(input.vehicleSlug)
+          : CONSENT_SOURCE_CONTACT,
+        inquiryId: inquiry.id,
+        evidence,
+      }),
     });
 
     return inquiry;

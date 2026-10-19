@@ -11,8 +11,17 @@
  * `src/lib/seo.ts`. La URL de Vercel sigue funcionando, pero no es canónica.
  *
  * `phone` es la línea de WhatsApp Business de MILLE (la misma que atiende el
- * equipo desde la app) y `email` sigue en `null` hasta que exista un buzón
- * real: no se muestra ninguna dirección de mentira como si fuera un canal.
+ * equipo desde la app) y `email` es el buzón oficial, confirmado por el
+ * fundador. Estuvo en `null` mientras no existió ninguno, porque no se
+ * muestra una dirección de mentira como si fuera un canal; ahora existe, así
+ * que se muestra. Lo que sigue sin inventarse son los buzones por función
+ * —uno de privacidad, uno legal, uno de contacto—: no hay dominio de correo
+ * propio, y una dirección que nadie lee no es un canal de atención. Una
+ * prueba comprueba que no aparezca ninguno. El mismo buzón sirve
+ * hoy de canal general y de canal electrónico para los derechos del titular;
+ * eso está dicho en `src/lib/legal.ts`, que es de donde lo leen las páginas
+ * legales.
+ *
  * Los componentes solo pintan un canal cuando su valor aquí no es nulo, así
  * que activar uno es cambiar este archivo y nada más.
  *
@@ -50,7 +59,7 @@ export const site: {
   city: "Bogotá",
   country: "Colombia",
   cityShort: "Bogotá, CO",
-  email: null,
+  email: "millemotorculture@gmail.com",
   instagram: {
     handle: "@millemotorculture",
     url: "https://www.instagram.com/millemotorculture/",

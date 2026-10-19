@@ -1,23 +1,30 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { formatLegalVersion } from "@/lib/legal";
 
 /**
  * El marco de un documento legal: titular grande, fecha y versión, los otros
  * dos documentos a un clic y el texto en una medida de lectura. Es la página
  * más larga y menos mirada del sitio, y por eso la más sobria: sin imagen ni
  * movimiento, solo tipografía que se pueda leer una hora.
+ *
+ * La fecha se DERIVA de la versión y ya no llega como prop. Antes cada página
+ * traía las dos —`version="2026-10-17"` y `updated="17 de octubre de 2026"`—
+ * y nada garantizaba que coincidieran: una corrección podía mover el texto
+ * legible y dejar la versión quieta, y entonces un consentimiento guardado
+ * contra esa versión dejaba de poder demostrar qué se mostró.
  */
 export function LegalDocument({
   title,
-  updated,
   version,
   children,
 }: {
   title: string;
-  updated: string;
+  /** `AAAA-MM-DD`, desde `LEGAL_VERSIONS`. */
   version: string;
   children: React.ReactNode;
 }) {
+  const updated = formatLegalVersion(version);
   return (
     <>
       <section className="bg-cream pt-[clamp(2.5rem,5vw,5rem)] pb-[clamp(2rem,4vw,3.5rem)]">
@@ -43,7 +50,7 @@ export function LegalDocument({
           >
             {[
               { href: "/terminos", label: "Términos" },
-              { href: "/privacidad", label: "Privacidad" },
+              { href: "/privacidad", label: "Tratamiento de datos" },
               { href: "/cookies", label: "Cookies" },
             ].map((link) => (
               <Link

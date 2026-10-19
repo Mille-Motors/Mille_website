@@ -12,9 +12,12 @@ import {
 export const metadata = { title: "Solicitudes" };
 
 /**
- * Lo que llega de los formularios públicos. Sin correo ni WhatsApp todavía,
- * esta pantalla es el buzón: es lo que hace que activar los formularios
- * tenga utilidad real desde el primer día.
+ * Lo que llega de los formularios públicos.
+ *
+ * Es el buzón del sitio: no hay notificación por correo, así que una
+ * solicitud solo se ve entrando aquí. El correo y el WhatsApp de MILLE ya
+ * existen y son canales de entrada por su cuenta; lo que no existe todavía
+ * es correo transaccional que avise de esto.
  */
 export default async function AdminInquiriesPage(
   props: PageProps<"/admin/solicitudes">,

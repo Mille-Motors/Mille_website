@@ -14,9 +14,11 @@ import type { Vehicle } from "@/types/vehicle";
  * base y el éxito solo se muestra cuando el servidor confirma que la fila
  * quedó escrita. Si falla, se dice que falló.
  *
- * No se promete un canal que todavía no existe: MILLE no tiene WhatsApp ni
- * correo corporativo configurados, así que el copy no dice por dónde
- * responderemos, solo que el mensaje llegó.
+ * El copy dice que el mensaje llegó y que responderemos con los datos que la
+ * persona dejó, y no promete un plazo concreto. MILLE ya tiene WhatsApp y
+ * correo oficial —se ven en esta misma página—, pero no hay nada automático
+ * que notifique este envío: lo lee alguien en /admin/solicitudes, y anunciar
+ * «te respondemos en X horas» sería prometer un proceso que no existe.
  */
 export function ContactForm({ vehicles }: { vehicles: Vehicle[] }) {
   const [sending, setSending] = useState(false);

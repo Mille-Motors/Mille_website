@@ -790,9 +790,19 @@ publique una versión con `@prisma/config` sobre `deepmerge-ts >= 8` y un
 
 ## Pendiente, a propósito
 
-- **Canales de contacto.** WhatsApp ya está activo (`site.phone`, ver
-  `docs/whatsapp.md`). Sigue sin haber correo corporativo: el sitio no
-  muestra ninguno inventado y `/admin/configuracion` no permite escribir uno.
+- **Identificación legal del Responsable.** Falta el nombre legal completo
+  de las personas responsables y una dirección física de notificaciones.
+  `LEGAL_RESPONSIBLES` está vacío a propósito y `/privacidad` lo dice en voz
+  alta en vez de publicar un dato deducido. Ver `docs/legal.md`.
+- **Acuerdos de tratamiento de datos.** Hay que archivar el DPA de Supabase y
+  el de Vercel, y confirmar por separado las regiones de Auth y Storage. La
+  política describe el rol de cada proveedor, que es lo verificable, y no
+  afirma que exista contrato firmado.
+- **Canales de contacto.** WhatsApp y el correo oficial ya están activos
+  (`site.phone` y `LEGAL_CONTACT.email`, ver `docs/whatsapp.md` y
+  `docs/legal.md`). `/admin/configuracion` muestra su estado real y sigue
+  siendo de solo lectura: los canales viven en el código, donde un cambio
+  pasa por revisión.
 - **Google Search Console.** El sitio ya es indexable y publica
   `/robots.txt` y `/sitemap.xml`; falta verificar la propiedad de dominio
   (TXT en el DNS) y enviar el sitemap. Es trabajo manual, no de código.

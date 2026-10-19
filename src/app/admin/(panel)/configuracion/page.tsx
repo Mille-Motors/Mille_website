@@ -1,19 +1,22 @@
-import { AdminPending } from "@/components/admin/AdminPending";
+import { AdminPageHeader } from "@/components/admin/AdminShell";
+import { SettingsOverview } from "@/components/admin/SettingsOverview";
 
 export const metadata = { title: "Configuración" };
 
 /**
- * Deliberadamente vacía en esta fase. El dominio oficial, el correo
- * corporativo, el WhatsApp y el Instagram de MILLE todavía no existen, y
- * abrir aquí un formulario para escribirlos invitaría a poner datos falsos
- * que el sitio público mostraría como si fueran reales.
+ * Canales oficiales y estado de los documentos legales.
+ *
+ * El contenido vive en `SettingsOverview`, que no depende del marco del
+ * Admin y por eso se puede comprobar en una prueba.
  */
 export default function AdminSettingsPage() {
   return (
-    <AdminPending
-      title="Configuración"
-      subtitle="Canales de contacto y dominio"
-      body="El dominio, el correo, el WhatsApp y el Instagram de MILLE se activarán en su propia fase, cuando existan de verdad. Hasta entonces el sitio no muestra ningún canal inventado, y esta pantalla no permite escribir uno."
-    />
+    <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+      <AdminPageHeader
+        title="Configuración"
+        subtitle="Canales oficiales y estado de los documentos legales"
+      />
+      <SettingsOverview />
+    </div>
   );
 }

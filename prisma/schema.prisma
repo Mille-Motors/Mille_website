@@ -71,6 +71,63 @@ enum ImageSource {
   STORAGE
 }
 
+/// De qué clase de fuente viene una fotografía, para poder responder por qué
+/// MILLE puede usarla. No tiene nada que ver con `ImageSource`, que dice
+/// dónde vive el archivo: esto dice de quién es.
+///
+/// Vocabulario y etiquetas en src/lib/image-provenance.ts.
+enum ImageSourceType {
+  OWN
+  OWNER
+  DEALER
+  PHOTOGRAPHER
+  STOCK
+  MANUFACTURER
+  OTHER
+}
+
+/// Qué autorizó el Titular. Hay uno porque hay uno: ningún flujo del sitio
+/// pide aceptar los Términos ni ofrece comunicaciones comerciales. Ver
+/// src/lib/consent.ts.
+enum ConsentType {
+  DATA_PROCESSING
+}
+
+/// Qué hizo el Titular. No existe DENIED: sin la casilla marcada el
+/// formulario no se envía, así que nunca llega una negativa que registrar.
+enum ConsentAction {
+  GRANTED
+  REVOKED
+}
+
+/// Qué derecho ejerce el Titular. Son los del art. 8 de la Ley 1581 de 2012.
+enum PrivacyRequestType {
+  ACCESS
+  UPDATE
+  RECTIFICATION
+  DELETION
+  REVOCATION
+  PROOF_OF_CONSENT
+  USE_INFORMATION
+  COMPLAINT
+  OTHER
+}
+
+enum PrivacyRequestStatus {
+  RECEIVED
+  IN_PROGRESS
+  NEEDS_INFO
+  ANSWERED
+  REJECTED
+  CLOSED
+}
+
+enum PrivacyRequestChannel {
+  EMAIL
+  WHATSAPP
+  OTHER
+}
+
 // ---------------------------------------------------------------------------
 // Equipo interno
 // ---------------------------------------------------------------------------
@@ -303,6 +360,38 @@ model Vehicle {
   /// aviso; el sitio público no lo lee nunca.
   reviewNote String?
 
+  // --- Procedencia del LOTE fotográfico ----------------------------------
+  /// De dónde salieron las fotos de ESTE vehículo, y por qué se pueden usar.
+  ///
+  /// Va en el vehículo porque así llegan las fotos de un carro: las
+  /// veinticuatro del mismo propietario, o todas del dealer. Pedir diez
+  /// campos por fotografía garantizaría que nadie registrara ninguna, y una
+  /// procedencia que nadie rellena no documenta nada. `VehicleImage` lleva
+  /// las mismas columnas para la fotografía que venga de otra parte, y
+  /// entonces manda la de la fotografía: ver `resolveImageRights()`.
+  ///
+  /// `rightsSourceType` es el interruptor. Nulo significa «nadie lo ha
+  /// registrado», y eso NO bloquea nada: ni la publicación, ni la subida, ni
+  /// el sitio público. Las fotos que ya están publicadas no reciben una
+  /// autorización inventada por el hecho de existir.
+  rightsSourceType                 ImageSourceType?
+  rightsSourceName                 String?
+  rightsAuthor                     String?
+  rightsSourceUrl                  String?
+  rightsLicenseType                String?
+  rightsLicenseUrl                 String?
+  /// Si la licencia EXIGE citar al autor donde se publique la fotografía.
+  /// Ninguna de las que usa el sitio hoy lo exige, así que el público no ve
+  /// créditos; el Admin sí lo dice.
+  rightsLicenseRequiresAttribution Boolean          @default(false)
+  /// `@db.Date` por lo mismo que el SOAT: es un día del calendario.
+  rightsAcquiredOn                 DateTime?        @db.Date
+  rightsAuthorizedBy               String?
+  /// No guarda la prueba: la señala. Un hilo de correo, un contrato, un
+  /// archivo. La prueba se queda donde esté; aquí queda cómo encontrarla.
+  rightsProofRef                   String?
+  rightsNotes                      String?
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   publishedAt DateTime?
@@ -357,6 +446,26 @@ model VehicleImage {
   focalY      Float       @default(50)
   createdAt   DateTime    @default(now())
 
+  /// La procedencia de ESTA fotografía, cuando no es la del lote.
+  ///
+  /// Nula en la inmensa mayoría de las filas, que es lo normal: una foto
+  /// hereda la procedencia de su vehículo y solo se rellena aquí la que
+  /// viene de otra parte —la del fabricante entre las del propietario—. En
+  /// Postgres una columna nula ocupa un bit del mapa de nulos de la fila,
+  /// así que tener las diez aquí no cuesta lo que parece y evita una tabla
+  /// 1:1 en la que «fila ausente» y «todo nulo» serían el mismo hecho.
+  rightsSourceType                 ImageSourceType?
+  rightsSourceName                 String?
+  rightsAuthor                     String?
+  rightsSourceUrl                  String?
+  rightsLicenseType                String?
+  rightsLicenseUrl                 String?
+  rightsLicenseRequiresAttribution Boolean          @default(false)
+  rightsAcquiredOn                 DateTime?        @db.Date
+  rightsAuthorizedBy               String?
+  rightsProofRef                   String?
+  rightsNotes                      String?
+
   @@unique([vehicleId, position])
   @@index([vehicleId])
 }
@@ -407,6 +516,7 @@ model Inquiry {
   /// Página desde la que se envió: "contacto", "vehiculo:<slug>".
   source       String?
   consent      ConsentRecord?
+  consentEvents ConsentEvent[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -415,8 +525,19 @@ model Inquiry {
   @@index([vehicleId])
 }
 
-/// Prueba mínima de la autorización de privacidad enviada junto con una consulta.
-/// No almacena IP, user-agent ni valores de fecha aportados por el navegador.
+/// CONGELADA. La primera forma de la prueba de autorización.
+///
+/// No la escribe nadie: `ConsentEvent` la sustituyó porque un `accepted =
+/// true` con la versión de la política no permite reconstruir QUÉ texto se
+/// mostró, no registra la revocatoria y se puede editar. Sus filas se
+/// copiaron a `ConsentEvent` en la migración 20261019120000 y el Admin lee
+/// solo de allí.
+///
+/// La tabla se queda, y es deliberado: tirarla destruiría la prueba original
+/// de autorizaciones reales —lo único que no se puede reponer— para no
+/// ganar nada, y además rompería el envío de formularios durante los minutos
+/// en que el código viejo y el esquema nuevo coexisten en un despliegue.
+/// Sigue en el esquema para que la base y Prisma no divergan.
 model ConsentRecord {
   id                   String   @id @default(uuid()) @db.Uuid
   inquiryId            String   @unique @db.Uuid
@@ -428,6 +549,130 @@ model ConsentRecord {
   acceptedAt           DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([acceptedAt])
+}
+
+/// Una decisión del Titular sobre sus datos. APPEND-ONLY.
+///
+/// Es evidencia, no estado: nada se corrige aquí. Revocar no cambia la fila
+/// que dice que autorizó —eso sería borrar lo que pasó—, escribe una fila
+/// nueva con `action = REVOKED`. El estado vigente de alguien es su último
+/// evento, y la historia completa sigue estando.
+///
+/// El append-only lo impone la BASE, con un trigger, y no la confianza en
+/// que ningún código escriba un UPDATE: ver la migración. La única
+/// modificación admitida es poner `inquiryId` a NULL, que es lo que hace la
+/// clave ajena cuando se borra la solicitud.
+///
+/// Qué se guarda y por qué: el art. 12 de la Ley 527 de 1999 da por
+/// conservado un mensaje de datos cuando la información es accesible, se
+/// conserva en un formato que reproduce con exactitud lo generado y se
+/// guardan origen, destino, fecha y hora. De ahí salen `textSnapshot`,
+/// `textHash`, `source`, `ipAddress` y `createdAt`.
+model ConsentEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  /// La solicitud a la que acompañó. `SetNull` y no `Cascade`: borrar una
+  /// solicitud no puede destruir la prueba de que hubo una autorización, y
+  /// a la vez un titular que pide supresión deja de estar enlazado a ella.
+  /// El evento sobrevive sin identificar a nadie, que es lo correcto: prueba
+  /// que hubo una autorización de esta versión a esta hora desde este
+  /// formulario, sin conservar a quién ya pidió desaparecer.
+  inquiryId String?  @db.Uuid
+  inquiry   Inquiry? @relation(fields: [inquiryId], references: [id], onDelete: SetNull)
+
+  consentType ConsentType
+  action      ConsentAction
+
+  /// Desde dónde: "contacto", "vehiculo:<slug>", "admin".
+  source String
+
+  /// La versión de la política vigente cuando se otorgó.
+  policyVersion String
+
+  /// El identificador del texto exacto —"data_processing@2026-10-19"—, su
+  /// huella SHA-256 y el texto literal que se mostró.
+  ///
+  /// Los tres admiten NULL por UNA razón: las filas copiadas de
+  /// `ConsentRecord` no los tienen, porque cuando se guardaron no se
+  /// registraba el texto. Nulo se lee «prueba del texto no disponible», que
+  /// es la verdad, y no se rellena con el texto de hoy: eso sería fabricar
+  /// una prueba de que alguien leyó algo que no existía. Todo evento nuevo
+  /// los trae siempre.
+  textVersion  String?
+  textHash     String?
+  textSnapshot String?
+
+  /// La IP del cliente, obtenida SIEMPRE en el servidor desde las cabeceras
+  /// del proxy. Nunca de un campo del formulario: una IP que manda el
+  /// navegador no prueba nada. `ipSource` dice de qué cabecera salió, que es
+  /// lo que permite saber después cuánto vale.
+  ipAddress String?
+  ipSource  String?
+
+  userAgent String?
+  /// `x-vercel-id`: correlaciona el evento con la traza de la petición.
+  requestId String?
+
+  metadata Json?
+
+  @@index([createdAt])
+  @@index([consentType, action])
+  @@index([source])
+  @@index([inquiryId])
+}
+
+/// Una solicitud con la que un Titular ejerce sus derechos.
+///
+/// Separada de `Inquiry` a propósito: «quiero vender mi Porsche» y «quiero
+/// que eliminen mis datos» llegan por el mismo WhatsApp y no son lo mismo.
+/// La segunda tiene un plazo legal que se vence —diez días hábiles para una
+/// consulta, quince para un reclamo— y en una bandeja de clientes se pierde.
+///
+/// Esta sí se edita: es el expediente del trámite, no la evidencia de una
+/// decisión. Lo que no se pierde es quién lo tocó, que queda en
+/// `AdminAuditLog`.
+model PrivacyRequest {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt
+
+  type    PrivacyRequestType
+  status  PrivacyRequestStatus  @default(RECEIVED)
+  channel PrivacyRequestChannel
+
+  /// El día en que el titular la presentó, no el día en que se registró: el
+  /// plazo se cuenta desde el recibo. `@db.Date` porque es un día.
+  receivedOn DateTime @db.Date
+  /// Vencimiento calculado en días hábiles colombianos. Se guarda y no se
+  /// recalcula al leer para que cambiar la tabla de festivos no mueva el
+  /// plazo de un trámite ya abierto.
+  dueOn      DateTime @db.Date
+
+  /// Lo mínimo para poder atenderla y poder responder. Al menos uno de los
+  /// dos canales tiene que venir: sin forma de contestar, el trámite no se
+  /// puede cumplir.
+  titularName  String
+  titularEmail String?
+  titularPhone String?
+
+  /// El art. 20 del Decreto 1377 de 2013 exige acreditar la identidad del
+  /// titular —o la representación— antes de entregar o borrar datos. El
+  /// booleano no es burocracia: atender una supresión sin verificar quién la
+  /// pide es borrarle los datos a alguien a petición de un tercero.
+  identityVerified Boolean @default(false)
+  identityNote     String?
+
+  /// Qué pidió, en sus palabras.
+  subject  String?
+  notes    String?
+  response String?
+
+  closedAt DateTime? @db.Timestamptz(6)
+
+  @@index([status, dueOn])
+  @@index([createdAt])
+  @@index([type])
 }
 
 // ---------------------------------------------------------------------------
@@ -486,6 +731,28 @@ model SiteMedia {
   /// mismo. Arranca en el centro, que es como se veía antes.
   mobileFocalX      Float   @default(50)
   mobileFocalY      Float   @default(50)
+
+  /// La procedencia de la fotografía de este espacio.
+  ///
+  /// Una fila que sigue apuntando a `/public` no la necesita: la procedencia
+  /// de un archivo del repositorio está en el repositorio
+  /// —`REPOSITORY_IMAGE_RIGHTS`, generado de los CREDITS.json— y copiarla
+  /// aquí solo crearía dos verdades que se pueden desincronizar. Estas
+  /// columnas son para lo que alguien SUBE, que es lo que nadie más puede
+  /// saber. Cubren las dos variantes del espacio: la de teléfono es un
+  /// recorte distinto de la misma sesión, no otra fotografía con otros
+  /// derechos.
+  rightsSourceType                 ImageSourceType?
+  rightsSourceName                 String?
+  rightsAuthor                     String?
+  rightsSourceUrl                  String?
+  rightsLicenseType                String?
+  rightsLicenseUrl                 String?
+  rightsLicenseRequiresAttribution Boolean          @default(false)
+  rightsAcquiredOn                 DateTime?        @db.Date
+  rightsAuthorizedBy               String?
+  rightsProofRef                   String?
+  rightsNotes                      String?
 
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt

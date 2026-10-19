@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Mail } from "lucide-react";
 import { BackToTop } from "@/components/layout/BackToTop";
 import { InstagramIcon, WhatsappIcon } from "@/components/ui/BrandIcons";
 import { mainNav, site } from "@/data/site";
+import { CONSUMER_AUTHORITY } from "@/lib/legal";
 import { generalWhatsappUrl } from "@/lib/whatsapp";
 
 const whatsappHref = generalWhatsappUrl();
@@ -86,20 +87,56 @@ export function Footer() {
                 </a>
               </li>
             ) : null}
+            {site.email ? (
+              <li>
+                <a href={`mailto:${site.email}`} className={linkClass}>
+                  <Mail className="size-5" strokeWidth={1.4} />
+                  Correo
+                  <ArrowRight
+                    aria-hidden
+                    strokeWidth={1.3}
+                    className="arrow-slide-icon size-5"
+                  />
+                </a>
+              </li>
+            ) : null}
             <li>
               <Link href="/terminos" className={linkClass}>
                 Términos y Condiciones
               </Link>
             </li>
             <li>
+              {/* El nombre del documento es el de la norma: lo que esta
+                  política regula es el TRATAMIENTO de datos personales, y es
+                  como la nombran la Ley 1581 de 2012 y su reglamento. */}
               <Link href="/privacidad" className={linkClass}>
-                Política de Privacidad
+                Tratamiento de Datos
               </Link>
             </li>
             <li>
               <Link href="/cookies" className={linkClass}>
                 Política de Cookies
               </Link>
+            </li>
+            {/* El art. 50, parágrafo, de la Ley 1480 de 2011 pide un enlace
+                visible y fácilmente identificable a la autoridad de
+                protección al consumidor. El pie es donde se ve desde
+                cualquier página. No hay banner de cookies que enlazar aquí:
+                el sitio solo usa almacenamiento estrictamente necesario. */}
+            <li>
+              <a
+                href={CONSUMER_AUTHORITY.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className={linkClass}
+              >
+                {CONSUMER_AUTHORITY.shortName}
+                <ArrowRight
+                  aria-hidden
+                  strokeWidth={1.3}
+                  className="arrow-slide-icon size-5"
+                />
+              </a>
             </li>
           </ul>
 
