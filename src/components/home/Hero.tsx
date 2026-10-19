@@ -46,9 +46,27 @@ export async function Hero() {
       />
 
       <div className="wrap flex flex-1 flex-col justify-between gap-12 pt-[calc(var(--spacing-header)+clamp(2rem,8svh,6rem))] pb-[max(5.5rem,8svh)] lg:pb-[max(6.75rem,12svh)]">
-        <h1 className="hero-lines text-display">
+        {/* Dos líneas, y cada una en su propio bloque: así se revelan
+            escalonadas, que es el lenguaje que ya tenía el titular cuando era
+            una sola. En teléfono la primera se parte sola donde haga falta —el
+            `text-wrap: balance` de los h1 reparte el corte en vez de dejar una
+            palabra huérfana— y sigue leyéndose como un titular.
+
+            El techo del tamaño baja a 9rem SOLO aquí. La escala de display
+            llega a 11,25rem, que estaba pensada para dos palabras; con la
+            frase nueva, en un monitor de 2.560 px la primera línea se queda
+            al límite de la columna y rompería en tres. El recorte no se nota
+            por debajo de ~2.130 px, donde el `clamp` todavía no ha llegado a
+            ese tope, así que la tipografía, el peso, el color y el interlineado
+            son los mismos en todo el rango que se usa a diario. */}
+        <h1 className="hero-lines text-display [font-size:min(var(--text-display),9rem)]">
           <span className="line">
-            <span style={{ "--i": 0 } as React.CSSProperties}>Nos mueve.</span>
+            <span style={{ "--i": 0 } as React.CSSProperties}>
+              La cultura del motor
+            </span>
+          </span>
+          <span className="line">
+            <span style={{ "--i": 1 } as React.CSSProperties}>nos mueve.</span>
           </span>
         </h1>
 
