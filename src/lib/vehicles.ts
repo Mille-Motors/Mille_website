@@ -2,6 +2,8 @@ import "server-only";
 
 import { cache } from "react";
 
+import { mergeBodyTypes } from "@/lib/body-types";
+import { listCategories } from "@/server/categories/service";
 import {
   getInventoryFacets,
   getPublicVehicleBySlug,
@@ -12,7 +14,7 @@ import {
   type PublicVehicleQuery,
 } from "@/server/vehicles/service";
 import type { VehicleSitemapEntry } from "@/lib/seo";
-import type { Vehicle } from "@/types/vehicle";
+import type { Vehicle, VehicleCategory } from "@/types/vehicle";
 
 /**
  * La única frontera entre la interfaz pública y el inventario.
@@ -58,6 +60,17 @@ export async function getVehicleSitemapEntries(): Promise<
   VehicleSitemapEntry[]
 > {
   return listPublicVehicleSitemapEntries();
+}
+
+/**
+ * Las carrocerías que MILLE ofrece hoy: las categorías activas de los dos
+ * universos, en su orden. Es la misma lista que sale en las facetas del
+ * inventario y en el admin; la portada la lee de aquí.
+ */
+export async function getBodyTypes(): Promise<VehicleCategory[]> {
+  // Fundida y filtrada como la del filtro del inventario: la portada nunca
+  // ofrece algo distinto, aunque la base tenga todavía filas viejas.
+  return mergeBodyTypes(await listCategories({ onlyActive: true }));
 }
 
 export async function getFilterFacets(

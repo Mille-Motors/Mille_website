@@ -1,3 +1,4 @@
+import { presentBodyType } from "@/lib/body-types";
 import { CENTER_FOCAL, normalizeFocal } from "@/lib/focal-point";
 import type {
   AvailabilityStatus as DbAvailability,
@@ -186,7 +187,9 @@ export function toVehicleDto(record: VehicleRecord): UiVehicle {
     price: toPriceNumber(record.price),
     mileage: record.mileage,
     vehicleType: fromDbVehicleType[record.vehicleType],
-    category: record.category ? toCategoryDto(record.category) : null,
+    // Una fila que todavía se llama «SUV» se lee «Camioneta»: la ficha y las
+    // tarjetas dicen lo mismo que el filtro, haya o no corrido la migración.
+    category: record.category ? presentBodyType(toCategoryDto(record.category)) : null,
     fuelType: record.fuelType,
     transmission: record.transmission,
     gearCount: record.gearCount,

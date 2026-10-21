@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Plus } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
+import { VehicleStatStrip } from "@/components/admin/VehicleStatStrip";
 import {
   VehicleFilters,
   VehiclePagination,
@@ -12,6 +13,7 @@ import { parseTolerant } from "@/lib/query-params";
 import { adminVehicleQuerySchema } from "@/server/vehicles/schemas";
 import {
   getAdminFilterOptions,
+  getInventoryStats,
   listAdminVehicles,
 } from "@/server/vehicles/service";
 
@@ -33,9 +35,10 @@ export default async function AdminVehiclesPage(
   // los filtros válidos que sí venían en la URL.
   const query = parseTolerant(adminVehicleQuerySchema, searchParams);
 
-  const [{ vehicles, total }, options] = await Promise.all([
+  const [{ vehicles, total }, options, stats] = await Promise.all([
     listAdminVehicles(query),
     getAdminFilterOptions(),
+    getInventoryStats(),
   ]);
 
   // Una página que ya no existe —porque cambió el filtro o se borró
@@ -46,26 +49,32 @@ export default async function AdminVehiclesPage(
     redirect(adminVehiclesHref({ ...query, page: pages }));
   }
 
+  // ¿Hay algo filtrando? Distingue «no hay nada» de «nada coincide».
+  const filtered =
+    adminVehiclesHref({ ...query, sort: undefined, page: 1 }) !==
+    "/admin/vehiculos";
+
   return (
-    <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+    <div className="px-5 py-7 sm:px-8 lg:px-10 lg:py-9">
       <AdminPageHeader
+        eyebrow="Inventario"
         title="Vehículos"
         subtitle="Administra tu inventario completo"
         action={
           <ButtonLink href="/admin/vehiculos/nuevo" size="sm">
-            <Plus aria-hidden className="size-3.5" strokeWidth={1.6} />
+            <Plus aria-hidden className="size-4" strokeWidth={1.8} />
             Nuevo vehículo
           </ButtonLink>
         }
       />
 
+      <VehicleStatStrip stats={stats} />
+
       <VehicleFilters query={query} options={options} total={total} />
 
-      <div className="mt-6">
-        <VehicleTable vehicles={vehicles} />
-      </div>
+      <VehicleTable vehicles={vehicles} filtered={filtered} />
 
-      <VehiclePagination query={query} total={total} />
+      <VehiclePagination query={query} total={total} shown={vehicles.length} />
     </div>
   );
 }

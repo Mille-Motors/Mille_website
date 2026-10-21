@@ -11,10 +11,10 @@ export const metadata = { title: "Configuración" };
  */
 export default function AdminSettingsPage() {
   return (
-    <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+    <div className="px-5 py-7 sm:px-8 lg:px-10 lg:py-9">
       <AdminPageHeader
         title="Configuración"
-        subtitle="Canales oficiales y estado de los documentos legales"
+        subtitle="Cómo se presenta MILLE y qué falta por confirmar"
       />
       <SettingsOverview />
     </div>

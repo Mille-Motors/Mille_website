@@ -1,3 +1,4 @@
+import { canonicalBodySlug } from "@/lib/body-types";
 import type { VehicleType } from "@/types/vehicle";
 import { VEHICLE_TYPES } from "@/types/vehicle";
 
@@ -69,7 +70,15 @@ export interface InventoryFilters {
   maxYear?: number;
   minPrice?: number;
   maxPrice?: number;
+  minKm?: number;
   maxKm?: number;
+  /**
+   * Lo que se escribió en el buscador: marca, modelo, versión o cualquier
+   * palabra clave. Cada palabra tiene que aparecer en algún sitio de la ficha,
+   * así que «bmw x5» encuentra un X5 aunque «bmw» esté en la marca y «x5» en el
+   * modelo. Se lee en `searchWords()`.
+   */
+  q?: string;
   orden: SortKey;
 }
 
@@ -84,6 +93,31 @@ function first(value: string | string[] | undefined): string | undefined {
 function text(value: string | string[] | undefined): string | undefined {
   const raw = first(value)?.trim();
   return raw ? raw : undefined;
+}
+
+/** Lo más largo que se acepta de una búsqueda. El resto se descarta. */
+export const SEARCH_MAX_LENGTH = 100;
+/** Cuántas palabras de una búsqueda cuentan. Más no afinan: encarecen. */
+const SEARCH_MAX_WORDS = 6;
+const SEARCH_WORD_MAX_LENGTH = 40;
+
+/**
+ * Las palabras con las que se busca: lo escrito, sin espacios de más, sin
+ * palabras repetidas y con un tope. Lo vacío no es una búsqueda.
+ *
+ * Está aparte para que la consulta de la base y la prueba lean la misma regla.
+ */
+export function searchWords(q: string | undefined): string[] {
+  if (!q) return [];
+  const seen = new Set<string>();
+  // `%`, `_` y `\` son comodines de LIKE y la base no los escapa: escribir «%»
+  // devolvía todo el inventario. Ningún vehículo se busca por ellos.
+  for (const raw of q.replace(/[%_\\]/g, " ").split(/\s+/)) {
+    const word = raw.trim().slice(0, SEARCH_WORD_MAX_LENGTH);
+    if (word) seen.add(word.toLowerCase());
+    if (seen.size >= SEARCH_MAX_WORDS) break;
+  }
+  return [...seen];
 }
 
 /**
@@ -122,8 +156,11 @@ export function parseFilters(params: RawSearchParams): InventoryFilters {
 
   // El slug de la carrocería es minúsculas por definición; el resto son
   // etiquetas literales y tocarles las mayúsculas las haría dejar de
-  // coincidir con lo que guarda la columna.
-  const categoria = first(params.categoria)?.trim().toLowerCase();
+  // coincidir con lo que guarda la columna. Un nombre viejo («suv», «4x4») se
+  // lee con el vigente: el enlace compartido hace un año sigue llevando a las
+  // camionetas.
+  const rawBody = first(params.categoria)?.trim().toLowerCase();
+  const categoria = rawBody ? canonicalBodySlug(rawBody) : undefined;
   const orden = first(params.orden);
 
   let minYear = bound(params.minYear);
@@ -136,6 +173,14 @@ export function parseFilters(params: RawSearchParams): InventoryFilters {
   if (minPrice && maxPrice && minPrice > maxPrice) {
     [minPrice, maxPrice] = [maxPrice, minPrice];
   }
+
+  let minKm = bound(params.minKm);
+  let maxKm = bound(params.maxKm);
+  if (minKm && maxKm && minKm > maxKm) [minKm, maxKm] = [maxKm, minKm];
+
+  // Con las palabras sueltas normalizadas, pero el texto tal como se escribió:
+  // es lo que se vuelve a enseñar en el buscador.
+  const q = text(params.q)?.replace(/\s+/g, " ").slice(0, SEARCH_MAX_LENGTH);
 
   return {
     tipo,
@@ -154,7 +199,11 @@ export function parseFilters(params: RawSearchParams): InventoryFilters {
     maxYear,
     minPrice,
     maxPrice,
-    maxKm: bound(params.maxKm),
+    minKm,
+    maxKm,
+    // Un texto sin una sola palabra real —«%», «_»— no es una búsqueda: no se
+    // enseña como filtro puesto si no filtra nada.
+    q: q && searchWords(q).length > 0 ? q : undefined,
     orden: SORT_KEYS.includes(orden as SortKey) ? (orden as SortKey) : "recientes",
   };
 }
@@ -171,6 +220,18 @@ export function hasInvalidType(params: RawSearchParams): boolean {
   const raw = first(params.tipo);
   if (raw === undefined || raw === "") return false;
   return !VEHICLE_TYPES.includes(raw as VehicleType);
+}
+
+/**
+ * ¿La carrocería viene con un nombre que ya no se usa?
+ *
+ * Igual que `hasInvalidType`: se lee bien, pero dejar `?categoria=suv` en la
+ * barra mientras la píldora activa dice «Camionetas» es una URL que miente.
+ * Quien llama redirige a la forma vigente.
+ */
+export function hasLegacyBodySlug(params: RawSearchParams): boolean {
+  const raw = first(params.categoria)?.trim().toLowerCase();
+  return raw !== undefined && canonicalBodySlug(raw) !== raw;
 }
 
 /**
@@ -193,7 +254,9 @@ export const FILTER_KEYS = [
   "maxYear",
   "minPrice",
   "maxPrice",
+  "minKm",
   "maxKm",
+  "q",
 ] as const satisfies readonly (keyof InventoryFilters)[];
 
 export function activeFilterCount(filters: InventoryFilters): number {

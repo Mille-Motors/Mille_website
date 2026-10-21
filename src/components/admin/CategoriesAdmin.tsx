@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
 import { Button } from "@/components/ui/Button";
-import { Input, Select } from "@/components/ui/Field";
+import { FieldDensity, Input, Select } from "@/components/ui/Field";
+import { Panel, buttonClass } from "@/components/admin/kit";
+import { CategorySketch } from "@/components/vehicle/sketch";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { adminJson } from "@/lib/admin-client";
 import { typeLabel } from "@/lib/categories";
@@ -24,9 +26,11 @@ type Row = VehicleCategory & { vehicleCount: number };
  * categoría inactiva deja de ofrecerse al crear vehículos pero no rompe los
  * que ya existen ni sus URLs.
  *
- * Para los carros, estas filas son CARROCERÍAS —SUV, Sedán, Pickup, Coupé—
- * y el conjunto con el que arranca una base limpia vive en
- * src/lib/body-types.ts. "Híbrido", "Eléctrico" y "4x4" ya no caben aquí:
+ * Para los carros, estas filas son CARROCERÍAS —Camioneta, Sedán, Pickup,
+ * Coupé— y el conjunto con el que arranca una base limpia vive en
+ * src/lib/body-types.ts. Son las mismas que ve el público en la portada y en
+ * el filtro del inventario, y cada una lleva el boceto con el que se dibuja
+ * allí. "Híbrido", "Eléctrico" y "4x4" ya no caben aquí:
  * son propulsión y tracción, y tienen sus propias columnas en el vehículo.
  * Si aparecen en la lista como inactivas, son filas antiguas que la
  * migración conservó porque todavía tienen vehículos colgando.
@@ -111,13 +115,15 @@ export function CategoriesAdmin({ categories }: { categories: Row[] }) {
   }));
 
   return (
-    <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+    <FieldDensity value="compact">
+    <div className="px-5 py-7 sm:px-8 lg:px-10 lg:py-9">
       <AdminPageHeader
+        eyebrow="Inventario"
         title="Categorías"
-        subtitle="La carrocería de los carros y la categoría de las motos. No es combustible ni tracción: eso son campos del vehículo."
+        subtitle="La carrocería de los carros y la categoría de las motos"
         action={
           <Button size="sm" onClick={() => setCreating((open) => !open)}>
-            <Plus aria-hidden className="size-3.5" strokeWidth={1.6} />
+            <Plus aria-hidden className="size-4" strokeWidth={1.8} />
             Nueva categoría
           </Button>
         }
@@ -126,7 +132,7 @@ export function CategoriesAdmin({ categories }: { categories: Row[] }) {
       {creating ? (
         <form
           onSubmit={create}
-          className="mb-8 grid gap-5 border border-stone bg-paper px-5 py-6 sm:grid-cols-4 sm:px-7"
+          className="mb-8 grid gap-4 rounded-xl border border-stone bg-paper p-5 sm:grid-cols-4"
         >
           <Input
             label="Nombre"
@@ -169,7 +175,7 @@ export function CategoriesAdmin({ categories }: { categories: Row[] }) {
       ) : null}
 
       {error ? (
-        <p role="alert" className="mb-6 text-xs text-burgundy">
+        <p role="alert" className="mb-6 text-[0.9375rem] text-burgundy">
           {error}
         </p>
       ) : null}
@@ -177,16 +183,16 @@ export function CategoriesAdmin({ categories }: { categories: Row[] }) {
       <div className={cn("grid gap-8", busy && "opacity-60")} aria-busy={busy}>
         {grouped.map(({ type, rows }) => (
           <section key={type}>
-            <h2 className="mb-4 font-display text-2xl text-ink">
+            <h2 className="mb-3 text-lg font-semibold text-ink">
               {typeLabel[type]}
             </h2>
 
             {rows.length === 0 ? (
-              <p className="border border-stone bg-paper px-5 py-8 font-serif text-sm text-ink-muted">
+              <Panel className="px-5 py-8 text-[0.9375rem] text-ink-muted">
                 Todavía no hay categorías para este tipo.
-              </p>
+              </Panel>
             ) : (
-              <ul className="divide-y divide-stone border border-stone bg-paper">
+              <ul className="divide-y divide-stone rounded-xl border border-stone bg-paper">
                 {rows.map((row, index) => (
                   <li
                     key={row.id}
@@ -198,7 +204,7 @@ export function CategoriesAdmin({ categories }: { categories: Row[] }) {
                         disabled={busy || index === 0}
                         onClick={() => void move(row, -1)}
                         aria-label={`Subir ${row.name}`}
-                        className="inline-flex size-7 items-center justify-center rounded-xs border border-stone text-ink-muted transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-35"
+                        className={cn(buttonClass, "size-8 h-8 px-0 text-ink-muted hover:text-ink")}
                       >
                         <ArrowUp aria-hidden className="size-3.5" strokeWidth={1.5} />
                       </button>
@@ -207,26 +213,37 @@ export function CategoriesAdmin({ categories }: { categories: Row[] }) {
                         disabled={busy || index === rows.length - 1}
                         onClick={() => void move(row, 1)}
                         aria-label={`Bajar ${row.name}`}
-                        className="inline-flex size-7 items-center justify-center rounded-xs border border-stone text-ink-muted transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-35"
+                        className={cn(buttonClass, "size-8 h-8 px-0 text-ink-muted hover:text-ink")}
                       >
                         <ArrowDown aria-hidden className="size-3.5" strokeWidth={1.5} />
                       </button>
                     </div>
 
+                    {/* El mismo dibujo que ve el público en la portada. */}
+                    <CategorySketch
+                      slug={row.slug}
+                      vehicleType={row.vehicleType}
+                      variant="mark"
+                      className={cn(
+                        "hidden h-auto w-14 shrink-0 sm:block",
+                        row.active ? "text-burgundy" : "text-ink-muted/50",
+                      )}
+                    />
+
                     <div className="min-w-0 flex-1">
-                      <p className="font-serif text-[0.9375rem] text-ink">
+                      <p className="text-base font-semibold text-ink">
                         {row.name}
                         {row.pluralName !== row.name ? (
-                          <span className="text-ink-muted"> · {row.pluralName}</span>
+                          <span className="font-normal text-ink-muted"> · {row.pluralName}</span>
                         ) : null}
                       </p>
-                      <p className="mt-0.5 text-xs text-ink-muted">
+                      <p className="mt-0.5 text-sm text-ink-muted">
                         /{row.slug} · {row.vehicleCount}{" "}
                         {row.vehicleCount === 1 ? "vehículo" : "vehículos"}
                       </p>
                     </div>
 
-                    <label className="flex items-center gap-2.5 font-serif text-sm text-ink-soft">
+                    <label className="flex items-center gap-2.5 text-[0.9375rem] text-ink-soft">
                       <input
                         type="checkbox"
                         checked={row.active}
@@ -248,7 +265,7 @@ export function CategoriesAdmin({ categories }: { categories: Row[] }) {
                         )
                       }
                       ariaLabel={`Eliminar ${row.name}`}
-                      className="inline-flex size-8 items-center justify-center rounded-xs border border-stone text-ink-muted transition-colors hover:border-burgundy/40 hover:text-burgundy disabled:opacity-35"
+                      className={cn(buttonClass, "size-9 px-0 text-ink-muted hover:border-burgundy/40 hover:text-burgundy")}
                     >
                       <Trash2 aria-hidden className="size-3.5" strokeWidth={1.4} />
                     </ConfirmButton>
@@ -260,5 +277,6 @@ export function CategoriesAdmin({ categories }: { categories: Row[] }) {
         ))}
       </div>
     </div>
+    </FieldDensity>
   );
 }

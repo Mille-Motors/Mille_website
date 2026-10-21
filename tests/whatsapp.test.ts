@@ -10,6 +10,8 @@ import { attentionStatus, hourLabel } from "@/lib/whatsapp-hours";
 import {
   generalWhatsappUrl,
   intentWhatsappUrl,
+  vehicleVisitWhatsappMessage,
+  vehicleVisitWhatsappUrl,
   vehicleWhatsappMessage,
   vehicleWhatsappUrl,
   type WhatsappIntent,
@@ -89,6 +91,31 @@ describe("el mensaje desde la ficha de un vehículo", () => {
   it("sin precio no escribe '$ 0'", () => {
     const message = vehicleWhatsappMessage({ ...vehicle, price: null });
     assert.doesNotMatch(message, /\$/);
+  });
+});
+
+describe("pedir una visita desde la ficha: también es WhatsApp", () => {
+  const vehicle = makeVehicle({ slug: "porsche-macan", make: "Porsche", model: "Macan", version: "", year: 2019, price: 289_900_000 });
+
+  it("dice cuál quiere ver y pregunta por horarios", () => {
+    const message = vehicleVisitWhatsappMessage(vehicle);
+    assert.match(message, /^Hola MILLE, quisiera agendar una visita para ver el Porsche Macan 2019/);
+    assert.match(message, /¿Qué días y horarios tienen disponibles\?/);
+  });
+
+  it("termina con el enlace a esa ficha", () => {
+    const lines = messageOf(vehicleVisitWhatsappUrl(vehicle)).split("\n");
+    assert.equal(lines.at(-1), "https://millemotorculture.com/vehiculos/porsche-macan");
+  });
+
+  it("va a la misma línea que todo lo demás", () => {
+    assert.ok(
+      vehicleVisitWhatsappUrl(vehicle)?.startsWith(`https://wa.me/${site.phone!.number}?text=`),
+    );
+  });
+
+  it("no es el mismo mensaje que el de preguntar por disponibilidad", () => {
+    assert.notEqual(vehicleVisitWhatsappMessage(vehicle), vehicleWhatsappMessage(vehicle));
   });
 });
 

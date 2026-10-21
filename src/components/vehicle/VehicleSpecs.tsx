@@ -30,9 +30,12 @@ export function SpecTable({ rows }: { rows: SpecRow[] }) {
 }
 
 /**
- * Varios bloques encadenados. El título de cada uno va en un peso medio y
- * tamaño de texto: nombra una subsección sin competir con los títulos de
- * sección.
+ * Varios bloques encadenados. Cada uno es una SUBCATEGORÍA y se dibuja como un
+ * recuadro propio, un tono más oscuro que el fondo de la tarjeta que lo
+ * contiene: así se distingue de un vistazo la categoría («Especificaciones»,
+ * con su encabezado sombreado) de los grupos que tiene dentro («General»,
+ * «Motor», «Prestaciones»). El título va en un peso medio: nombra la
+ * subcategoría sin competir con el de la categoría.
  */
 export function VehicleSpecs({
   blocks,
@@ -55,14 +58,17 @@ export function VehicleSpecs({
   return (
     <div
       className={cn(
-        "grid gap-10",
-        // `items-start` evita que un grupo corto estire su filete hasta la
-        // altura del largo que tiene al lado.
-        columns && "lg:grid-cols-2 lg:items-start lg:gap-x-14",
+        "grid gap-5",
+        // `items-start` evita que un recuadro corto se estire hasta la altura
+        // del largo que tiene al lado.
+        columns && "lg:grid-cols-2 lg:items-start",
       )}
     >
       {blocks.map((block) => (
-        <section key={block.title}>
+        <section
+          key={block.title}
+          className="rounded-xl border border-ink/10 bg-cream px-5 py-5 sm:px-6"
+        >
           <h3 className="mb-3 text-[1.25rem] leading-snug font-medium text-ink">
             {block.title}
           </h3>

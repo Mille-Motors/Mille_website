@@ -74,7 +74,7 @@ export function DateField({
 
   return (
     <div className={containerClassName}>
-      <label htmlFor={inputId} className="label-caps mb-2 block text-ink-soft">
+      <label htmlFor={inputId} className="mb-1.5 block text-[0.8125rem] font-medium text-ink-muted">
         {label}
       </label>
       <div className="relative">
@@ -89,8 +89,8 @@ export function DateField({
           aria-invalid={shown ? true : undefined}
           aria-describedby={shown ? errorId : undefined}
           className={cn(
-            "h-12 w-full rounded-xs border border-stone bg-paper pr-12 pl-4 text-sm text-ink transition-colors",
-            "placeholder:text-ink-muted/70 hover:border-stone-strong focus:border-burgundy focus:outline-none",
+            "h-10 w-full rounded-lg border border-stone-strong bg-paper pr-11 pl-3 text-[0.9375rem] text-ink transition-colors",
+            "placeholder:text-ink-muted/70 hover:border-ink/40 focus:border-burgundy focus:ring-1 focus:ring-burgundy/30 focus:outline-none",
             "tabular",
             shown && "border-burgundy",
           )}
@@ -106,7 +106,7 @@ export function DateField({
             else picker.focus();
           }}
           aria-label={`Abrir calendario de ${label.toLowerCase()}`}
-          className="absolute top-1/2 right-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-xs text-ink-muted transition-colors hover:text-burgundy"
+          className="absolute top-1/2 right-1 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-ink-muted transition-colors hover:text-burgundy"
         >
           <CalendarDays aria-hidden className="size-4" strokeWidth={1.5} />
         </button>
@@ -128,7 +128,7 @@ export function DateField({
         />
       </div>
       {shown ? (
-        <p id={errorId} className="mt-1.5 text-xs text-burgundy">
+        <p id={errorId} className="mt-1.5 text-sm text-burgundy">
           {shown}
         </p>
       ) : null}

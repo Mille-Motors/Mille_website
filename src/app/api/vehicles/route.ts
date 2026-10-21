@@ -25,7 +25,10 @@ const querySchema = z.object({
   maxYear: z.coerce.number().int().min(1900).max(2100).optional(),
   minPrice: z.coerce.number().int().min(0).optional(),
   maxPrice: z.coerce.number().int().min(0).optional(),
+  minKm: z.coerce.number().int().min(0).max(2_000_000).optional(),
   maxKm: z.coerce.number().int().min(0).max(2_000_000).optional(),
+  /** Búsqueda por texto: marca, modelo, versión o palabra clave. */
+  q: z.string().trim().max(100).optional(),
   destacados: z.enum(["true", "false"]).optional(),
   orden: z
     .enum(["recent", "price-asc", "price-desc", "mileage-asc", "year-desc"])
@@ -54,7 +57,9 @@ export async function GET(request: NextRequest) {
       maxYear: params.maxYear,
       minPrice: params.minPrice,
       maxPrice: params.maxPrice,
+      minMileage: params.minKm,
       maxMileage: params.maxKm,
+      search: params.q,
       featured: params.destacados ? params.destacados === "true" : undefined,
       sort: params.orden,
       limit: params.limit,

@@ -5,9 +5,12 @@ import {
   buildQuery,
   clearedFilters,
   hasInvalidType,
+  hasLegacyBodySlug,
   inventoryHref,
   mileageLadder,
   parseFilters,
+  searchWords,
+  SEARCH_MAX_LENGTH,
 } from "@/lib/filters";
 import type { InventoryFilters } from "@/lib/filters";
 
@@ -35,7 +38,9 @@ function filters(partial: Partial<InventoryFilters> = {}): InventoryFilters {
     maxYear: undefined,
     minPrice: undefined,
     maxPrice: undefined,
+    minKm: undefined,
     maxKm: undefined,
+    q: undefined,
     orden: "recientes",
     ...partial,
   };
@@ -91,7 +96,23 @@ describe("lectura de los filtros de la URL", () => {
   });
 
   it("la categoría se normaliza a minúsculas", () => {
-    assert.equal(parseFilters({ categoria: "SUV" }).categoria, "suv");
+    assert.equal(parseFilters({ categoria: "Camioneta" }).categoria, "camioneta");
+  });
+
+  it("«suv» y «4x4» se leen como camioneta: los enlaces viejos siguen llevando a las camionetas", () => {
+    assert.equal(parseFilters({ categoria: "suv" }).categoria, "camioneta");
+    assert.equal(parseFilters({ categoria: "SUV" }).categoria, "camioneta");
+    assert.equal(parseFilters({ categoria: "4x4" }).categoria, "camioneta");
+    // Y lo que no es un alias no se toca: sigue siendo cero resultados.
+    assert.equal(parseFilters({ categoria: "touring" }).categoria, "touring");
+  });
+
+  it("avisa de una carrocería con nombre viejo para poder redirigir a la URL vigente", () => {
+    assert.equal(hasLegacyBodySlug({ categoria: "suv" }), true);
+    assert.equal(hasLegacyBodySlug({ categoria: "4x4" }), true);
+    assert.equal(hasLegacyBodySlug({ categoria: "camioneta" }), false);
+    assert.equal(hasLegacyBodySlug({ categoria: "sedan" }), false);
+    assert.equal(hasLegacyBodySlug({}), false);
   });
 
   it("un valor vacío sí es ausencia de filtro", () => {
@@ -136,20 +157,20 @@ describe("construcción de la URL canónica", () => {
 
   it("incluye lo que sí se eligió", () => {
     assert.equal(
-      inventoryHref({ tipo: "auto", categoria: "suv", orden: "precio-asc" }),
-      "/vehiculos?tipo=auto&categoria=suv&orden=precio-asc",
+      inventoryHref({ tipo: "auto", categoria: "camioneta", orden: "precio-asc" }),
+      "/vehiculos?tipo=auto&categoria=camioneta&orden=precio-asc",
     );
   });
 
   it("canonicalizar un tipo inválido conserva el resto de filtros", () => {
-    const params = { tipo: "camion", categoria: "suv", marca: "BMW", orden: "precio-asc" };
+    const params = { tipo: "camion", categoria: "camioneta", marca: "BMW", orden: "precio-asc" };
     const href = inventoryHref(parseFilters({ ...params, tipo: undefined }));
-    assert.equal(href, "/vehiculos?categoria=suv&marca=BMW&orden=precio-asc");
+    assert.equal(href, "/vehiculos?categoria=camioneta&marca=BMW&orden=precio-asc");
   });
 
   it("ida y vuelta: lo que se construye se vuelve a leer igual", () => {
     const original = filters({
-      tipo: "auto", categoria: "suv", marca: "BMW",
+      tipo: "auto", categoria: "camioneta", marca: "BMW",
       minYear: 2019, maxYear: 2024, minPrice: 100_000_000, maxPrice: 400_000_000,
       orden: "precio-desc",
     });
@@ -162,7 +183,7 @@ describe("construcción de la URL canónica", () => {
     // condiciones simultáneas y ninguna puede perderse por el camino.
     const original = filters({
       tipo: "auto",
-      categoria: "suv",
+      categoria: "camioneta",
       marca: "BMW",
       modelo: "X5",
       combustible: "Híbrido enchufable",
@@ -217,7 +238,7 @@ describe("la taxonomía nueva en la URL", () => {
     assert.equal(
       activeFilterCount(
         parseFilters({
-          categoria: "suv",
+          categoria: "camioneta",
           combustible: "Híbrido enchufable",
           minYear: "2020",
           maxPrice: "200000000",
@@ -230,7 +251,7 @@ describe("la taxonomía nueva en la URL", () => {
   it("limpiar deja el universo y el orden, y nada más", () => {
     const applied = parseFilters({
       tipo: "auto",
-      categoria: "suv",
+      categoria: "camioneta",
       combustible: "Eléctrico",
       traccion: "Integral (AWD)",
       maxKm: "50000",
@@ -255,5 +276,121 @@ describe("la taxonomía nueva en la URL", () => {
     const ladder = mileageLadder(45_000);
     assert.ok(ladder.includes(50_000), "hace falta un tope que incluya al más rodado");
     assert.ok(!ladder.includes(75_000), "no se ofrecen topes por encima del inventario");
+  });
+});
+
+/**
+ * El buscador y el rango de kilometraje.
+ *
+ * Lo escrito en el buscador acaba en una consulta a la base, así que la regla
+ * es la de siempre: nada de lo que viaja en la URL puede desaparecer en
+ * silencio y ensanchar el resultado.
+ */
+describe("la búsqueda por texto", () => {
+  it("viaja en la URL y vuelve tal como se escribió", () => {
+    assert.equal(parseFilters({ q: "bmw x5" }).q, "bmw x5");
+    assert.equal(inventoryHref({ q: "bmw x5" }), "/vehiculos?q=bmw+x5");
+  });
+
+  it("recorta los espacios y junta los repetidos", () => {
+    assert.equal(parseFilters({ q: "  bmw     x5  " }).q, "bmw x5");
+  });
+
+  it("vacío es ausencia de búsqueda, no una búsqueda por nada", () => {
+    assert.equal(parseFilters({ q: "" }).q, undefined);
+    assert.equal(parseFilters({ q: "   " }).q, undefined);
+    assert.equal(parseFilters({}).q, undefined);
+  });
+
+  it("con parámetros repetidos se queda con el primero", () => {
+    assert.equal(parseFilters({ q: ["audi", "bmw"] }).q, "audi");
+  });
+
+  it("un texto sin ninguna palabra real no es una búsqueda", () => {
+    assert.equal(parseFilters({ q: "%" }).q, undefined);
+    assert.equal(parseFilters({ q: " _ % " }).q, undefined);
+    assert.equal(activeFilterCount(parseFilters({ q: "%" })), 0);
+  });
+
+  it("tiene un tope de largo", () => {
+    const q = parseFilters({ q: "a".repeat(500) }).q;
+    assert.equal(q?.length, SEARCH_MAX_LENGTH);
+  });
+
+  it("cuenta como un filtro activo, y limpiar la quita", () => {
+    const applied = parseFilters({ tipo: "auto", q: "x5", orden: "precio-asc" });
+    assert.equal(activeFilterCount(applied), 1);
+    const cleared = clearedFilters(applied);
+    assert.equal(cleared.q, undefined);
+    assert.equal(activeFilterCount(cleared), 0);
+  });
+
+  it("ida y vuelta junto a otros filtros", () => {
+    const original = filters({ tipo: "auto", q: "x5 enchufable", marca: "BMW", minPrice: 100_000_000 });
+    const params = Object.fromEntries(new URLSearchParams(buildQuery(original)));
+    assert.deepEqual(parseFilters(params), original);
+  });
+
+  it("elegir una categoría o cambiar de universo no pierde lo escrito si se arma así", () => {
+    // Es lo que hacen las píldoras de categoría y el selector de ruedas.
+    const base = parseFilters({ tipo: "auto", q: "x5", precio: "x", marca: "BMW" });
+    assert.equal(inventoryHref({ ...base, categoria: "camioneta" }), "/vehiculos?tipo=auto&categoria=camioneta&marca=BMW&q=x5");
+    assert.equal(inventoryHref({ tipo: "moto", orden: base.orden, q: base.q }), "/vehiculos?tipo=moto&q=x5");
+  });
+});
+
+describe("las palabras de una búsqueda", () => {
+  it("separa por espacios y baja a minúsculas", () => {
+    assert.deepEqual(searchWords("BMW  X5"), ["bmw", "x5"]);
+  });
+
+  it("no repite palabras", () => {
+    assert.deepEqual(searchWords("bmw BMW bmw x5"), ["bmw", "x5"]);
+  });
+
+  it("lo vacío no es una búsqueda", () => {
+    assert.deepEqual(searchWords(""), []);
+    assert.deepEqual(searchWords(undefined), []);
+    assert.deepEqual(searchWords("   "), []);
+  });
+
+  it("tiene un tope de palabras: más no afinan, encarecen", () => {
+    assert.equal(searchWords("a b c d e f g h i j").length, 6);
+  });
+
+  it("los comodines de la base no son parte de lo que se busca", () => {
+    // Sin esto, «%» devolvía el inventario entero.
+    assert.deepEqual(searchWords("%"), []);
+    assert.deepEqual(searchWords("_"), []);
+    assert.deepEqual(searchWords("bmw%"), ["bmw"]);
+    assert.deepEqual(searchWords("100%_bmw"), ["100", "bmw"]);
+  });
+
+  it("una palabra enorme se recorta", () => {
+    assert.equal(searchWords("x".repeat(200))[0].length, 40);
+  });
+});
+
+describe("el kilometraje como rango", () => {
+  it("el mínimo viaja y vuelve", () => {
+    assert.equal(parseFilters({ minKm: "10000" }).minKm, 10_000);
+    assert.equal(parseFilters({ minKm: "abc" }).minKm, undefined);
+    assert.equal(parseFilters({ minKm: "0" }).minKm, undefined);
+  });
+
+  it("un rango al revés se lee como venía escrito, no como vacío", () => {
+    const f = parseFilters({ minKm: "80000", maxKm: "20000" });
+    assert.deepEqual([f.minKm, f.maxKm], [20_000, 80_000]);
+  });
+
+  it("cada cota cuenta como un filtro", () => {
+    assert.equal(activeFilterCount(parseFilters({ minKm: "10000" })), 1);
+    assert.equal(activeFilterCount(parseFilters({ minKm: "10000", maxKm: "50000" })), 2);
+  });
+
+  it("ida y vuelta", () => {
+    const original = filters({ minKm: 10_000, maxKm: 50_000 });
+    const params = Object.fromEntries(new URLSearchParams(buildQuery(original)));
+    assert.deepEqual(parseFilters(params), original);
   });
 });

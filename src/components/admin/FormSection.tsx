@@ -17,8 +17,8 @@ import { cn } from "@/lib/cn";
  * (`collapsible={false}`): esconder la marca y el precio detrás de un clic
  * sería esconder el trabajo diario para ordenar lo excepcional.
  *
- * El marco es el mismo que ya usaban las dos secciones originales —filete
- * de piedra sobre papel, título en display— y no una tarjeta de dashboard.
+ * El marco es el del resto del Admin: filete fino sobre papel, esquinas de
+ * 12 px, título en peso y no en tamaño.
  */
 export function FormSection({
   title,
@@ -43,9 +43,9 @@ export function FormSection({
 
   const heading = (
     <div className="min-w-0 text-left">
-      <h2 className="font-display text-2xl text-ink">{title}</h2>
+      <h2 className="text-lg font-semibold text-ink">{title}</h2>
       {description ? (
-        <p className="mt-1.5 font-serif text-[0.9375rem] leading-relaxed text-ink-muted">
+        <p className="mt-0.5 text-[0.9375rem] leading-relaxed text-ink-muted">
           {description}
         </p>
       ) : null}
@@ -54,7 +54,7 @@ export function FormSection({
 
   return (
     <section
-      className={cn("border border-stone bg-paper px-5 py-6 sm:px-7 sm:py-7", className)}
+      className={cn("rounded-xl border border-stone bg-paper px-5 py-5 sm:px-6", className)}
     >
       {collapsible ? (
         <button
@@ -67,13 +67,13 @@ export function FormSection({
           {heading}
           <span className="flex shrink-0 items-center gap-3 pt-1">
             {badge ? (
-              <span className="label-caps text-[10px] text-burgundy">{badge}</span>
+              <span className="text-sm font-medium text-burgundy">{badge}</span>
             ) : null}
             <ChevronDown
               aria-hidden
               strokeWidth={1.4}
               className={cn(
-                "size-5 text-ink-muted transition-transform duration-300",
+                "size-5 text-ink-muted transition-transform duration-200",
                 open && "rotate-180",
               )}
             />
@@ -83,7 +83,7 @@ export function FormSection({
         <div className="flex items-start justify-between gap-5">
           {heading}
           {badge ? (
-            <span className="label-caps shrink-0 pt-1 text-[10px] text-burgundy">
+            <span className="shrink-0 pt-1 text-sm font-medium text-burgundy">
               {badge}
             </span>
           ) : null}
@@ -91,7 +91,7 @@ export function FormSection({
       )}
 
       {open ? (
-        <div id={bodyId} className="mt-7">
+        <div id={bodyId} className="mt-5">
           {children}
         </div>
       ) : null}

@@ -17,10 +17,12 @@ import { useUnsavedChangesGuard } from "@/components/admin/useUnsavedChangesGuar
 import { SpecialEquipmentEditor } from "@/components/admin/SpecialEquipmentEditor";
 import { Button } from "@/components/ui/Button";
 import { DateField } from "@/components/ui/DateField";
-import { Checkbox, Input, Select, Textarea } from "@/components/ui/Field";
+import { Checkbox, FieldDensity, Input, Select, Textarea } from "@/components/ui/Field";
+import { buttonClass } from "@/components/admin/kit";
 import { NumberField } from "@/components/ui/NumberField";
 import { PublicationPill } from "@/components/ui/PublicationPill";
 import { adminJson } from "@/lib/admin-client";
+import { cn } from "@/lib/cn";
 import { typeLabel } from "@/lib/categories";
 import { buildDescriptionTemplate } from "@/lib/description-template";
 import {
@@ -414,8 +416,10 @@ export function VehicleForm({
       : "Potencia";
 
   return (
-    <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+    <FieldDensity value="compact">
+    <div className="px-5 py-7 sm:px-8 lg:px-10 lg:py-9">
       <AdminPageHeader
+        eyebrow="Inventario"
         title={title}
         subtitle={
           creating
@@ -447,9 +451,9 @@ export function VehicleForm({
             ) : null}
             <Link
               href="/admin/vehiculos"
-              className="label-caps inline-flex items-center gap-2 rounded-xs border border-stone px-4 py-2.5 text-ink transition-colors hover:border-ink/40"
+              className={cn(buttonClass, "px-4")}
             >
-              <ArrowLeft aria-hidden className="size-3.5" strokeWidth={1.5} />
+              <ArrowLeft aria-hidden className="size-4" strokeWidth={1.5} />
               Volver
             </Link>
           </div>
@@ -459,7 +463,7 @@ export function VehicleForm({
       {/* El aviso que dejó la migración de taxonomía sobre un vehículo cuya
           carrocería no se podía deducir. Nunca se muestra en público. */}
       {reviewNote ? (
-        <div className="mb-6 flex items-start gap-3 border border-burgundy/40 bg-burgundy/5 px-5 py-4">
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-burgundy/40 bg-burgundy/5 px-5 py-4">
           <AlertTriangle
             aria-hidden
             strokeWidth={1.5}
@@ -475,7 +479,7 @@ export function VehicleForm({
                 setReviewNote(null);
                 setSaved(false);
               }}
-              className="label-caps mt-2 text-[10px] text-burgundy underline underline-offset-4"
+              className="mt-2 text-sm font-medium text-burgundy underline underline-offset-4"
             >
               Ya lo revisé — quitar aviso al guardar
             </button>
@@ -750,7 +754,7 @@ export function VehicleForm({
                 puede ser varias cosas a la vez —deportivo y de lujo— y
                 porque ninguna de ellas es su carrocería. */}
             <fieldset className="mt-7 border-t border-stone pt-6">
-              <legend className="label-caps mb-1 text-ink-soft">
+              <legend className="mb-1 text-sm font-semibold text-ink">
                 Carácter del vehículo
               </legend>
               <p className="mb-4 font-serif text-[0.9375rem] leading-relaxed text-ink-muted">
@@ -788,7 +792,7 @@ export function VehicleForm({
           >
             {showIce ? (
               <fieldset>
-                <legend className="eyebrow mb-4 text-ink-muted">Motor</legend>
+                <legend className="mb-3 text-sm font-semibold text-ink">Motor</legend>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <Input
                     label="Nombre del motor"
@@ -849,7 +853,7 @@ export function VehicleForm({
                 entre térmico y eléctrico vive abajo, en su sección, y no se
                 pide dos veces. */}
             <fieldset className={showIce ? "mt-8" : "mt-2"}>
-              <legend className="eyebrow mb-4 text-ink-muted">
+              <legend className="mb-3 text-sm font-semibold text-ink">
                 {showElectric ? "Prestaciones del sistema" : "Prestaciones"}
               </legend>
               <div className="grid gap-5 sm:grid-cols-2">
@@ -941,7 +945,7 @@ export function VehicleForm({
 
                 {showIce ? (
                   <fieldset>
-                    <legend className="eyebrow mb-4 text-ink-muted">
+                    <legend className="mb-3 text-sm font-semibold text-ink">
                       Reparto del motor térmico
                     </legend>
                     {/* Solo lo que entrega ESTE motor. Su cilindrada, su
@@ -967,7 +971,7 @@ export function VehicleForm({
                 ) : null}
 
                 <fieldset>
-                  <legend className="eyebrow mb-4 text-ink-muted">
+                  <legend className="mb-3 text-sm font-semibold text-ink">
                     Motor eléctrico
                   </legend>
                   <div className="grid gap-5 sm:grid-cols-2">
@@ -1008,7 +1012,7 @@ export function VehicleForm({
 
                 {showBattery ? (
                   <fieldset>
-                    <legend className="eyebrow mb-4 text-ink-muted">Batería</legend>
+                    <legend className="mb-3 text-sm font-semibold text-ink">Batería</legend>
                     <div className="grid gap-5 sm:grid-cols-2">
                       <Input
                         label="Capacidad bruta (kWh)"
@@ -1057,7 +1061,7 @@ export function VehicleForm({
 
                 {showCharging ? (
                   <fieldset>
-                    <legend className="eyebrow mb-4 text-ink-muted">Carga</legend>
+                    <legend className="mb-3 text-sm font-semibold text-ink">Carga</legend>
                     <div className="grid gap-5 sm:grid-cols-2">
                       <Select
                         label="Conector"
@@ -1251,7 +1255,7 @@ export function VehicleForm({
                   );
                   setSaved(false);
                 }}
-                className="label-caps text-[10px] text-burgundy underline underline-offset-4"
+                className="text-sm font-medium text-burgundy underline underline-offset-4"
               >
                 Cargar plantilla de {isMoto ? "moto" : "carro"}
               </button>
@@ -1302,7 +1306,7 @@ export function VehicleForm({
                   onClick={() =>
                     set("description", buildDescriptionTemplate(draft))
                   }
-                  className="label-caps text-[10px] text-burgundy underline underline-offset-4"
+                  className="text-sm font-medium text-burgundy underline underline-offset-4"
                 >
                   Empezar desde una plantilla
                 </button>
@@ -1377,11 +1381,11 @@ export function VehicleForm({
               Cuando ya no falta nada el bloque no desaparece: decirlo es
               más útil que dejar un hueco donde antes había una lista. */}
           {persisted && !published ? (
-            <div className="border border-stone bg-paper px-5 py-5 sm:px-7">
+            <div className="rounded-xl border border-stone bg-paper px-5 py-5 sm:px-6">
               {blockers.length > 0 ? (
                 <>
-                  <h2 className="eyebrow text-ink-muted">Falta para publicar</h2>
-                  <ul className="mt-3 grid gap-1.5">
+                  <h2 className="text-lg font-semibold text-ink">Falta para publicar</h2>
+                  <ul className="mt-2.5 grid list-disc gap-1.5 pl-5">
                     {blockers.map((blocker) => (
                       <li
                         key={blocker}
@@ -1391,14 +1395,14 @@ export function VehicleForm({
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-3 text-xs text-ink-muted">
+                  <p className="mt-3 text-[0.8125rem] text-ink-muted">
                     Mientras tanto se guarda como borrador y no se ve en el
                     sitio.
                   </p>
                 </>
               ) : (
                 <>
-                  <h2 className="eyebrow text-burgundy">Listo para publicar</h2>
+                  <h2 className="text-lg font-semibold text-status-available">Listo para publicar</h2>
                   <p className="mt-3 font-serif text-[0.9375rem] leading-relaxed text-ink-soft">
                     {savedBlockers.length > 0 || dirty
                       ? "Guarda los cambios y el botón de publicar se activa."
@@ -1410,13 +1414,15 @@ export function VehicleForm({
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end xl:col-span-2">
+        {/* Pegada al borde inferior: con noventa campos, guardar no puede
+            exigir bajar hasta el final de la página. Sólida, sin velo. */}
+        <div className="sticky bottom-0 z-20 -mx-5 flex flex-col gap-3 border-t border-stone bg-cream px-5 py-3 sm:-mx-8 sm:flex-row sm:items-center sm:justify-end sm:px-8 lg:-mx-10 lg:px-10 xl:col-span-2">
           {formError ? (
-            <p role="alert" className="mr-auto text-xs text-burgundy">
+            <p role="alert" className="mr-auto text-[0.9375rem] text-burgundy">
               {formError}
             </p>
           ) : saved ? (
-            <p className="mr-auto text-xs text-ink-muted">Cambios guardados.</p>
+            <p className="mr-auto text-[0.9375rem] text-ink-muted">Cambios guardados.</p>
           ) : null}
 
           {/* Solo cuando está publicado: el sitio público únicamente sirve
@@ -1427,10 +1433,10 @@ export function VehicleForm({
               href={`/vehiculos/${persisted.slug}`}
               target="_blank"
               rel="noreferrer noopener"
-              className="label-caps inline-flex h-13 items-center justify-center gap-2.5 rounded-xs border border-stone px-8 text-ink transition-colors hover:border-ink/40"
+              className={cn(buttonClass, "px-4")}
             >
               Ver ficha pública
-              <ExternalLink aria-hidden className="size-3.5" strokeWidth={1.5} />
+              <ExternalLink aria-hidden className="size-4" strokeWidth={1.5} />
             </a>
           ) : null}
 
@@ -1438,7 +1444,7 @@ export function VehicleForm({
             <Button
               type="button"
               variant="ghost"
-              size="lg"
+              size="sm"
               // El botón mira lo GUARDADO, no lo que hay en pantalla: el
               // servidor va a decidir sobre la fila, no sobre el formulario,
               // y ofrecer publicar cambios sin guardar sería prometer un
@@ -1467,12 +1473,12 @@ export function VehicleForm({
           {/* Discreto y en el sitio donde se decide: junto a Guardar y
               Publicar, que es lo que hay que hacer con ello. */}
           {dirty && !saving ? (
-            <span className="label-caps rounded-xs border border-burgundy/30 bg-burgundy/5 px-3 py-2 text-[10px] text-burgundy">
+            <span className="inline-flex items-center rounded-full border border-burgundy/30 bg-burgundy/5 px-3 py-1.5 text-[0.8125rem] font-medium text-burgundy">
               Cambios sin guardar
             </span>
           ) : null}
 
-          <Button type="submit" size="lg" disabled={saving}>
+          <Button type="submit" size="sm" disabled={saving}>
             {saving ? (
               "Guardando…"
             ) : !creating || persisted ? (
@@ -1490,5 +1496,6 @@ export function VehicleForm({
         </div>
       </form>
     </div>
+    </FieldDensity>
   );
 }

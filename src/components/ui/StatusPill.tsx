@@ -22,20 +22,32 @@ const onBurgundyDot: Record<AvailabilityStatus, string> = {
   sold: "bg-cream/60",
 };
 
+/**
+ * `sm` es la del admin: la misma insignia, del tamaño de una celda de tabla.
+ * El sitio público usa la `md`, que es la de siempre.
+ */
+const sizes = {
+  md: "gap-2 px-3.5 py-1.5 text-sm",
+  sm: "gap-1.5 px-2.5 py-1 text-[0.8125rem] font-medium",
+} as const;
+
 export function StatusPill({
   status,
   tone = "default",
+  size = "md",
   className,
 }: {
   status: AvailabilityStatus;
   tone?: "default" | "onBurgundy";
+  size?: keyof typeof sizes;
   className?: string;
 }) {
   const meta = statusMeta[status];
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm leading-none",
+        "inline-flex items-center rounded-full border leading-none",
+        sizes[size],
         tone === "onBurgundy" ? onBurgundy[status] : meta.pill,
         className,
       )}

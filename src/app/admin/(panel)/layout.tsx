@@ -1,5 +1,6 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { requireSuperadminPage } from "@/server/auth/session";
+import { getAdminNavBadges } from "@/server/admin/badges";
 
 /**
  * Todo lo que cuelga de aquí es privado.
@@ -15,6 +16,11 @@ export default async function AdminPanelLayout({
   children: React.ReactNode;
 }) {
   const session = await requireSuperadminPage();
+  const badges = await getAdminNavBadges();
 
-  return <AdminShell session={session}>{children}</AdminShell>;
+  return (
+    <AdminShell session={session} badges={badges}>
+      {children}
+    </AdminShell>
+  );
 }

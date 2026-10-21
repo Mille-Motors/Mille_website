@@ -71,9 +71,14 @@ export function VehicleEquipment({ equipment }: { equipment: string[] }) {
   if (sections.length === 0) return null;
 
   return (
-    <div className="grid gap-10">
+    <div className="grid gap-5">
       {sections.map((section, index) => (
-        <section key={section.title ?? `sin-seccion-${index}`}>
+        // Cada sección es una subcategoría: un recuadro propio, un tono más
+        // oscuro que el fondo de la tarjeta de «Equipamiento».
+        <section
+          key={section.title ?? `sin-seccion-${index}`}
+          className="rounded-xl border border-ink/10 bg-cream px-5 py-5 sm:px-6"
+        >
           {section.title ? (
             <h3 className="mb-4 text-[1.25rem] leading-snug font-medium text-ink">{section.title}</h3>
           ) : null}

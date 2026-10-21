@@ -1,4 +1,13 @@
-import { Fuel, Gauge, Settings2, Timer, Waypoints, Zap } from "lucide-react";
+import {
+  Fuel,
+  Gauge,
+  Hash,
+  MapPin,
+  Settings2,
+  Timer,
+  Waypoints,
+  Zap,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { SpecRow } from "@/lib/vehicle-display";
 
@@ -23,6 +32,8 @@ const icons: Record<string, React.ElementType> = {
   Combustible: Fuel,
   Transmisión: Settings2,
   Tracción: Waypoints,
+  "Placa termina en": Hash,
+  "Matriculado en": MapPin,
 };
 
 export function VehicleQuickFacts({

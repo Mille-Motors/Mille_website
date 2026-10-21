@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { RotateCcw } from "lucide-react";
+import { ChevronDown, RotateCcw } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { SiteMediaVariantPanel } from "@/components/admin/SiteMediaVariantPanel";
+import { Pill, buttonClass, textareaClass } from "@/components/admin/kit";
 import { Button } from "@/components/ui/Button";
 import { adminJson } from "@/lib/admin-client";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/format";
-import type { FocalPoint } from "@/lib/focal-point";
+import { objectPosition, type FocalPoint } from "@/lib/focal-point";
 import type { SiteMediaEntry } from "@/types/site-media";
 
 /** Qué archivo y con qué encuadre se está enseñando ahora mismo. */
@@ -33,6 +35,10 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
   const [busy, setBusy] = useState<null | "alt" | "reset">(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  // Plegada: con ocho espacios abiertos a la vez la pantalla medía diez mil
+  // píxeles. Se abre la que se va a trabajar.
+  const [open, setOpen] = useState(false);
+  const bodyId = useId();
 
   const endpoint = `/api/admin/site-media/${encodeURIComponent(slot.key)}`;
   const changed = slot.desktop.source === "storage" || slot.mobile !== null;
@@ -75,35 +81,55 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
 
   return (
     <section
-      className={cn(
-        "border border-stone bg-paper p-5 sm:p-7",
-        busy && "opacity-60",
-      )}
+      className={cn("rounded-xl border border-stone bg-paper", busy && "opacity-60")}
       aria-busy={busy !== null}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="font-display text-2xl text-ink">{slot.label}</h2>
-          <p className="label-caps mt-1.5 text-ink-muted">{slot.key}</p>
-        </div>
-        <span
-          className={cn(
-            "label-caps rounded-xs border px-2.5 py-1.5 text-[10px]",
-            changed
-              ? "border-status-available/30 bg-status-available/10 text-status-available"
-              : "border-stone-strong/40 bg-sand text-ink-muted",
-          )}
-        >
-          {changed ? "Personalizada" : "Original"}
+      {/* El resumen es lo que se ve siempre: la fotografía que hay ahora, qué
+          espacio es y si es la original. Pulsarlo abre el editor. */}
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-controls={bodyId}
+        className="flex w-full items-center gap-4 rounded-xl p-4 text-left transition-colors hover:bg-sand/40 focus-visible:outline-offset-[-2px]"
+      >
+        <span className="relative block h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-sand">
+          <Image
+            src={slot.desktop.src}
+            alt=""
+            fill
+            sizes="96px"
+            className="object-cover"
+            style={{ objectPosition: objectPosition(slot.desktop.focal) }}
+          />
         </span>
-      </div>
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-semibold text-ink">{slot.label}</span>
+          <span className="block truncate text-[0.9375rem] text-ink-muted">
+            {slot.description}
+          </span>
+        </span>
+        <Pill tone={changed ? "success" : "neutral"} className="hidden sm:inline-flex">
+          {changed ? "Personalizada" : "Original"}
+        </Pill>
+        <ChevronDown
+          aria-hidden
+          strokeWidth={1.6}
+          className={cn(
+            "size-5 shrink-0 text-ink-muted transition-transform duration-200",
+            open && "rotate-180",
+          )}
+        />
+      </button>
 
-      <p className="mt-3 max-w-2xl font-serif text-[0.9375rem] leading-relaxed text-ink-soft">
+      {open ? (
+        <div id={bodyId} className="border-t border-stone px-5 pt-5 pb-5 sm:px-6">
+      <p className="max-w-2xl text-[0.9375rem] leading-relaxed text-ink-soft">
         {slot.description}
       </p>
-      <p className="mt-2 max-w-2xl text-xs text-ink-muted">{slot.aspect}</p>
+      <p className="mt-1.5 max-w-2xl text-sm text-ink-muted">{slot.aspect}</p>
       {slot.updatedAt ? (
-        <p className="mt-2 text-xs text-ink-muted">
+        <p className="mt-1.5 text-sm text-ink-muted">
           Última actualización: {formatDate(slot.updatedAt)}
         </p>
       ) : null}
@@ -112,15 +138,15 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
           que ofrecer el campo sería ofrecer un control que no cambia nada. */}
       {slot.decorative ? null : (
         <div className="mt-5 max-w-2xl">
-          <label className="grid gap-2">
-            <span className="label-caps text-ink-soft">Texto alternativo</span>
+          <label className="grid gap-1.5">
+            <span className="text-[0.8125rem] font-medium text-ink-muted">Texto alternativo</span>
             <textarea
               value={alt}
               rows={2}
               onChange={(event) => setAlt(event.target.value)}
-              className="w-full rounded-xs border border-stone bg-paper px-4 py-3 text-sm leading-relaxed text-ink transition-colors hover:border-stone-strong focus:border-burgundy focus:outline-none"
+              className={textareaClass}
             />
-            <span className="text-xs text-ink-muted">
+            <span className="text-[0.8125rem] text-ink-muted">
               Describe la fotografía para quien no puede verla. No uses el
               nombre del archivo.
             </span>
@@ -143,7 +169,7 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
 
       <div
         className={cn(
-          "mt-7 grid gap-7 border-t border-stone pt-6",
+          "mt-6 grid gap-7 border-t border-stone pt-6",
           mobileFrame && "lg:grid-cols-2 lg:gap-x-10",
         )}
       >
@@ -191,7 +217,7 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-stone pt-5">
-        <p className="mr-auto text-xs text-ink-muted">
+        <p className="mr-auto text-[0.8125rem] text-ink-muted">
           JPG, PNG, WebP o AVIF. Máx. 25 MB. El archivo se guarda entero: el
           recorte es solo de presentación.
         </p>
@@ -201,20 +227,22 @@ function SlotCard({ slot }: { slot: SiteMediaEntry }) {
             confirmLabel="Sí, restaurar"
             disabled={busy !== null}
             onConfirm={() => void reset()}
-            className="label-caps inline-flex h-9 items-center justify-center gap-2.5 rounded-xs border border-stone px-4 text-[10px] text-ink transition-colors hover:border-ink/40 disabled:pointer-events-none disabled:opacity-50"
+            className={cn(buttonClass, "px-4")}
           >
-            <RotateCcw aria-hidden className="size-3.5" strokeWidth={1.5} />
+            <RotateCcw aria-hidden className="size-4" strokeWidth={1.5} />
             {busy === "reset" ? "Restaurando…" : "Restaurar original"}
           </ConfirmButton>
         ) : null}
       </div>
 
       {error ? (
-        <p role="alert" className="mt-3 text-xs text-burgundy">
+        <p role="alert" className="mt-3 text-[0.9375rem] text-burgundy">
           {error}
         </p>
       ) : null}
-      {done ? <p className="mt-3 text-xs text-ink-muted">{done}</p> : null}
+      {done ? <p className="mt-3 text-[0.9375rem] text-ink-muted">{done}</p> : null}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -241,30 +269,23 @@ const GROUPS: { title: string; hint: string; match: (key: string) => boolean }[]
 
 export function SiteMediaAdmin({ media }: { media: SiteMediaEntry[] }) {
   return (
-    <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+    <div className="px-5 py-7 sm:px-8 lg:px-10 lg:py-9">
       <AdminPageHeader
         title="Imágenes del sitio"
-        subtitle="Todas las fotografías que no pertenecen a un vehículo"
+        subtitle="Las fotografías que no pertenecen a un vehículo. El cambio se ve en el sitio de inmediato."
       />
 
-      <p className="mb-8 max-w-2xl font-serif text-[0.9375rem] leading-relaxed text-ink-soft">
-        Estos espacios están definidos en el diseño. Puedes cambiar la
-        fotografía de cada uno, su encuadre y su texto alternativo; el cambio
-        se ve en el sitio público de inmediato, sin volver a publicar. El
-        archivo se guarda tal como lo subes: el recorte nunca lo modifica.
-      </p>
-
-      <div className="grid gap-10">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8">
         {GROUPS.map((group) => {
           const slots = media.filter((slot) => group.match(slot.key));
           if (slots.length === 0) return null;
           return (
             <div key={group.title}>
-              <h2 className="font-display text-xl text-ink">{group.title}</h2>
-              <p className="mt-1.5 mb-5 max-w-2xl text-xs text-ink-muted">
+              <h2 className="text-lg font-semibold text-ink">{group.title}</h2>
+              <p className="mt-0.5 mb-3 max-w-2xl text-[0.9375rem] text-ink-muted">
                 {group.hint}
               </p>
-              <div className="grid gap-6">
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
                 {slots.map((slot) => (
                   <SlotCard key={slot.key} slot={slot} />
                 ))}

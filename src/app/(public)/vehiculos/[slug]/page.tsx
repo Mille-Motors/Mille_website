@@ -15,11 +15,10 @@ import {
   VehicleEquipment,
   VehicleHighlights,
 } from "@/components/vehicle/VehicleEquipment";
-import { VehicleFunFact } from "@/components/vehicle/VehicleFunFact";
+import { VehicleAbout } from "@/components/vehicle/VehicleAbout";
 import { VehicleGallery } from "@/components/vehicle/VehicleGallery";
 import { VehicleQuickFacts } from "@/components/vehicle/VehicleQuickFacts";
 import { SpecTable, VehicleSpecs } from "@/components/vehicle/VehicleSpecs";
-import { VehicleTags } from "@/components/vehicle/VehicleTags";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { WhatsappFloat } from "@/components/whatsapp/WhatsappFloat";
 import { site } from "@/data/site";
@@ -113,8 +112,6 @@ export default async function VehicleDetailPage(
   const electric = electrificationBlocks(vehicle);
   const papers = documentationRows(vehicle);
   const highlights = vehicle.specialEquipment;
-  const funFactVisible =
-    vehicle.funFact.enabled && Boolean(vehicle.funFact.body?.trim());
   const equipmentGroups = equipmentSections(vehicle.equipment);
 
   /**
@@ -122,6 +119,16 @@ export default async function VehicleDetailPage(
    * quedaría vacía no se construye: no hay títulos sin nada debajo.
    */
   const details: DetailSection[] = [];
+
+  // Lo que se cuenta del vehículo es la primera tarjeta del menú, y se
+  // despliega igual que las demás. Nace abierta por ser la primera.
+  if (vehicle.description.trim()) {
+    details.push({
+      id: "acerca",
+      title: "Acerca de este vehículo",
+      children: <VehicleAbout vehicle={vehicle} />,
+    });
+  }
 
   if (blocks.length > 0) {
     details.push({
@@ -149,12 +156,13 @@ export default async function VehicleDetailPage(
           ? `${equipmentGroups.length} ${equipmentGroups.length === 1 ? "sección" : "secciones"}`
           : undefined,
       children: (
-        <div className="grid gap-12">
+        <div className="grid gap-5">
           {/* Lo destacado va primero y con otro peso: es lo que distingue
-              esta unidad de otra igual, no una línea más de una lista. */}
+              esta unidad de otra igual, no una línea más de una lista. Es un
+              recuadro como los demás, con un filo vinotinto en vez de gris. */}
           {highlights.length > 0 ? (
-            <section>
-              <h4 className="mb-4 text-[1.25rem] leading-snug font-medium text-burgundy">
+            <section className="rounded-xl border border-burgundy/25 bg-burgundy/5 px-5 py-5 sm:px-6">
+              <h4 className="mb-3 text-[1.25rem] leading-snug font-medium text-burgundy">
                 Equipamiento destacado
               </h4>
               <VehicleHighlights items={highlights} />
@@ -306,53 +314,13 @@ export default async function VehicleDetailPage(
         </div>
       </section>
 
-      {/* El relato, en una medida de lectura y no a 1.400 px: un párrafo de
-          ciento veinte caracteres por línea no se lee, se recorre. */}
-      <section className="section-y bg-cream">
-        <div className="wrap grid gap-8 lg:grid-cols-[0.8fr_1fr] lg:gap-[8vw]">
-          <div {...REVEAL}>
-            <h2 className="text-heading max-w-[14ch]">
-              Acerca de este vehículo
-            </h2>
-            <p className="mt-4 max-w-[28ch] text-[1.125rem] leading-snug text-ink-muted">
-              Una visión general de su configuración, estado y detalles clave.
-            </p>
-          </div>
-
-          <div
-            className="max-w-160"
-            {...REVEAL}
-            style={{ "--d": "100ms" } as React.CSSProperties}
-          >
-            {/* `whitespace-pre-line` conserva los párrafos que se
-                escribieron en el admin. */}
-            <p className="text-[1.25rem] leading-[1.65] whitespace-pre-line text-ink-soft">
-              {vehicle.description}
-            </p>
-
-            {vehicle.tags.length > 0 ? (
-              <div className="mt-8">
-                <VehicleTags vehicle={vehicle} />
-              </div>
-            ) : null}
-
-            {/* El apunte editorial, si existe: es de la misma naturaleza que
-                el relato —algo que contar, no un dato que consultar—. */}
-            {funFactVisible ? (
-              <div className="mt-10">
-                <VehicleFunFact funFact={vehicle.funFact} />
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
-      {/* Todo lo consultable, en una sola pila desplegable y con el MISMO
-          patrón en teléfono y en escritorio. Antes el escritorio abría dos
-          columnas con todo desplegado a la vez y no había por dónde empezar
-          a mirar. */}
+      {/* El menú de la ficha, justo después de las cifras de arriba: es lo que
+          quien compra busca primero. Una sola pila de tarjetas, con el MISMO
+          patrón en teléfono y en escritorio. Todas se despliegan —también
+          «Acerca de este vehículo», la primera—, y pueden estar varias
+          abiertas a la vez. */}
       {details.length > 0 ? (
-        <section className="bg-cream pb-(--space)">
+        <section className="bg-cream section-y">
           <div className="wrap">
             <h2 className="text-heading mb-8 lg:mb-10" {...REVEAL}>
               Detalles del vehículo
@@ -362,8 +330,9 @@ export default async function VehicleDetailPage(
         </section>
       ) : null}
 
-      {/* El cierre: vinotinto, con las tres maneras de preguntar. Es el ancla
-          de la barra fija del teléfono. */}
+      {/* El cierre: vinotinto, con WhatsApp —que es el único canal— para
+          preguntar o para pedir una visita. Es el ancla de la barra fija del
+          teléfono. */}
       <section className="bg-burgundy py-[clamp(4rem,8vw,8rem)] text-cream">
         <div className="wrap">
           <div className="mb-10 grid gap-5 lg:grid-cols-[1.4fr_1fr] lg:items-end lg:gap-[8vw]">
@@ -375,8 +344,15 @@ export default async function VehicleDetailPage(
               {...REVEAL}
               style={{ "--d": "100ms" } as React.CSSProperties}
             >
-              Escríbenos, pregunta lo que quieras o agenda una visita. Te
-              respondemos con calma.
+              Escríbenos por WhatsApp para preguntar lo que quieras o coordinar
+              una visita.
+              {site.phone ? (
+                <span className="mt-3 block text-base text-cream/75">
+                  Atendemos{" "}
+                  {site.phone.hours.label.charAt(0).toLowerCase() +
+                    site.phone.hours.label.slice(1)}
+                </span>
+              ) : null}
             </p>
           </div>
           <VehicleContactActions vehicle={vehicle} variant="closing" />

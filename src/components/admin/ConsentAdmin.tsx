@@ -2,19 +2,28 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ChevronDown,
-  Download,
-  Fingerprint,
-  Search,
-  ShieldCheck,
-  ShieldOff,
-  X,
-} from "lucide-react";
+import { ChevronDown, Download, Fingerprint, ShieldCheck, ShieldOff } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
-import { EmptyState } from "@/components/ui/EmptyState";
+import {
+  ActiveFilters,
+  AdminField,
+  AdminInput,
+  AdminSelect,
+  Chip,
+  ChipRow,
+  EmptyPanel,
+  FilterButton,
+  FilterPanel,
+  Pager,
+  Panel,
+  Pill,
+  SearchBox,
+  buttonClass,
+} from "@/components/admin/kit";
+import { PrivacyTabs } from "@/components/admin/PrivacyTabs";
 import { adminConsentExportHref, adminConsentHref } from "@/lib/admin-urls";
 import { cn } from "@/lib/cn";
+import { formatDateTimeLong } from "@/lib/format";
 import {
   CONSENT_ACTIONS,
   CONSENT_ACTION_LABELS,
@@ -41,61 +50,9 @@ import type { ConsentEventView } from "@/types/consent";
  * evento.
  */
 
-const selectClass =
-  "h-10 w-full cursor-pointer appearance-none rounded-xs border border-stone bg-paper px-3 pr-8 text-sm text-ink transition-colors hover:border-stone-strong focus:border-burgundy focus:outline-none";
-
-const inputClass =
-  "h-10 w-full rounded-xs border border-stone bg-paper px-3 text-sm text-ink transition-colors hover:border-stone-strong focus:border-burgundy focus:outline-none";
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="grid min-w-0 gap-1.5">
-      <span className="eyebrow text-ink-muted/80">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function Select({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <Field label={label}>
-      <span className="relative block">
-        <select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className={selectClass}
-        >
-          {children}
-        </select>
-        <ChevronDown
-          aria-hidden
-          strokeWidth={1.5}
-          className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-ink-muted"
-        />
-      </span>
-    </Field>
-  );
-}
-
-const actionPill: Record<ConsentAction, string> = {
-  granted: "border-status-available/30 bg-status-available/10 text-status-available",
-  revoked: "border-status-sold/30 bg-status-sold/10 text-status-sold",
+const actionTone: Record<ConsentAction, "success" | "warning"> = {
+  granted: "success",
+  revoked: "warning",
 };
 
 const ActionIcon = {
@@ -103,13 +60,22 @@ const ActionIcon = {
   revoked: ShieldOff,
 } as const;
 
-/** Fecha y hora en Bogotá, que es donde atiende el equipo. */
-function stamp(iso: string): string {
-  return new Date(iso).toLocaleString("es-CO", {
-    timeZone: "America/Bogota",
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+/** Un dato de la ficha de evidencia: su nombre, y debajo el valor. */
+function Datum({
+  label,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={className}>
+      <dt className="text-[0.8125rem] font-medium text-ink-muted">{label}</dt>
+      <dd className="mt-0.5 text-[0.9375rem] text-ink-soft">{children}</dd>
+    </div>
+  );
 }
 
 function Row({ event }: { event: ConsentEventView }) {
@@ -127,51 +93,46 @@ function Row({ event }: { event: ConsentEventView }) {
   const registeredByTeam = event.source === CONSENT_SOURCE_ADMIN;
 
   return (
-    <li className="border border-stone bg-paper px-5 py-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={cn(
-                "label-caps inline-flex items-center gap-1.5 rounded-xs border px-2 py-1 text-[10px]",
-                actionPill[event.action],
-              )}
+    <li className="px-5 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0 flex-1 basis-80">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <Pill
+              tone={actionTone[event.action]}
+              icon={<Icon aria-hidden className="size-3.5" strokeWidth={1.6} />}
             >
-              <Icon aria-hidden className="size-3" strokeWidth={1.6} />
               {CONSENT_ACTION_LABELS[event.action]}
-            </span>
-            <span className="font-serif text-sm text-ink-muted tabular">
-              {stamp(event.createdAt)}
+            </Pill>
+            <span className="text-[0.9375rem] text-ink-muted tabular">
+              {formatDateTimeLong(event.createdAt)}
             </span>
             {!event.textEvidenceAvailable ? (
-              <span className="label-caps rounded-xs border border-stone-strong/40 bg-sand px-2 py-1 text-[10px] text-ink-muted">
-                Heredado · sin prueba del texto
-              </span>
+              <Pill>Heredado · sin prueba del texto</Pill>
             ) : null}
           </div>
 
-          <p className="mt-2 font-serif text-[0.9375rem] text-ink">
+          <p className="mt-2 text-base font-semibold text-ink">
             {event.titular ? (
               <>
                 {event.titular.name}
                 {event.titular.email ? (
-                  <span className="text-ink-muted"> · {event.titular.email}</span>
+                  <span className="font-normal text-ink-muted"> · {event.titular.email}</span>
                 ) : null}
                 {event.titular.phone ? (
-                  <span className="text-ink-muted"> · {event.titular.phone}</span>
+                  <span className="font-normal text-ink-muted"> · {event.titular.phone}</span>
                 ) : null}
               </>
             ) : (
               // El enlace quedó nulo porque la solicitud se borró. El evento
               // sigue probando que hubo una autorización; a quién se refería
               // ya no está en la base, y eso es lo correcto.
-              <span className="text-ink-muted italic">
-                Solicitud eliminada · el evento se conserva sin titular enlazado
+              <span className="font-normal text-ink-muted italic">
+                Consulta eliminada · el evento se conserva sin titular enlazado
               </span>
             )}
           </p>
 
-          <p className="mt-1 font-serif text-sm text-ink-muted">
+          <p className="mt-0.5 text-[0.9375rem] text-ink-muted">
             {CONSENT_TYPE_LABELS[event.consentType]} ·{" "}
             {consentSourceLabel(event.source)} · política{" "}
             <span className="tabular">{event.policyVersion}</span>
@@ -182,81 +143,70 @@ function Row({ event }: { event: ConsentEventView }) {
           type="button"
           onClick={() => setOpen((value) => !value)}
           aria-expanded={open}
-          className="label-caps inline-flex shrink-0 items-center gap-1.5 rounded-xs border border-stone px-3 py-1.5 text-[10px] text-ink transition-colors hover:border-ink/40"
+          className={cn(buttonClass, "shrink-0 px-3.5")}
         >
-          <Fingerprint aria-hidden className="size-3" strokeWidth={1.5} />
+          <Fingerprint aria-hidden className="size-4" strokeWidth={1.5} />
           {open ? "Ocultar evidencia" : "Ver evidencia"}
+          <ChevronDown
+            aria-hidden
+            strokeWidth={1.6}
+            className={cn("size-4 transition-transform duration-200", open && "rotate-180")}
+          />
         </button>
       </div>
 
       {open ? (
-        <dl className="mt-4 grid gap-3 border-t border-stone pt-4 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <dt className="eyebrow text-ink-muted/80">Texto que se mostró</dt>
-            <dd className="mt-1 font-serif text-sm leading-relaxed text-ink-soft">
+        <dl className="mt-4 grid gap-x-6 gap-y-3.5 border-t border-stone pt-4 sm:grid-cols-2">
+          <Datum label="Texto que se mostró" className="sm:col-span-2">
+            <span className="leading-relaxed">
               {event.textSnapshot ?? (
-                <span className="italic text-ink-muted">
+                <span className="text-ink-muted italic">
                   No se conserva. Este evento viene de la primera forma de la
                   prueba, que registraba la versión de la política pero no el
                   texto. No se rellena con el texto actual: sería fabricar la
                   prueba de que alguien leyó algo que entonces no existía.
                 </span>
               )}
-            </dd>
-          </div>
-          <div>
-            <dt className="eyebrow text-ink-muted/80">Versión del texto</dt>
-            <dd className="mt-1 font-serif text-sm text-ink-soft tabular">
-              {event.textVersion ?? "—"}
-            </dd>
-          </div>
-          <div>
-            <dt className="eyebrow text-ink-muted/80">Huella SHA-256</dt>
-            <dd className="mt-1 font-serif text-xs break-all text-ink-soft tabular">
-              {event.textHash ?? "—"}
-            </dd>
-          </div>
-          <div>
-            <dt className="eyebrow text-ink-muted/80">
-              {/* Una revocatoria la teclea el equipo cuando llega por el canal
-                  de atención, así que la IP de esa petición es la del equipo y
-                  NO la del titular. Sin decirlo, alguien la leería mañana como
-                  si lo fuera. */}
-              {registeredByTeam
-                ? "IP del equipo que lo registró"
-                : "IP del titular"}
-            </dt>
-            <dd className="mt-1 font-serif text-sm text-ink-soft tabular">
+            </span>
+          </Datum>
+          <Datum label="Versión del texto">
+            <span className="tabular">{event.textVersion ?? "—"}</span>
+          </Datum>
+          <Datum label="Huella SHA-256">
+            <span className="text-sm break-all tabular">{event.textHash ?? "—"}</span>
+          </Datum>
+          <Datum
+            // Una revocatoria la teclea el equipo cuando llega por el canal de
+            // atención, así que la IP de esa petición es la del equipo y NO la
+            // del titular. Sin decirlo, alguien la leería mañana como si lo
+            // fuera.
+            label={registeredByTeam ? "IP del equipo que lo registró" : "IP del titular"}
+          >
+            <span className="tabular">
               {event.ipAddress ?? "—"}
               {event.ipSource ? (
                 <span className="text-ink-muted"> · {event.ipSource}</span>
               ) : null}
-            </dd>
-          </div>
-          <div>
-            <dt className="eyebrow text-ink-muted/80">Identificador de petición</dt>
-            <dd className="mt-1 font-serif text-xs break-all text-ink-soft">
-              {event.requestId ?? "—"}
-            </dd>
-          </div>
+            </span>
+          </Datum>
+          <Datum label="Identificador de petición">
+            <span className="text-sm break-all">{event.requestId ?? "—"}</span>
+          </Datum>
           {event.userAgent ? (
-            <div className="sm:col-span-2">
-              <dt className="eyebrow text-ink-muted/80">
-                {registeredByTeam
+            <Datum
+              label={
+                registeredByTeam
                   ? "Agente de usuario del equipo"
-                  : "Agente de usuario del titular"}
-              </dt>
-              <dd className="mt-1 font-serif text-xs break-all text-ink-soft">
-                {event.userAgent}
-              </dd>
-            </div>
+                  : "Agente de usuario del titular"
+              }
+              className="sm:col-span-2"
+            >
+              <span className="text-sm break-all">{event.userAgent}</span>
+            </Datum>
           ) : null}
-          <div className="sm:col-span-2">
-            <dt className="eyebrow text-ink-muted/80">Identificador del evento</dt>
-            <dd className="mt-1 font-serif text-xs break-all text-ink-soft tabular">
-              {event.id}
-            </dd>
-          </div>
+          <Datum label="Identificador del evento" className="sm:col-span-2">
+            <span className="text-sm break-all tabular">{event.id}</span>
+          </Datum>
         </dl>
       ) : null}
     </li>
@@ -279,6 +229,12 @@ export function ConsentAdmin({
   const router = useRouter();
   const [navigating, startTransition] = useTransition();
   const [search, setSearch] = useState(query.q ?? "");
+  const [panelOpen, setPanelOpen] = useState(
+    query.type !== undefined ||
+      query.source !== undefined ||
+      query.from !== undefined ||
+      query.to !== undefined,
+  );
 
   const [seenQ, setSeenQ] = useState(query.q);
   if (seenQ !== query.q) {
@@ -292,20 +248,19 @@ export function ConsentAdmin({
     );
   }
 
-  const activeCount = [
-    query.type,
-    query.action,
-    query.source,
-    query.from,
-    query.to,
-    query.q,
-  ].filter((value) => value !== undefined).length;
+  // La acción tiene sus propios chips; lo que queda en el panel es el resto.
+  const panelCount = [query.type, query.source, query.from ?? query.to].filter(
+    (value) => value !== undefined,
+  ).length;
+  const activeCount =
+    panelCount + (query.action !== undefined ? 1 : 0) + (query.q !== undefined ? 1 : 0);
 
   const pages = Math.max(1, Math.ceil(total / query.limit));
 
   return (
-    <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+    <div className="px-5 py-7 sm:px-8 lg:px-10 lg:py-9">
       <AdminPageHeader
+        eyebrow="Privacidad"
         title="Consentimientos"
         subtitle="Qué autorizó cada persona, con qué texto y desde dónde"
         action={
@@ -314,182 +269,149 @@ export function ConsentAdmin({
           // lo que se exporta es lo que se está viendo.
           <a
             href={adminConsentExportHref(query)}
-            className="label-caps inline-flex items-center gap-2 rounded-xs border border-stone bg-paper px-4 py-2.5 text-[10px] text-ink transition-colors hover:border-ink/40"
+            className={cn(buttonClass, "px-4")}
           >
-            <Download aria-hidden className="size-3.5" strokeWidth={1.5} />
+            <Download aria-hidden className="size-4" strokeWidth={1.5} />
             Exportar CSV
           </a>
         }
       />
 
-      <div className={cn("grid gap-4", navigating && "opacity-60")} aria-busy={navigating}>
-        <p className="font-serif text-sm text-ink-muted">
-          <span className="tabular">{counts.granted}</span> autorizaciones y{" "}
-          <span className="tabular">{counts.revoked}</span> revocatorias
-          registradas. Los eventos no se editan ni se borran: la base lo
-          impide, y una revocatoria se registra como un evento nuevo.
-        </p>
+      <PrivacyTabs active="consentimientos" />
 
-        <div className="grid gap-3 border border-stone bg-sand/40 px-4 py-4 sm:grid-cols-2 lg:grid-cols-5">
-          <Select
-            label="Tipo"
-            value={query.type ?? ""}
-            onChange={(value) =>
-              go({ type: (value || undefined) as AdminConsentQuery["type"] })
-            }
-          >
-            <option value="">Todos</option>
-            {CONSENT_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {CONSENT_TYPE_LABELS[type]}
-              </option>
-            ))}
-          </Select>
-
-          <Select
-            label="Acción"
-            value={query.action ?? ""}
-            onChange={(value) =>
-              go({ action: (value || undefined) as AdminConsentQuery["action"] })
-            }
-          >
-            <option value="">Todas</option>
+      <div className={cn("mb-4", navigating && "opacity-60")} aria-busy={navigating}>
+        <div className="flex flex-wrap items-center gap-2">
+          <SearchBox
+            value={search}
+            onChange={setSearch}
+            onSubmit={() => go({ q: search.trim() || undefined })}
+            label="Buscar por titular, origen, versión, huella o IP"
+            placeholder="Buscar titular, origen, versión o IP…"
+          />
+          <FilterButton
+            open={panelOpen}
+            count={panelCount}
+            controls="consent-filter-panel"
+            onClick={() => setPanelOpen((open) => !open)}
+          />
+          <ChipRow label="Acción" className="order-last xl:order-0 xl:m-0 xl:w-auto xl:overflow-visible xl:p-0">
+            <Chip active={!query.action} onClick={() => go({ action: undefined })}>
+              Todos
+            </Chip>
             {CONSENT_ACTIONS.map((action) => (
-              <option key={action} value={action}>
+              <Chip
+                key={action}
+                active={query.action === action}
+                count={counts[action]}
+                onClick={() =>
+                  go({ action: query.action === action ? undefined : action })
+                }
+              >
                 {CONSENT_ACTION_LABELS[action]}
-              </option>
+              </Chip>
             ))}
-          </Select>
-
-          <Select
-            label="Origen"
-            value={query.source ?? ""}
-            onChange={(value) => go({ source: value || undefined })}
-          >
-            <option value="">Todos</option>
-            {sources.map((source) => (
-              <option key={source} value={source}>
-                {consentSourceLabel(source)}
-              </option>
-            ))}
-          </Select>
-
-          <Field label="Desde">
-            <input
-              type="date"
-              value={query.from ?? ""}
-              onChange={(event) => go({ from: event.target.value || undefined })}
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="Hasta">
-            <input
-              type="date"
-              value={query.to ?? ""}
-              onChange={(event) => go({ to: event.target.value || undefined })}
-              className={inputClass}
-            />
-          </Field>
+          </ChipRow>
         </div>
 
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            go({ q: search.trim() || undefined });
-          }}
-          className="flex gap-2"
-        >
-          <label className="relative flex-1">
-            <span className="sr-only">
-              Buscar por titular, origen, versión, huella o IP
-            </span>
-            <Search
-              aria-hidden
-              strokeWidth={1.5}
-              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-muted"
-            />
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Titular, origen, versión, huella o IP"
-              className={cn(inputClass, "pl-9")}
-            />
-          </label>
-          <button
-            type="submit"
-            className="label-caps rounded-xs border border-stone bg-paper px-4 text-[10px] text-ink transition-colors hover:border-ink/40"
-          >
-            Buscar
-          </button>
-          {activeCount > 0 ? (
-            <button
-              type="button"
-              onClick={() => startTransition(() => router.push(adminConsentHref({})))}
-              className="label-caps inline-flex items-center gap-1.5 rounded-xs border border-stone bg-paper px-4 text-[10px] text-ink-muted transition-colors hover:border-ink/40"
-            >
-              <X aria-hidden className="size-3" strokeWidth={1.5} />
-              Limpiar
-            </button>
-          ) : null}
-        </form>
+        {panelOpen ? (
+          <FilterPanel id="consent-filter-panel" className="lg:grid-cols-4">
+            <AdminField label="Tipo">
+              <AdminSelect
+                value={query.type ?? ""}
+                onChange={(value) =>
+                  go({ type: (value || undefined) as AdminConsentQuery["type"] })
+                }
+              >
+                <option value="">Todos</option>
+                {CONSENT_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {CONSENT_TYPE_LABELS[type]}
+                  </option>
+                ))}
+              </AdminSelect>
+            </AdminField>
 
+            <AdminField label="Origen">
+              <AdminSelect
+                value={query.source ?? ""}
+                onChange={(value) => go({ source: value || undefined })}
+              >
+                <option value="">Todos</option>
+                {sources.map((source) => (
+                  <option key={source} value={source}>
+                    {consentSourceLabel(source)}
+                  </option>
+                ))}
+              </AdminSelect>
+            </AdminField>
+
+            <AdminField label="Desde">
+              <AdminInput
+                type="date"
+                value={query.from ?? ""}
+                onChange={(event) => go({ from: event.target.value || undefined })}
+              />
+            </AdminField>
+
+            <AdminField label="Hasta">
+              <AdminInput
+                type="date"
+                value={query.to ?? ""}
+                onChange={(event) => go({ to: event.target.value || undefined })}
+              />
+            </AdminField>
+          </FilterPanel>
+        ) : null}
+
+        {activeCount > 0 ? (
+          <ActiveFilters
+            summary={`${total} ${total === 1 ? "evento" : "eventos"} con estos filtros`}
+            onClear={() => {
+              setSearch("");
+              startTransition(() => router.push(adminConsentHref({})));
+            }}
+          />
+        ) : null}
+      </div>
+
+      <Panel className="overflow-hidden">
         {events.length === 0 ? (
-          <EmptyState
-            title="No hay eventos con ese filtro."
+          <EmptyPanel
+            icon={<ShieldCheck aria-hidden className="size-5" strokeWidth={1.5} />}
+            title={
+              activeCount > 0
+                ? "Ningún evento coincide con estos filtros"
+                : "Todavía no hay eventos"
+            }
             description="Los eventos se escriben cuando alguien envía un formulario público o cuando el equipo registra una revocatoria."
           />
         ) : (
-          <>
-            <ul className="grid gap-2">
-              {events.map((event) => (
-                <Row key={event.id} event={event} />
-              ))}
-            </ul>
-
-            {pages > 1 ? (
-              <div className="flex items-center justify-between gap-4 pt-2">
-                <p className="font-serif text-sm text-ink-muted">
-                  Página <span className="tabular">{query.page}</span> de{" "}
-                  <span className="tabular">{pages}</span> ·{" "}
-                  <span className="tabular">{total}</span> eventos
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={query.page <= 1}
-                    onClick={() =>
-                      startTransition(() =>
-                        router.push(
-                          adminConsentHref({ ...query, page: query.page - 1 }),
-                        ),
-                      )
-                    }
-                    className="label-caps rounded-xs border border-stone bg-paper px-4 py-2 text-[10px] text-ink transition-colors hover:border-ink/40 disabled:opacity-40"
-                  >
-                    Anterior
-                  </button>
-                  <button
-                    type="button"
-                    disabled={query.page >= pages}
-                    onClick={() =>
-                      startTransition(() =>
-                        router.push(
-                          adminConsentHref({ ...query, page: query.page + 1 }),
-                        ),
-                      )
-                    }
-                    className="label-caps rounded-xs border border-stone bg-paper px-4 py-2 text-[10px] text-ink transition-colors hover:border-ink/40 disabled:opacity-40"
-                  >
-                    Siguiente
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </>
+          <ul className="divide-y divide-stone">
+            {events.map((event) => (
+              <Row key={event.id} event={event} />
+            ))}
+          </ul>
         )}
-      </div>
+      </Panel>
+
+      <Pager
+        page={query.page}
+        pages={pages}
+        total={total}
+        shown={events.length}
+        limit={query.limit}
+        noun={["evento", "eventos"]}
+        pending={navigating}
+        onPage={(page) =>
+          startTransition(() => router.push(adminConsentHref({ ...query, page })))
+        }
+      />
+
+      <p className="mt-6 max-w-2xl text-[0.8125rem] leading-relaxed text-ink-muted">
+        Los eventos no se editan ni se borran: la base de datos lo impide. Una
+        revocatoria se registra como un evento nuevo, y el que decía que la
+        persona autorizó sigue ahí, porque eso también ocurrió.
+      </p>
     </div>
   );
 }

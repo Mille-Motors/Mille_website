@@ -12,3 +12,13 @@ export interface AdminSession {
   adminUserId: string;
   name: string | null;
 }
+
+/**
+ * Lo que espera respuesta, para los avisos numéricos del menú lateral. Vive
+ * aquí y no junto a la consulta porque el menú es un componente de cliente.
+ */
+export interface AdminNavBadges {
+  newInquiries: number;
+  privacyOpen: number;
+  privacyOverdue: number;
+}

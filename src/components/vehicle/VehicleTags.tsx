@@ -1,27 +1,29 @@
-import Link from "next/link";
-import { inventoryHref } from "@/lib/filters";
 import type { Vehicle } from "@/types/vehicle";
 
 /**
- * El carácter del vehículo, y cada etiqueta es un camino: pulsarla lleva al
- * inventario ya filtrado por ella. Son enlaces y no adornos porque quien
- * reconoce "Off-road" en una Land Cruiser probablemente quiera ver las otras.
+ * El carácter del vehículo: deportivo, de lujo, familiar…
+ *
+ * Es información y no un camino. Antes cada etiqueta llevaba al inventario ya
+ * filtrado por ella, pero en plena ficha eso era una salida que nadie pidió:
+ * quien lee sobre este vehículo no quiere que una palabra lo lleve a otra
+ * página. Se ven, no se pulsan.
  */
 export function VehicleTags({ vehicle }: { vehicle: Vehicle }) {
   if (vehicle.tags.length === 0) return null;
 
   return (
-    <ul className="flex flex-wrap items-center gap-2.5">
-      {vehicle.tags.map((tag) => (
-        <li key={tag}>
-          <Link
-            href={inventoryHref({ tipo: vehicle.vehicleType, etiqueta: tag })}
-            className="press inline-flex min-h-10 items-center rounded-full border border-ink/25 px-4 text-base text-ink-soft hover:border-burgundy hover:text-burgundy"
+    <div>
+      <p className="mb-3 text-[0.9375rem] text-ink-muted">Carácter</p>
+      <ul className="flex flex-wrap items-center gap-2.5">
+        {vehicle.tags.map((tag) => (
+          <li
+            key={tag}
+            className="inline-flex h-9 items-center rounded-full border border-ink/15 bg-cream px-4 text-base text-ink-soft"
           >
             {tag}
-          </Link>
-        </li>
-      ))}
-    </ul>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

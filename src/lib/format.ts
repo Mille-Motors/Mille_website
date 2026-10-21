@@ -98,6 +98,26 @@ export function formatDate(iso: string): string {
   return dateFormatter.format(new Date(iso));
 }
 
+// Con zona fija: el servidor pinta esto en UTC y el navegador en Bogotá, y un
+// vehículo editado a las 8 p. m. caería en días distintos en cada lado.
+const shortDateFormatter = new Intl.DateTimeFormat("es-CO", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "America/Bogota",
+});
+
+/**
+ * "19 oct 2026": la fecha de una celda de tabla, que no cabe en dos líneas.
+ * Se arma por partes porque el patrón de es-CO mete «de» entre ellas.
+ */
+export function formatDateShort(iso: string): string {
+  const parts = shortDateFormatter.formatToParts(new Date(iso));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  return `${part("day")} ${part("month").replace(".", "")} ${part("year")}`;
+}
+
 /**
  * Una fecha de calendario —"2027-03-18"— leída como el día que es.
  *
@@ -154,4 +174,72 @@ export function formatDecimal(value: number, maxDigits = 1): string {
 /** 1.500 -> "1.500". Miles agrupados, sin unidad. */
 export function formatInteger(value: number): string {
   return cop.format(Math.round(value));
+}
+
+const dateTimeFormatter = new Intl.DateTimeFormat("es-CO", {
+  day: "numeric",
+  month: "short",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+  timeZone: "America/Bogota",
+});
+
+/**
+ * «19 oct, 3:42 p. m.», en hora de Bogotá. Fija la zona por la misma razón que
+ * `formatDateShort`: así servidor y navegador escriben lo mismo.
+ */
+export function formatDateTimeShort(iso: string): string {
+  const parts = dateTimeFormatter.formatToParts(new Date(iso));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  const period = part("dayPeriod").replace(/\s+/g, " ").trim();
+  return `${part("day")} ${part("month").replace(".", "")}, ${part("hour")}:${part("minute")} ${period}`;
+}
+
+const dateTimeLongFormatter = new Intl.DateTimeFormat("es-CO", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+  timeZone: "America/Bogota",
+});
+
+/**
+ * «20 oct 2026, 3:42 p. m.», en hora de Bogotá. Es la fecha de una prueba, así
+ * que lleva el año; y se arma por partes para que servidor y navegador
+ * escriban exactamente lo mismo —el espacio antes de «p. m.» no es el mismo
+ * carácter en todos los entornos—.
+ */
+export function formatDateTimeLong(iso: string): string {
+  const parts = dateTimeLongFormatter.formatToParts(new Date(iso));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  const period = part("dayPeriod").replace(/\s+/g, " ").trim();
+  return `${part("day")} ${part("month").replace(".", "")} ${part("year")}, ${part("hour")}:${part("minute")} ${period}`;
+}
+
+const relativeFormatter = new Intl.RelativeTimeFormat("es-CO", {
+  numeric: "auto",
+});
+
+/**
+ * «hace 5 minutos», «hace 3 horas», «ayer», «hace 4 días». Pasada una semana
+ * ya no importa cuánto fue sino cuándo, y devuelve la fecha corta.
+ *
+ * `now` se puede fijar para probarlo; en pantalla es el instante actual, así
+ * que solo se usa en componentes de servidor: en uno de cliente, servidor y
+ * navegador dirían cosas distintas.
+ */
+export function formatRelative(iso: string, now: Date = new Date()): string {
+  const minutes = Math.round((new Date(iso).getTime() - now.getTime()) / 60_000);
+  if (Math.abs(minutes) < 1) return "ahora";
+  if (Math.abs(minutes) < 60) return relativeFormatter.format(minutes, "minute");
+  const hours = Math.round(minutes / 60);
+  if (Math.abs(hours) < 24) return relativeFormatter.format(hours, "hour");
+  const days = Math.round(hours / 24);
+  if (Math.abs(days) < 7) return relativeFormatter.format(days, "day");
+  return formatDateShort(iso);
 }

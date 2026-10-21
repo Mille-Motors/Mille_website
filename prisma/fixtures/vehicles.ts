@@ -13,8 +13,8 @@
  * ninguno de estos vehículos representa stock real.
  *
  * La taxonomía sí cambió, y solo en lo que era incorrecto: un Land Cruiser
- * ya no está clasificado como carrocería "4x4" sino como SUV con tracción
- * 4WD y carácter off-road, y un M4 ya no es la carrocería "Deportivo" sino
+ * ya no está clasificado como carrocería "4x4" sino como camioneta con
+ * tracción 4WD y carácter off-road, y un M4 ya no es la carrocería "Deportivo" sino
  * un coupé con carácter deportivo. Lo que NO se hizo fue rellenar las
  * especificaciones nuevas —cilindrada, 0–100, batería, documentación—: no
  * tenemos esos datos para estas unidades y este archivo no es sitio para
@@ -286,7 +286,7 @@ export const mockVehicles: FixtureVehicle[] = [
     price: 289_900_000,
     mileage: 52_000,
     vehicleType: "auto",
-    category: "SUV",
+    category: "Camioneta",
     fuelType: "Gasolina",
     transmission: "Automática",
     drivetrain: "Integral (AWD)",
@@ -327,7 +327,7 @@ export const mockVehicles: FixtureVehicle[] = [
     price: 329_900_000,
     mileage: 42_000,
     vehicleType: "auto",
-    category: "SUV",
+    category: "Camioneta",
     fuelType: "Híbrido enchufable",
     transmission: "Automática",
     drivetrain: "Integral (AWD)",
@@ -366,7 +366,7 @@ export const mockVehicles: FixtureVehicle[] = [
     price: 299_900_000,
     mileage: 48_000,
     vehicleType: "auto",
-    category: "SUV",
+    category: "Camioneta",
     fuelType: "Híbrido ligero (MHEV)",
     transmission: "Automática",
     drivetrain: "Integral (AWD)",
@@ -405,7 +405,7 @@ export const mockVehicles: FixtureVehicle[] = [
     price: 269_900_000,
     mileage: 50_000,
     vehicleType: "auto",
-    category: "SUV",
+    category: "Camioneta",
     fuelType: "Gasolina",
     transmission: "Automática secuencial",
     drivetrain: "Integral (AWD)",
@@ -442,7 +442,7 @@ export const mockVehicles: FixtureVehicle[] = [
     price: 279_900_000,
     mileage: 62_000,
     vehicleType: "auto",
-    category: "SUV",
+    category: "Camioneta",
     fuelType: "Diésel",
     transmission: "Automática",
     drivetrain: "4x4 (4WD)",
@@ -516,7 +516,7 @@ export const mockVehicles: FixtureVehicle[] = [
     price: 215_900_000,
     mileage: 38_000,
     vehicleType: "auto",
-    category: "SUV",
+    category: "Camioneta",
     fuelType: "Gasolina",
     transmission: "Automática",
     drivetrain: "Integral (AWD)",
@@ -590,7 +590,7 @@ export const mockVehicles: FixtureVehicle[] = [
     price: 189_900_000,
     mileage: 54_000,
     vehicleType: "auto",
-    category: "SUV",
+    category: "Camioneta",
     fuelType: "Gasolina",
     transmission: "Automática",
     drivetrain: "Integral (AWD)",
@@ -627,7 +627,7 @@ export const mockVehicles: FixtureVehicle[] = [
     price: 249_900_000,
     mileage: 62_000,
     vehicleType: "auto",
-    category: "SUV",
+    category: "Camioneta",
     fuelType: "Gasolina",
     transmission: "Automática",
     drivetrain: "Integral (AWD)",
@@ -701,7 +701,7 @@ export const mockVehicles: FixtureVehicle[] = [
     price: 239_900_000,
     mileage: 55_000,
     vehicleType: "auto",
-    category: "SUV",
+    category: "Camioneta",
     fuelType: "Gasolina",
     transmission: "Automática",
     drivetrain: "Integral (AWD)",
@@ -738,7 +738,7 @@ export const mockVehicles: FixtureVehicle[] = [
     price: 269_900_000,
     mileage: 29_000,
     vehicleType: "auto",
-    category: "SUV",
+    category: "Camioneta",
     fuelType: "Híbrido enchufable",
     transmission: "Automática",
     drivetrain: "Integral (AWD)",
@@ -775,7 +775,7 @@ export const mockVehicles: FixtureVehicle[] = [
     price: 199_900_000,
     mileage: 58_000,
     vehicleType: "auto",
-    category: "SUV",
+    category: "Camioneta",
     fuelType: "Gasolina",
     transmission: "Automática",
     drivetrain: "4x4 (4WD)",

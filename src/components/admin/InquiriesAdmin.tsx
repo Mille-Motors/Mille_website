@@ -3,13 +3,31 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bike, Car, ChevronDown, Search, Trash2, X } from "lucide-react";
+import { Bike, Car, Inbox, SearchX } from "lucide-react";
+import { ActionMenu, type MenuEntry } from "@/components/admin/ActionMenu";
 import { AdminPageHeader } from "@/components/admin/AdminShell";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { adminJson, adminRequest } from "@/lib/admin-client";
+import {
+  ActiveFilters,
+  AdminField,
+  AdminSelect,
+  Chip,
+  ChipRow,
+  EmptyPanel,
+  FilterButton,
+  FilterPanel,
+  Panel,
+  Pager,
+  Pill,
+  SearchBox,
+  Spinner,
+  buttonClass,
+  buttonPrimaryClass,
+} from "@/components/admin/kit";
+import { ButtonLink } from "@/components/ui/Button";
+import { adminJson, adminRequest, type AdminResult } from "@/lib/admin-client";
 import { adminInquiriesHref } from "@/lib/admin-urls";
 import { cn } from "@/lib/cn";
-import { formatDate } from "@/lib/format";
+import { formatDateTimeShort } from "@/lib/format";
 import { typeLabel } from "@/lib/categories";
 import {
   INQUIRY_VIEWS,
@@ -23,19 +41,30 @@ import type { Inquiry, InquiryStatus, InquiryType } from "@/types/vehicle";
 import type { AdminInquiryQuery } from "@/server/inquiries/schemas";
 import type { InquiryVehicleOption } from "@/server/inquiries/service";
 
-/** Singular, para la insignia de una fila. */
-const statusBadge: Record<InquiryStatus, string> = {
+/**
+ * La bandeja de Consultas: lo que la gente escribe desde Contacto y desde las
+ * fichas de vehículo.
+ *
+ * Cada consulta es una fila con una sola pregunta: «¿ya la atendí?». Por eso
+ * tiene UNA acción visible —la que sigue en el flujo: nueva → contactada →
+ * cerrada— y todo lo demás, que se usa de vez en cuando, en el menú. Antes
+ * eran siete botones por fila, y atender una consulta era buscar cuál de los
+ * siete.
+ */
+
+/** El estado, con la palabra que se lee en una fila. */
+const statusLabel: Record<InquiryStatus, string> = {
   new: "Nueva",
   contacted: "Contactada",
   closed: "Cerrada",
   spam: "Spam",
 };
 
-const statusPill: Record<InquiryStatus, string> = {
-  new: "border-status-available/30 bg-status-available/10 text-status-available",
-  contacted: "border-status-reserved/30 bg-status-reserved/10 text-status-reserved",
-  closed: "border-stone-strong/40 bg-sand text-ink-muted",
-  spam: "border-status-sold/30 bg-status-sold/10 text-status-sold",
+const statusTone: Record<InquiryStatus, "success" | "info" | "neutral" | "warning"> = {
+  new: "success",
+  contacted: "info",
+  closed: "neutral",
+  spam: "warning",
 };
 
 const typeLabels: Record<InquiryType, string> = {
@@ -44,213 +73,304 @@ const typeLabels: Record<InquiryType, string> = {
   appointment: "Cita",
 };
 
-const selectClass =
-  "h-10 w-full cursor-pointer appearance-none rounded-xs border border-stone bg-paper px-3 pr-8 text-sm text-ink transition-colors hover:border-stone-strong focus:border-burgundy focus:outline-none";
+/** Lo siguiente que se hace con una consulta, según donde esté. */
+const nextStep: Record<InquiryStatus, { label: string; to: InquiryStatus }> = {
+  new: { label: "Marcar contactada", to: "contacted" },
+  contacted: { label: "Cerrar", to: "closed" },
+  closed: { label: "Reabrir", to: "new" },
+  spam: { label: "No es spam", to: "new" },
+};
 
-function Select({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="grid min-w-0 gap-1.5">
-      <span className="eyebrow text-ink-muted/80">{label}</span>
-      <span className="relative block">
-        <select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className={selectClass}
-        >
-          {children}
-        </select>
-        <ChevronDown
-          aria-hidden
-          strokeWidth={1.5}
-          className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-ink-muted"
-        />
-      </span>
-    </label>
-  );
-}
+/** Cómo se llama mover una consulta a cada estado, dentro del menú. */
+const moveLabel: Record<InquiryStatus, string> = {
+  new: "Marcar como nueva",
+  contacted: "Marcar como contactada",
+  closed: "Cerrar",
+  spam: "Marcar como spam",
+};
 
-const rowAction =
-  "label-caps rounded-xs border border-stone px-3 py-1.5 text-[10px] text-ink transition-colors hover:border-ink/40 disabled:opacity-40";
+type Channel = "email" | "whatsapp" | "other";
+
+type Feedback = { tone: "error" | "info"; text: string };
 
 /**
- * Acciones de una solicitud.
- *
- * Borrar y "spam y eliminar" piden confirmación en la propia fila, igual que
- * el borrado de vehículos: es definitivo y no debe caber en un solo clic.
+ * Las acciones de una consulta. Cada una llama a su endpoint y después
+ * repinta desde la base: lo que se ve es lo que quedó guardado. Si algo
+ * falla, se dice en la fila y el estado no se mueve.
  */
-/**
- * Registrar que esta persona revocó su autorización.
- *
- * Pide el canal porque el canal es parte de la evidencia: por dónde llegó la
- * revocatoria es lo que permite encontrarla después, y el art. 2 de la Ley
- * 2300 de 2023 gira precisamente sobre los canales que el consumidor
- * autoriza.
- *
- * NO borra ni modifica nada. Añade un evento de consentimiento con acción
- * «revocó»: el que dice que autorizó sigue ahí, porque eso también pasó.
- */
-function RevocationControl({
-  inquiry,
-  busy,
-  onRevoke,
-}: {
-  inquiry: Inquiry;
-  busy: boolean;
-  onRevoke: (id: string, channel: "email" | "whatsapp" | "other") => void;
-}) {
-  const [open, setOpen] = useState(false);
+function useInquiryActions(inquiry: Inquiry) {
+  const router = useRouter();
+  const [pending, setPending] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => setOpen(true)}
-        className={cn(rowAction, "hover:border-burgundy/40 hover:text-burgundy")}
-      >
-        Registrar revocatoria
-      </button>
-    );
+  async function run(
+    key: string,
+    call: () => Promise<AdminResult<unknown>>,
+  ): Promise<boolean> {
+    if (pending) return false;
+    setPending(key);
+    setFeedback(null);
+    const result = await call();
+    setPending(null);
+    if (!result.ok) {
+      setFeedback({ tone: "error", text: result.message });
+      return false;
+    }
+    router.refresh();
+    return true;
   }
 
-  return (
-    <span className="inline-flex flex-wrap items-center gap-2">
-      <span className="font-serif text-xs text-ink-soft">
-        ¿Por dónde llegó la revocatoria de {inquiry.name}?
-      </span>
-      {(
+  return {
+    pending,
+    feedback,
+    setStatus: (status: InquiryStatus) =>
+      run(`status-${status}`, () =>
+        adminJson(`/api/admin/inquiries/${inquiry.id}`, "PATCH", { status }),
+      ),
+    remove: (reason?: "spam") =>
+      run("delete", () =>
+        adminRequest(
+          `/api/admin/inquiries/${inquiry.id}${reason ? `?reason=${reason}` : ""}`,
+          { method: "DELETE" },
+        ),
+      ),
+    /**
+     * Registra una revocatoria. Escribe un evento NUEVO, no corrige el viejo:
+     * la tabla de consentimientos es append-only y la autorización anterior
+     * también ocurrió.
+     */
+    revoke: (channel: Channel) =>
+      run("revoke", () =>
+        adminJson("/api/admin/consent-events/revocations", "POST", {
+          inquiryId: inquiry.id,
+          channel,
+        }),
+      ),
+  };
+}
+
+type Actions = ReturnType<typeof useInquiryActions>;
+
+function menuItems(
+  inquiry: Inquiry,
+  view: InquiryView,
+  actions: Actions,
+): MenuEntry[] {
+  const primary = nextStep[inquiry.status].to;
+  const items: MenuEntry[] = [];
+
+  // Los demás estados a los que se puede ir. Repetir el actual no hace nada, y
+  // el siguiente del flujo ya es el botón.
+  for (const status of ["new", "contacted", "closed", "spam"] as const) {
+    if (status === inquiry.status || status === primary) continue;
+    items.push({
+      label: moveLabel[status],
+      onSelect: () => void actions.setStatus(status),
+    });
+  }
+
+  if (view === "activas") {
+    items.push({
+      label: "Spam y eliminar",
+      danger: true,
+      confirm: {
+        title: "¿Marcar como spam y eliminarla?",
+        description: "Se elimina definitivamente. No se puede deshacer.",
+        confirmLabel: "Sí, eliminar",
+      },
+      onSelect: () => void actions.remove("spam"),
+    });
+  }
+
+  // No en la bandeja de spam: un bot no revoca una autorización.
+  if (view !== "spam") {
+    items.push(
+      { kind: "separator" },
+      { kind: "label", text: "Revocó su autorización de datos, por…" },
+      ...(
         [
           ["email", "Correo"],
           ["whatsapp", "WhatsApp"],
-          ["other", "Otro"],
+          ["other", "Otro canal"],
         ] as const
-      ).map(([channel, label]) => (
-        <button
-          key={channel}
-          type="button"
-          disabled={busy}
-          onClick={() => {
-            setOpen(false);
-            onRevoke(inquiry.id, channel);
-          }}
-          className="label-caps rounded-xs bg-burgundy px-3 py-1.5 text-[10px] text-cream disabled:opacity-40"
-        >
-          {label}
-        </button>
-      ))}
-      <button type="button" onClick={() => setOpen(false)} className={rowAction}>
-        Cancelar
-      </button>
-    </span>
-  );
-}
-
-function RowActions({
-  inquiry,
-  view,
-  busy,
-  onStatus,
-  onDelete,
-  onRevoke,
-}: {
-  inquiry: Inquiry;
-  view: InquiryView;
-  busy: boolean;
-  onStatus: (id: string, status: InquiryStatus) => void;
-  onDelete: (id: string, reason?: "spam") => void;
-  onRevoke: (id: string, channel: "email" | "whatsapp" | "other") => void;
-}) {
-  const [confirming, setConfirming] = useState<null | "delete" | "spam">(null);
-
-  if (confirming) {
-    return (
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <span className="font-serif text-xs text-ink-soft">
-          {confirming === "spam"
-            ? "¿Marcar como spam y eliminarla definitivamente? Esta acción no se puede deshacer."
-            : "¿Eliminar esta solicitud definitivamente? Esta acción no se puede deshacer."}
-        </span>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => onDelete(inquiry.id, confirming === "spam" ? "spam" : undefined)}
-          className="label-caps rounded-xs bg-burgundy px-3 py-1.5 text-[10px] text-cream disabled:opacity-40"
-        >
-          Sí, eliminar
-        </button>
-        <button
-          type="button"
-          onClick={() => setConfirming(null)}
-          className={rowAction}
-        >
-          Cancelar
-        </button>
-      </div>
+      ).map(
+        ([channel, label]): MenuEntry => ({
+          label,
+          confirm: {
+            title: `¿Registrar que ${inquiry.name} revocó su autorización?`,
+            description:
+              "Queda como un evento permanente en Privacidad: no se puede editar ni borrar.",
+            confirmLabel: "Registrar",
+          },
+          onSelect: () => void actions.revoke(channel),
+        }),
+      ),
     );
   }
 
-  // Dentro de una bandeja solo se ofrecen los estados que sacan la solicitud
-  // de ella o la mueven dentro: repetir el estado actual no hace nada.
-  const moves = (["new", "contacted", "closed", "spam"] as const).filter(
-    (status) => status !== inquiry.status,
-  );
+  if (allowsDeletion(view)) {
+    items.push(
+      { kind: "separator" },
+      {
+        label: "Eliminar consulta",
+        danger: true,
+        confirm: {
+          title: "¿Eliminar esta consulta?",
+          description: "Se elimina definitivamente. No se puede deshacer.",
+          confirmLabel: "Sí, eliminar",
+        },
+        onSelect: () => void actions.remove(),
+      },
+    );
+  }
+
+  return items;
+}
+
+const LONG_MESSAGE = 150;
+
+function InquiryRow({ inquiry, view }: { inquiry: Inquiry; view: InquiryView }) {
+  const actions = useInquiryActions(inquiry);
+  const [expanded, setExpanded] = useState(false);
+  const busy = actions.pending !== null;
+  const step = nextStep[inquiry.status];
+  const isNew = inquiry.status === "new";
+  const long = (inquiry.message?.length ?? 0) > LONG_MESSAGE;
 
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-2">
-      {moves.map((status) => (
-        <button
-          key={status}
-          type="button"
-          disabled={busy}
-          onClick={() => onStatus(inquiry.id, status)}
-          className={rowAction}
-        >
-          {status === "spam" ? "Marcar como spam" : statusBadge[status]}
-        </button>
-      ))}
-
-      {view === "activas" ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => setConfirming("spam")}
-          className={cn(rowAction, "hover:border-burgundy/40 hover:text-burgundy")}
-        >
-          Spam y eliminar
-        </button>
+    <li
+      aria-busy={busy}
+      className={cn(
+        "relative px-5 py-4 transition-colors",
+        isNew && "bg-burgundy/2.5",
+      )}
+    >
+      {/* El punto de «sin leer»: la fila sola ya lo dice con la insignia, el
+          punto lo hace visible al recorrer la lista de un vistazo. */}
+      {isNew ? (
+        <span
+          aria-hidden
+          className="absolute top-6.5 left-2 size-2 rounded-full bg-burgundy"
+        />
       ) : null}
 
-      {/* No en la bandeja de spam: un bot no revoca una autorización. */}
-      {view !== "spam" ? (
-        <RevocationControl inquiry={inquiry} busy={busy} onRevoke={onRevoke} />
-      ) : null}
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0 flex-1 basis-80">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <p className="text-base font-semibold text-ink">{inquiry.name}</p>
+            <Pill tone={statusTone[inquiry.status]}>{statusLabel[inquiry.status]}</Pill>
+          </div>
 
-      {allowsDeletion(view) ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => setConfirming("delete")}
-          aria-label={`Eliminar la solicitud de ${inquiry.name}`}
-          className={cn(
-            rowAction,
-            "inline-flex items-center gap-1.5 hover:border-burgundy/40 hover:text-burgundy",
-          )}
-        >
-          <Trash2 aria-hidden className="size-3" strokeWidth={1.5} />
-          Eliminar solicitud
-        </button>
-      ) : null}
-    </div>
+          <p className="mt-0.5 flex flex-wrap gap-x-2 text-[0.9375rem] text-ink-muted">
+            {inquiry.phone ? (
+              <a
+                href={`tel:${inquiry.phone.replace(/\s/g, "")}`}
+                className="transition-colors hover:text-burgundy"
+              >
+                {inquiry.phone}
+              </a>
+            ) : null}
+            {inquiry.phone && inquiry.email ? <span aria-hidden>·</span> : null}
+            {inquiry.email ? (
+              <a
+                href={`mailto:${inquiry.email}`}
+                className="transition-colors hover:text-burgundy"
+              >
+                {inquiry.email}
+              </a>
+            ) : null}
+          </p>
+
+          {inquiry.vehicleLabel ? (
+            <p className="mt-2 flex items-center gap-2 text-[0.9375rem] text-ink-soft">
+              {inquiry.vehicleType === "moto" ? (
+                <Bike aria-hidden className="size-4 shrink-0 text-ink-muted" strokeWidth={1.4} />
+              ) : (
+                <Car aria-hidden className="size-4 shrink-0 text-ink-muted" strokeWidth={1.4} />
+              )}
+              {inquiry.vehicleSlug ? (
+                <Link
+                  href={`/vehiculos/${inquiry.vehicleSlug}`}
+                  className="underline underline-offset-4 transition-colors hover:text-burgundy"
+                >
+                  {inquiry.vehicleLabel}
+                </Link>
+              ) : (
+                <span>
+                  {inquiry.vehicleLabel}
+                  <span className="text-ink-muted"> · ya no está publicado</span>
+                </span>
+              )}
+            </p>
+          ) : null}
+
+          {inquiry.message ? (
+            <div className="mt-1.5 max-w-2xl">
+              <p
+                className={cn(
+                  "text-[0.9375rem] leading-relaxed whitespace-pre-line text-ink-soft",
+                  !expanded && "line-clamp-2",
+                )}
+              >
+                {inquiry.message}
+              </p>
+              {long ? (
+                <button
+                  type="button"
+                  aria-expanded={expanded}
+                  onClick={() => setExpanded((value) => !value)}
+                  className="mt-0.5 rounded-md text-sm font-medium text-burgundy underline-offset-4 hover:underline"
+                >
+                  {expanded ? "Ver menos" : "Ver más"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {actions.feedback ? (
+            <p
+              role={actions.feedback.tone === "error" ? "alert" : "status"}
+              className={cn(
+                "mt-2 text-sm leading-snug",
+                actions.feedback.tone === "error" ? "text-burgundy" : "text-ink-soft",
+              )}
+            >
+              {actions.feedback.text}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex shrink-0 flex-col items-end gap-3 max-sm:w-full max-sm:items-stretch">
+          <p className="text-sm text-ink-muted tabular">
+            {typeLabels[inquiry.type]} · {formatDateTimeShort(inquiry.createdAt)}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void actions.setStatus(step.to)}
+              aria-label={`${step.label}: ${inquiry.name}`}
+              className={cn(
+                buttonClass,
+                // Lo que hay que hacer con una consulta nueva es lo único que
+                // se pinta como principal; reabrir o devolver del spam, no.
+                isNew || inquiry.status === "contacted" ? buttonPrimaryClass : "",
+                "min-w-24 px-4 max-sm:flex-1",
+              )}
+            >
+              {actions.pending === `status-${step.to}` ? <Spinner /> : null}
+              {step.label}
+            </button>
+            <ActionMenu
+              label={`Más acciones para ${inquiry.name}`}
+              disabled={busy}
+              items={menuItems(inquiry, view, actions)}
+              triggerClassName={cn(buttonClass, "w-9 shrink-0 px-0")}
+            />
+          </div>
+        </div>
+      </div>
+    </li>
   );
 }
 
@@ -269,67 +389,18 @@ export function InquiriesAdmin({
 }) {
   const router = useRouter();
   const [navigating, startTransition] = useTransition();
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(query.q ?? "");
+  const [panelOpen, setPanelOpen] = useState(
+    query.type !== undefined ||
+      query.vehicleType !== undefined ||
+      query.vehicleId !== undefined,
+  );
 
   // Si la URL cambia por otra vía —atrás, Limpiar filtros— el input la sigue.
   const [seenQ, setSeenQ] = useState(query.q);
   if (seenQ !== query.q) {
     setSeenQ(query.q);
     setSearch(query.q ?? "");
-  }
-
-  async function setStatus(id: string, next: InquiryStatus) {
-    if (busy) return;
-    setBusy(id);
-    setError(null);
-    const result = await adminJson(`/api/admin/inquiries/${id}`, "PATCH", {
-      status: next,
-    });
-    setBusy(null);
-    if (!result.ok) {
-      setError(result.message);
-      return;
-    }
-    router.refresh();
-  }
-
-  /**
-   * Registra una revocatoria. Escribe un evento NUEVO, no corrige el viejo:
-   * la tabla de consentimientos es append-only y la autorización anterior
-   * también ocurrió.
-   */
-  async function revoke(id: string, channel: "email" | "whatsapp" | "other") {
-    if (busy) return;
-    setBusy(id);
-    setError(null);
-    const result = await adminJson("/api/admin/consent-events/revocations", "POST", {
-      inquiryId: id,
-      channel,
-    });
-    setBusy(null);
-    if (!result.ok) {
-      setError(result.message);
-      return;
-    }
-    router.refresh();
-  }
-
-  async function remove(id: string, reason?: "spam") {
-    if (busy) return;
-    setBusy(id);
-    setError(null);
-    const result = await adminRequest(
-      `/api/admin/inquiries/${id}${reason ? `?reason=${reason}` : ""}`,
-      { method: "DELETE" },
-    );
-    setBusy(null);
-    if (!result.ok) {
-      setError(result.message);
-      return;
-    }
-    router.refresh();
   }
 
   /** Cambiar bandeja o filtro vuelve a la página 1. */
@@ -339,16 +410,18 @@ export function InquiriesAdmin({
     );
   }
 
-  const chip = (active: boolean) =>
-    cn(
-      "label-caps inline-flex items-center gap-2 rounded-xs border px-3.5 py-2 text-[10px] transition-colors",
-      active
-        ? "border-burgundy bg-burgundy text-cream"
-        : "border-stone text-ink-soft hover:border-stone-strong",
-    );
-
   const viewCount = (view: InquiryView) =>
     inquiryViewStatuses[view].reduce((sum, status) => sum + counts[status], 0);
+
+  // Lo que hay dentro del panel, para la insignia del botón.
+  const specificVehicle =
+    query.vehicleId && query.vehicleId !== "none" ? query.vehicleId : undefined;
+  const panelCount = [
+    query.type,
+    // «Sin vehículo asociado» vive en el mismo selector que Carros y Motos.
+    query.vehicleType ?? (query.vehicleId === "none" ? "none" : undefined),
+    specificVehicle,
+  ].filter((value) => value !== undefined).length;
 
   const activeCount = [
     query.status,
@@ -368,309 +441,199 @@ export function InquiriesAdmin({
 
   const emptyCopy: Record<InquiryView, { title: string; description: string }> = {
     activas: {
-      title: "No hay solicitudes pendientes.",
+      title: "No hay consultas pendientes",
       description: "Todo lo que ha llegado está cerrado o marcado como spam.",
     },
     cerradas: {
-      title: "No hay solicitudes cerradas.",
+      title: "No hay consultas cerradas",
       description: "Aquí quedan las que ya atendiste, por si hace falta consultarlas.",
     },
     spam: {
-      title: "No hay solicitudes marcadas como spam.",
+      title: "No hay consultas marcadas como spam",
       description: "Lo que marques como spam aparecerá aquí.",
     },
   };
 
   return (
-    <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+    <div className="px-5 py-7 sm:px-8 lg:px-10 lg:py-9">
       <AdminPageHeader
-        title="Solicitudes"
-        subtitle="Lo que llega desde Contacto y desde las fichas de vehículo"
+        title="Consultas"
+        subtitle="Lo que la gente escribe desde Contacto y desde las fichas de vehículo"
       />
 
-      <div className={cn("grid gap-4", navigating && "opacity-60")} aria-busy={navigating}>
-        {/* Bandejas */}
-        <div className="-mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
-          <div className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
+      <div className={cn("mb-4", navigating && "opacity-60")} aria-busy={navigating}>
+        <div className="flex flex-wrap items-center gap-2">
+          <SearchBox
+            value={search}
+            onChange={setSearch}
+            onSubmit={() => go({ q: search.trim() || undefined })}
+            label="Buscar por nombre, correo, teléfono o vehículo"
+            placeholder="Buscar nombre, correo o teléfono…"
+          />
+
+          <FilterButton
+            open={panelOpen}
+            count={panelCount}
+            controls="inquiry-filter-panel"
+            onClick={() => setPanelOpen((open) => !open)}
+          />
+
+          {/* Las bandejas, y dentro de Activas, nuevas o contactadas. */}
+          <ChipRow label="Bandeja" className="order-last xl:order-0 xl:m-0 xl:w-auto xl:overflow-visible xl:p-0">
             {INQUIRY_VIEWS.map((view) => (
-              <button
+              <Chip
                 key={view}
-                type="button"
+                active={query.view === view && !query.status}
+                count={viewCount(view)}
                 onClick={() => go({ view, status: undefined })}
-                aria-current={query.view === view ? "page" : undefined}
-                className={chip(query.view === view)}
               >
-                {inquiryViewLabels[view]}{" "}
-                <span className="opacity-60 tabular">{viewCount(view)}</span>
-              </button>
+                {inquiryViewLabels[view]}
+              </Chip>
             ))}
-          </div>
+            {subStatuses.length > 1 ? (
+              <>
+                <span aria-hidden className="mx-1 h-5 w-px bg-stone-strong" />
+                {subStatuses.map((status) => (
+                  <Chip
+                    key={status}
+                    active={query.status === status}
+                    count={counts[status]}
+                    onClick={() =>
+                      go({ status: query.status === status ? undefined : status })
+                    }
+                  >
+                    {statusLabel[status]}s
+                  </Chip>
+                ))}
+              </>
+            ) : null}
+          </ChipRow>
         </div>
 
-        {/* Dentro de Activas: nuevas o contactadas */}
-        {subStatuses.length > 1 ? (
-          <div className="-mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
-            <div className="flex w-max items-center gap-2 sm:w-auto sm:flex-wrap">
-              <button
-                type="button"
-                onClick={() => go({ status: undefined })}
-                className={chip(!query.status)}
+        {panelOpen ? (
+          <FilterPanel id="inquiry-filter-panel" className="lg:grid-cols-3">
+            <AdminField label="Tipo de consulta">
+              <AdminSelect
+                value={query.type ?? ""}
+                onChange={(value) =>
+                  go({ type: (value || undefined) as InquiryType | undefined })
+                }
               >
-                Todas
-              </button>
-              {subStatuses.map((status) => (
-                <button
-                  key={status}
-                  type="button"
-                  onClick={() =>
-                    go({ status: query.status === status ? undefined : status })
+                <option value="">Todas</option>
+                {INQUIRY_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {typeLabels[type]}
+                  </option>
+                ))}
+              </AdminSelect>
+            </AdminField>
+
+            <AdminField label="Tipo de vehículo">
+              <AdminSelect
+                value={query.vehicleType ?? (query.vehicleId === "none" ? "none" : "")}
+                onChange={(value) => {
+                  if (value === "none") {
+                    go({ vehicleType: undefined, vehicleId: "none" });
+                    return;
                   }
-                  className={chip(query.status === status)}
-                >
-                  {statusBadge[status]}{" "}
-                  <span className="opacity-60 tabular">{counts[status]}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+                  go({
+                    vehicleType: (value || undefined) as "auto" | "moto" | undefined,
+                    vehicleId: undefined,
+                  });
+                }}
+              >
+                <option value="">Todos</option>
+                {VEHICLE_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {typeLabel[type]}
+                  </option>
+                ))}
+                <option value="none">Sin vehículo asociado</option>
+              </AdminSelect>
+            </AdminField>
+
+            <AdminField label="Vehículo">
+              <AdminSelect
+                value={specificVehicle ?? ""}
+                onChange={(value) => go({ vehicleId: value || undefined })}
+              >
+                <option value="">Todos</option>
+                {vehicles.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </AdminSelect>
+            </AdminField>
+          </FilterPanel>
         ) : null}
 
-        {/* Búsqueda y filtros */}
-        <div className="grid gap-4 border border-stone bg-paper px-5 py-5 sm:grid-cols-2 lg:grid-cols-4">
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              go({ q: search.trim() || undefined });
+        {activeCount > 0 ? (
+          <ActiveFilters
+            summary={`${total} ${total === 1 ? "consulta" : "consultas"} con estos filtros en ${inquiryViewLabels[query.view].toLowerCase()}`}
+            onClear={() => {
+              setSearch("");
+              startTransition(() =>
+                router.push(adminInquiriesHref({ view: query.view })),
+              );
             }}
-            className="grid gap-1.5"
-          >
-            <span className="eyebrow text-ink-muted/80">Buscar</span>
-            <span className="relative block">
-              <Search
-                aria-hidden
-                strokeWidth={1.4}
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-muted"
-              />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                aria-label="Buscar por nombre, correo, teléfono o vehículo"
-                placeholder="Nombre, correo o teléfono"
-                className="h-10 w-full rounded-xs border border-stone bg-paper pr-3 pl-9 text-sm text-ink transition-colors placeholder:text-ink-muted/70 hover:border-stone-strong focus:border-burgundy focus:outline-none"
-              />
-            </span>
-          </form>
-
-          <Select
-            label="Tipo de solicitud"
-            value={query.type ?? ""}
-            onChange={(value) =>
-              go({ type: (value || undefined) as InquiryType | undefined })
-            }
-          >
-            <option value="">Todas</option>
-            {INQUIRY_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {typeLabels[type]}
-              </option>
-            ))}
-          </Select>
-
-          <Select
-            label="Tipo de vehículo"
-            value={query.vehicleType ?? (query.vehicleId === "none" ? "none" : "")}
-            onChange={(value) => {
-              if (value === "none") {
-                go({ vehicleType: undefined, vehicleId: "none" });
-                return;
-              }
-              go({
-                vehicleType: (value || undefined) as "auto" | "moto" | undefined,
-                vehicleId: undefined,
-              });
-            }}
-          >
-            <option value="">Todos</option>
-            {VEHICLE_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {typeLabel[type]}
-              </option>
-            ))}
-            <option value="none">Sin vehículo asociado</option>
-          </Select>
-
-          <Select
-            label="Vehículo"
-            value={query.vehicleId && query.vehicleId !== "none" ? query.vehicleId : ""}
-            onChange={(value) => go({ vehicleId: value || undefined })}
-          >
-            <option value="">Todos</option>
-            {vehicles.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="font-serif text-sm text-ink-muted tabular">
-            {total} {total === 1 ? "solicitud" : "solicitudes"}
-            {activeCount > 0 ? " con estos filtros" : ""}
-            {" en "}
-            {inquiryViewLabels[query.view].toLowerCase()}
-          </p>
-          {activeCount > 0 ? (
-            <button
-              type="button"
-              onClick={() => {
-                setSearch("");
-                startTransition(() =>
-                  router.push(adminInquiriesHref({ view: query.view })),
-                );
-              }}
-              className="label-caps inline-flex items-center gap-1.5 text-[10px] text-ink-muted underline underline-offset-4 transition-colors hover:text-burgundy"
-            >
-              Limpiar filtros
-              <X aria-hidden className="size-3" strokeWidth={1.6} />
-            </button>
-          ) : null}
-        </div>
+          />
+        ) : null}
       </div>
 
-      {error ? (
-        <p role="alert" className="mt-5 text-xs text-burgundy">
-          {error}
-        </p>
-      ) : null}
-
-      <div className="mt-6">
+      <Panel className="overflow-hidden">
         {inquiries.length === 0 ? (
-          <div className="border border-stone bg-paper">
-            <EmptyState
-              title={
-                activeCount > 0
-                  ? "No hay solicitudes con estos filtros."
-                  : emptyCopy[query.view].title
-              }
-              description={
-                activeCount > 0
-                  ? "Prueba a quitar alguno."
-                  : emptyCopy[query.view].description
-              }
-            />
-          </div>
+          <EmptyPanel
+            icon={
+              activeCount > 0 ? (
+                <SearchX aria-hidden className="size-5" strokeWidth={1.5} />
+              ) : (
+                <Inbox aria-hidden className="size-5" strokeWidth={1.5} />
+              )
+            }
+            title={
+              activeCount > 0
+                ? "Ninguna consulta coincide con estos filtros"
+                : emptyCopy[query.view].title
+            }
+            description={
+              activeCount > 0
+                ? "Prueba con otra búsqueda o quita algún filtro."
+                : emptyCopy[query.view].description
+            }
+            action={
+              activeCount > 0 ? (
+                <ButtonLink
+                  href={adminInquiriesHref({ view: query.view })}
+                  variant="outline"
+                  size="sm"
+                >
+                  Limpiar filtros
+                </ButtonLink>
+              ) : undefined
+            }
+          />
         ) : (
-          <ul className="divide-y divide-stone border border-stone bg-paper">
+          <ul className="divide-y divide-stone">
             {inquiries.map((inquiry) => (
-              <li
-                key={inquiry.id}
-                className={cn("px-5 py-5", busy === inquiry.id && "opacity-60")}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-                  <div className="min-w-0">
-                    <p className="font-serif text-[1.0625rem] text-ink">
-                      {inquiry.name}
-                    </p>
-                    <p className="mt-1 flex flex-wrap gap-x-2 font-serif text-sm text-ink-muted">
-                      {inquiry.phone ? <a href={`tel:${inquiry.phone.replace(/\s/g, "")}`} className="transition-colors hover:text-burgundy">{inquiry.phone}</a> : null}
-                      {inquiry.phone && inquiry.email ? <span aria-hidden>·</span> : null}
-                      {inquiry.email ? <a href={`mailto:${inquiry.email}`} className="transition-colors hover:text-burgundy">{inquiry.email}</a> : null}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <span className="label-caps rounded-xs border border-stone px-2.5 py-1.5 text-[10px] text-ink-muted">
-                      {typeLabels[inquiry.type]}
-                    </span>
-                    <span
-                      className={cn(
-                        "label-caps rounded-xs border px-2.5 py-1.5 text-[10px]",
-                        statusPill[inquiry.status],
-                      )}
-                    >
-                      {statusBadge[inquiry.status]}
-                    </span>
-                    <span className="font-serif text-xs text-ink-muted">
-                      {formatDate(inquiry.createdAt)}
-                    </span>
-                  </div>
-                </div>
-
-                {inquiry.vehicleLabel ? (
-                  <p className="mt-3 flex items-center gap-2 font-serif text-sm text-ink-soft">
-                    {inquiry.vehicleType === "moto" ? (
-                      <Bike aria-hidden className="size-4 text-ink-muted" strokeWidth={1.4} />
-                    ) : (
-                      <Car aria-hidden className="size-4 text-ink-muted" strokeWidth={1.4} />
-                    )}
-                    {inquiry.vehicleSlug ? (
-                      <Link
-                        href={`/vehiculos/${inquiry.vehicleSlug}`}
-                        className="underline underline-offset-4 transition-colors hover:text-burgundy"
-                      >
-                        {inquiry.vehicleLabel}
-                      </Link>
-                    ) : (
-                      <span>
-                        {inquiry.vehicleLabel}
-                        <span className="text-ink-muted"> · ya no está publicado</span>
-                      </span>
-                    )}
-                  </p>
-                ) : null}
-
-                {inquiry.message ? (
-                  <p className="mt-3 max-w-2xl font-serif text-[0.9375rem] leading-relaxed whitespace-pre-line text-ink-soft">
-                    {inquiry.message}
-                  </p>
-                ) : null}
-
-                <RowActions
-                  inquiry={inquiry}
-                  view={query.view}
-                  busy={busy !== null}
-                  onStatus={(id, status) => void setStatus(id, status)}
-                  onDelete={(id, reason) => void remove(id, reason)}
-                  onRevoke={(id, channel) => void revoke(id, channel)}
-                />
-              </li>
+              <InquiryRow key={inquiry.id} inquiry={inquiry} view={query.view} />
             ))}
           </ul>
         )}
-      </div>
+      </Panel>
 
-      {pages > 1 ? (
-        <div className="mt-6 flex items-center justify-between gap-4">
-          <button
-            type="button"
-            disabled={query.page <= 1}
-            onClick={() =>
-              startTransition(() =>
-                router.push(adminInquiriesHref({ ...query, page: query.page - 1 })),
-              )
-            }
-            className="label-caps rounded-xs border border-stone px-4 py-2 text-[10px] text-ink transition-colors hover:border-ink/40 disabled:opacity-35"
-          >
-            Anterior
-          </button>
-          <p className="font-serif text-sm text-ink-muted tabular">
-            Página {query.page} de {pages}
-          </p>
-          <button
-            type="button"
-            disabled={query.page >= pages}
-            onClick={() =>
-              startTransition(() =>
-                router.push(adminInquiriesHref({ ...query, page: query.page + 1 })),
-              )
-            }
-            className="label-caps rounded-xs border border-stone px-4 py-2 text-[10px] text-ink transition-colors hover:border-ink/40 disabled:opacity-35"
-          >
-            Siguiente
-          </button>
-        </div>
-      ) : null}
+      <Pager
+        page={query.page}
+        pages={pages}
+        total={total}
+        shown={inquiries.length}
+        limit={query.limit}
+        noun={["consulta", "consultas"]}
+        pending={navigating}
+        onPage={(page) =>
+          startTransition(() => router.push(adminInquiriesHref({ ...query, page })))
+        }
+      />
     </div>
   );
 }

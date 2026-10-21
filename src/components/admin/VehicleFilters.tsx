@@ -2,7 +2,17 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  ActiveFilters,
+  AdminField,
+  AdminSelect,
+  Chip,
+  ChipRow,
+  FilterButton,
+  FilterPanel,
+  Pager,
+  SearchBox,
+} from "@/components/admin/kit";
 import { adminVehiclesHref } from "@/lib/admin-urls";
 import { cn } from "@/lib/cn";
 import { formatCOP } from "@/lib/format";
@@ -27,10 +37,11 @@ import type { AdminVehicleFilterOptions } from "@/server/vehicles/service";
  * atrás/adelante dan exactamente el mismo resultado, y el servidor resuelve
  * la consulta contra la base.
  *
- * Lo que se usa a diario —buscar, publicación, disponibilidad, tipo— está a
- * la vista. Lo que se usa de vez en cuando —marca, carrocería, año, precio—
- * vive en un panel que se abre. Con inventario grande hacen falta los ocho;
- * tenerlos los ocho siempre desplegados haría la pantalla ilegible.
+ * Una sola barra. A la vista, lo que se usa a diario: buscar, la
+ * publicación y la disponibilidad —los dos ejes del inventario— y el orden.
+ * Lo que se usa de vez en cuando —tipo, marca, carrocería, año y precio—
+ * vive en el panel «Filtros»; con inventario grande hacen falta todos,
+ * pero tenerlos siempre desplegados haría la pantalla ilegible.
  */
 const sortLabels: Record<AdminVehicleSort, string> = {
   updated: "Actualizados recientemente",
@@ -44,6 +55,7 @@ const sortLabels: Record<AdminVehicleSort, string> = {
 
 /** Los filtros que viven en el panel, para saber si hay que abrirlo. */
 const ADVANCED_KEYS = [
+  "vehicleType",
   "make",
   "categoryId",
   "minYear",
@@ -51,51 +63,6 @@ const ADVANCED_KEYS = [
   "minPrice",
   "maxPrice",
 ] as const;
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="grid gap-1.5">
-      <span className="eyebrow text-ink-muted/80">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-const selectClass =
-  "h-10 w-full cursor-pointer appearance-none rounded-xs border border-stone bg-paper px-3 pr-8 text-sm text-ink transition-colors hover:border-stone-strong focus:border-burgundy focus:outline-none";
-
-function Select({
-  value,
-  onChange,
-  children,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <span className="relative block">
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className={selectClass}
-      >
-        {children}
-      </select>
-      <ChevronDown
-        aria-hidden
-        strokeWidth={1.5}
-        className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-ink-muted"
-      />
-    </span>
-  );
-}
 
 export function VehicleFilters({
   query,
@@ -130,24 +97,20 @@ export function VehicleFilters({
 
   const activeCount = [
     query.q,
-    query.vehicleType,
     query.publication,
     query.availability,
-    query.make,
-    query.categoryId,
-    query.minYear,
-    query.maxYear,
-    query.minPrice,
-    query.maxPrice,
+    ...ADVANCED_KEYS.map((key) => query[key]),
   ].filter((value) => value !== undefined).length;
 
-  const chip = (active: boolean) =>
-    cn(
-      "label-caps inline-flex items-center gap-2 rounded-xs border px-3.5 py-2 text-[10px] transition-colors",
-      active
-        ? "border-burgundy bg-burgundy text-cream"
-        : "border-stone text-ink-soft hover:border-stone-strong",
-    );
+  // Lo que dice la insignia del botón: cuántos criterios hay dentro del
+  // panel. Un rango de año o de precio es un criterio, no dos.
+  const panelCount = [
+    query.vehicleType,
+    query.make,
+    query.categoryId,
+    query.minYear ?? query.maxYear,
+    query.minPrice ?? query.maxPrice,
+  ].filter((value) => value !== undefined).length;
 
   // La carrocería pertenece a un universo: con Carros elegido, ofrecer una
   // carrocería de moto sería ofrecer un cero garantizado.
@@ -164,48 +127,72 @@ export function VehicleFilters({
     20, 40, 60, 80, 100, 150, 200, 300, 400, 500, 750, 1000,
   ].map((m) => m * 1_000_000);
 
+  const noPublication = !query.publication && !query.availability;
+
   return (
-    <div className={cn("grid gap-4", pending && "opacity-60")} aria-busy={pending}>
-      {/* Fila principal: buscar + orden */}
+    <div className={cn("mb-4", pending && "opacity-60")} aria-busy={pending}>
       <div className="flex flex-wrap items-center gap-2">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            go({ q: search.trim() || undefined });
-          }}
-          className="flex min-w-0 flex-1 gap-2 sm:max-w-md"
-        >
-          <span className="relative min-w-0 flex-1">
-            <Search
-              aria-hidden
-              strokeWidth={1.4}
-              className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-ink-muted"
-            />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              aria-label="Buscar por marca, modelo, versión o slug"
-              placeholder="Marca, modelo, versión o slug"
-              className="h-10 w-full rounded-xs border border-stone bg-paper pr-4 pl-10 text-sm text-ink transition-colors placeholder:text-ink-muted/70 hover:border-stone-strong focus:border-burgundy focus:outline-none"
-            />
-          </span>
-          <button type="submit" className={chip(false)}>
-            Buscar
-          </button>
-        </form>
+        <SearchBox
+          value={search}
+          onChange={setSearch}
+          onSubmit={() => go({ q: search.trim() || undefined })}
+          label="Buscar por marca, modelo, versión o slug"
+          placeholder="Buscar marca, modelo, versión o slug…"
+        />
 
-        <button
-          type="button"
+        <FilterButton
+          open={panelOpen}
+          count={panelCount}
+          controls="vehicle-filter-panel"
           onClick={() => setPanelOpen((open) => !open)}
-          aria-expanded={panelOpen}
-          className={chip(panelOpen || hasAdvanced)}
-        >
-          <SlidersHorizontal aria-hidden className="size-3.5" strokeWidth={1.5} />
-          Más filtros
-        </button>
+        />
 
-        <span className="ml-auto min-w-0">
-          <Select
+        {/* Los dos ejes del inventario. Solo uno de cada eje a la vez. */}
+        <ChipRow
+          label="Estado"
+          className="order-last min-[1600px]:order-0 min-[1600px]:m-0 min-[1600px]:w-auto min-[1600px]:overflow-visible min-[1600px]:p-0"
+        >
+          <Chip
+            active={noPublication}
+            onClick={() => go({ publication: undefined, availability: undefined })}
+          >
+            Todos
+          </Chip>
+
+          {PUBLICATION_STATUSES.map((status) => (
+            <Chip
+              key={status}
+              active={query.publication === status}
+              onClick={() =>
+                go({
+                  publication: query.publication === status ? undefined : status,
+                })
+              }
+            >
+              {publicationMeta[status].label}
+            </Chip>
+          ))}
+
+          <span aria-hidden className="mx-1 h-5 w-px bg-stone-strong" />
+
+          {AVAILABILITY_STATUSES.map((status) => (
+            <Chip
+              key={status}
+              active={query.availability === status}
+              onClick={() =>
+                go({
+                  availability: query.availability === status ? undefined : status,
+                })
+              }
+            >
+              {statusMeta[status].label}
+            </Chip>
+          ))}
+        </ChipRow>
+
+        <span className="ml-auto flex min-w-0 flex-1 sm:w-60 sm:flex-none">
+          <AdminSelect
+            label="Ordenar por"
             value={query.sort}
             onChange={(value) => go({ sort: value as AdminVehicleSort })}
           >
@@ -214,79 +201,49 @@ export function VehicleFilters({
                 {label}
               </option>
             ))}
-          </Select>
+          </AdminSelect>
         </span>
       </div>
 
-      {/* Chips de uso diario */}
-      <div className="-mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
-        <div className="flex w-max items-center gap-2 sm:w-auto sm:flex-wrap">
-          <button
-            type="button"
-            onClick={() => go({ publication: undefined, availability: undefined })}
-            className={chip(!query.publication && !query.availability)}
-          >
-            Todos
-          </button>
-
-          {PUBLICATION_STATUSES.map((status) => (
-            <button
-              key={status}
-              type="button"
-              onClick={() =>
-                go({
-                  publication: query.publication === status ? undefined : status,
-                })
-              }
-              className={chip(query.publication === status)}
-            >
-              {publicationMeta[status].label}
-            </button>
-          ))}
-
-          <span aria-hidden className="h-5 w-px bg-stone" />
-
-          {AVAILABILITY_STATUSES.map((status) => (
-            <button
-              key={status}
-              type="button"
-              onClick={() =>
-                go({
-                  availability: query.availability === status ? undefined : status,
-                })
-              }
-              className={chip(query.availability === status)}
-            >
-              {statusMeta[status].label}
-            </button>
-          ))}
-
-          <span aria-hidden className="h-5 w-px bg-stone" />
-
-          {VEHICLE_TYPES.map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() =>
-                go({
-                  vehicleType: query.vehicleType === type ? undefined : type,
-                  // La carrocería elegida puede no existir en el otro universo.
-                  categoryId: undefined,
-                })
-              }
-              className={chip(query.vehicleType === type)}
-            >
-              {typeLabel[type]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Panel: marca, carrocería, año y precio */}
+      {/* Panel: tipo, marca, carrocería, año y precio */}
       {panelOpen ? (
-        <div className="grid gap-4 border border-stone bg-paper px-5 py-5 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Marca">
-            <Select
+        <FilterPanel id="vehicle-filter-panel" className="lg:grid-cols-5">
+          <AdminField label="Tipo">
+            <span
+              role="group"
+              aria-label="Tipo de vehículo"
+              className="inline-flex h-9 items-center gap-0.5 rounded-lg border border-stone-strong p-0.5"
+            >
+              {[undefined, ...VEHICLE_TYPES].map((type) => {
+                const active = query.vehicleType === type;
+                return (
+                  <button
+                    key={type ?? "todos"}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() =>
+                      go({
+                        vehicleType: type,
+                        // La carrocería elegida puede no existir en el otro universo.
+                        categoryId: undefined,
+                      })
+                    }
+                    className={cn(
+                      "h-8 flex-1 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-offset-1",
+                      active
+                        ? "bg-burgundy text-cream"
+                        : "text-ink-soft hover:bg-sand",
+                    )}
+                  >
+                    {type ? typeLabel[type] : "Todos"}
+                  </button>
+                );
+              })}
+            </span>
+          </AdminField>
+
+          <AdminField label="Marca">
+            <AdminSelect
               value={query.make ?? ""}
               onChange={(value) => go({ make: value || undefined })}
             >
@@ -296,11 +253,11 @@ export function VehicleFilters({
                   {make}
                 </option>
               ))}
-            </Select>
-          </Field>
+            </AdminSelect>
+          </AdminField>
 
-          <Field label="Carrocería">
-            <Select
+          <AdminField label="Carrocería">
+            <AdminSelect
               value={query.categoryId ?? ""}
               onChange={(value) => go({ categoryId: value || undefined })}
             >
@@ -313,12 +270,13 @@ export function VehicleFilters({
                     : ` · ${category.vehicleType === "moto" ? "Motos" : "Carros"}`}
                 </option>
               ))}
-            </Select>
-          </Field>
+            </AdminSelect>
+          </AdminField>
 
-          <Field label="Año">
+          <AdminField label="Año">
             <span className="flex items-center gap-2">
-              <Select
+              <AdminSelect
+                label="Año desde"
                 value={query.minYear ? String(query.minYear) : ""}
                 onChange={(value) =>
                   go({ minYear: value ? Number(value) : undefined })
@@ -330,11 +288,12 @@ export function VehicleFilters({
                     {year}
                   </option>
                 ))}
-              </Select>
+              </AdminSelect>
               <span aria-hidden className="text-ink-muted">
                 –
               </span>
-              <Select
+              <AdminSelect
+                label="Año hasta"
                 value={query.maxYear ? String(query.maxYear) : ""}
                 onChange={(value) =>
                   go({ maxYear: value ? Number(value) : undefined })
@@ -346,13 +305,14 @@ export function VehicleFilters({
                     {year}
                   </option>
                 ))}
-              </Select>
+              </AdminSelect>
             </span>
-          </Field>
+          </AdminField>
 
-          <Field label="Precio">
+          <AdminField label="Precio">
             <span className="flex items-center gap-2">
-              <Select
+              <AdminSelect
+                label="Precio desde"
                 value={query.minPrice ? String(query.minPrice) : ""}
                 onChange={(value) =>
                   go({ minPrice: value ? Number(value) : undefined })
@@ -364,11 +324,12 @@ export function VehicleFilters({
                     {formatCOP(step / 1_000_000)} M
                   </option>
                 ))}
-              </Select>
+              </AdminSelect>
               <span aria-hidden className="text-ink-muted">
                 –
               </span>
-              <Select
+              <AdminSelect
+                label="Precio hasta"
                 value={query.maxPrice ? String(query.maxPrice) : ""}
                 onChange={(value) =>
                   go({ maxPrice: value ? Number(value) : undefined })
@@ -380,78 +341,53 @@ export function VehicleFilters({
                     {formatCOP(step / 1_000_000)} M
                   </option>
                 ))}
-              </Select>
+              </AdminSelect>
             </span>
-          </Field>
-        </div>
+          </AdminField>
+        </FilterPanel>
       ) : null}
 
-      {/* Recuento y limpieza */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="font-serif text-sm text-ink-muted tabular">
-          {total} {total === 1 ? "vehículo" : "vehículos"}
-          {activeCount > 0 ? " con estos filtros" : ""}
-        </p>
-        {activeCount > 0 ? (
-          <button
-            type="button"
-            onClick={() => {
-              setSearch("");
-              startTransition(() => router.push("/admin/vehiculos"));
-            }}
-            className="label-caps inline-flex items-center gap-1.5 text-[10px] text-ink-muted underline underline-offset-4 transition-colors hover:text-burgundy"
-          >
-            Limpiar filtros
-            <X aria-hidden className="size-3" strokeWidth={1.6} />
-          </button>
-        ) : null}
-      </div>
+      {/* Solo cuando hay algo que limpiar: un renglón permanente que casi
+          siempre dice lo mismo deja de leerse. */}
+      {activeCount > 0 ? (
+        <ActiveFilters
+          summary={`${total} ${total === 1 ? "vehículo" : "vehículos"} con estos filtros`}
+          onClear={() => {
+            setSearch("");
+            startTransition(() => router.push("/admin/vehiculos"));
+          }}
+        />
+      ) : null}
     </div>
   );
 }
 
-/** Anterior · Página X de Y · Siguiente. Nada más. */
+/** Pie de la lista de vehículos: el recuento y las páginas. */
 export function VehiclePagination({
   query,
   total,
+  shown,
 }: {
   query: AdminVehicleQuery;
   total: number;
+  /** Cuántas filas trae esta página. */
+  shown: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const pages = Math.max(1, Math.ceil(total / query.limit));
-  if (pages <= 1) return null;
-
-  const goTo = (page: number) =>
-    startTransition(() => router.push(adminVehiclesHref({ ...query, page })));
-
-  const button =
-    "label-caps rounded-xs border border-stone px-4 py-2 text-[10px] text-ink transition-colors hover:border-ink/40 disabled:opacity-35 disabled:hover:border-stone";
 
   return (
-    <div
-      className={cn("mt-6 flex items-center justify-between gap-4", pending && "opacity-60")}
-    >
-      <button
-        type="button"
-        disabled={query.page <= 1}
-        onClick={() => goTo(query.page - 1)}
-        className={button}
-      >
-        Anterior
-      </button>
-      <p className="font-serif text-sm text-ink-muted tabular">
-        Página {query.page} de {pages}
-      </p>
-      <button
-        type="button"
-        disabled={query.page >= pages}
-        onClick={() => goTo(query.page + 1)}
-        className={button}
-      >
-        Siguiente
-      </button>
-    </div>
+    <Pager
+      page={query.page}
+      pages={Math.max(1, Math.ceil(total / query.limit))}
+      total={total}
+      shown={shown}
+      limit={query.limit}
+      noun={["vehículo", "vehículos"]}
+      pending={pending}
+      onPage={(page) =>
+        startTransition(() => router.push(adminVehiclesHref({ ...query, page })))
+      }
+    />
   );
 }

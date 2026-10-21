@@ -9,10 +9,8 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  Plus,
   Settings,
   ShieldCheck,
-  Scale,
   Layers,
   Car,
   X,
@@ -21,47 +19,171 @@ import { Logo, Shield } from "@/components/brand/Logo";
 import { cn } from "@/lib/cn";
 import { useDialog } from "@/components/ui/use-dialog";
 import { createSupabaseBrowserClient } from "@/server/auth/supabase-browser";
-import type { AdminSession } from "@/types/admin";
+import type { AdminNavBadges, AdminSession } from "@/types/admin";
 
-const nav = [
-  { label: "Dashboard", href: "/admin", icon: LayoutDashboard, exact: true },
-  { label: "Vehículos", href: "/admin/vehiculos", icon: Car, exact: true },
-  { label: "Nuevo vehículo", href: "/admin/vehiculos/nuevo", icon: Plus, exact: true },
-  { label: "Solicitudes", href: "/admin/solicitudes", icon: Inbox, exact: false },
-  // Dos entradas y no una: «Solicitudes de privacidad» son trámites con un
-  // plazo legal que se vence y «Consentimientos» es la evidencia de lo que
-  // alguien autorizó. Juntarlas escondería lo urgente dentro de un archivo.
-  { label: "Solicitudes de privacidad", href: "/admin/privacidad", icon: Scale, exact: false },
-  { label: "Consentimientos", href: "/admin/consentimientos", icon: ShieldCheck, exact: false },
-  { label: "Imágenes del sitio", href: "/admin/contenido", icon: ImageIcon, exact: false },
-  { label: "Categorías", href: "/admin/categorias", icon: Layers, exact: false },
-  { label: "Configuración", href: "/admin/configuracion", icon: Settings, exact: false },
+type BadgeKey = "inquiries" | "privacy";
+
+interface NavItem {
+  label: string;
+  href: string;
+  icon: typeof Car;
+  /** Qué rutas encienden esta entrada: editar un vehículo sigue siendo Vehículos. */
+  match: (pathname: string) => boolean;
+  badge?: BadgeKey;
+}
+
+/**
+ * El menú, en tres grupos que se leen como se trabaja: lo de todos los días,
+ * lo que se ve en el sitio, y lo legal.
+ *
+ * Nueve entradas pasaron a siete. «Nuevo vehículo» era un botón disfrazado de
+ * destino —ya está en la pantalla de Vehículos—, y las dos pantallas de datos
+ * personales son una sola entrada con dos pestañas: unas son personas que
+ * piden algo con un plazo de ley, las otras son la prueba de lo que
+ * autorizaron.
+ *
+ * Y «Consultas» es lo que antes se llamaba «Solicitudes»: gente que escribe
+ * por el formulario. Con «Solicitudes de privacidad» al lado, los dos nombres
+ * se confundían.
+ */
+const navGroups: NavItem[][] = [
+  [
+    {
+      label: "Panel",
+      href: "/admin",
+      icon: LayoutDashboard,
+      match: (path) => path === "/admin",
+    },
+    {
+      label: "Vehículos",
+      href: "/admin/vehiculos",
+      icon: Car,
+      match: (path) => path.startsWith("/admin/vehiculos"),
+    },
+    {
+      label: "Consultas",
+      href: "/admin/solicitudes",
+      icon: Inbox,
+      match: (path) => path.startsWith("/admin/solicitudes"),
+      badge: "inquiries",
+    },
+  ],
+  [
+    {
+      label: "Imágenes del sitio",
+      href: "/admin/contenido",
+      icon: ImageIcon,
+      match: (path) => path.startsWith("/admin/contenido"),
+    },
+    {
+      label: "Categorías",
+      href: "/admin/categorias",
+      icon: Layers,
+      match: (path) => path.startsWith("/admin/categorias"),
+    },
+  ],
+  [
+    {
+      label: "Privacidad",
+      href: "/admin/privacidad",
+      icon: ShieldCheck,
+      match: (path) =>
+        path.startsWith("/admin/privacidad") ||
+        path.startsWith("/admin/consentimientos"),
+      badge: "privacy",
+    },
+    {
+      label: "Configuración",
+      href: "/admin/configuracion",
+      icon: Settings,
+      match: (path) => path.startsWith("/admin/configuracion"),
+    },
+  ],
 ];
 
-function NavList({ pathname }: { pathname: string }) {
+/** El número que espera respuesta junto a una entrada, si lo hay. */
+function navBadge(
+  key: BadgeKey | undefined,
+  badges: AdminNavBadges,
+): { count: number; urgent: boolean; label: string } | null {
+  if (key === "inquiries" && badges.newInquiries > 0) {
+    return {
+      count: badges.newInquiries,
+      urgent: false,
+      label: `${badges.newInquiries} sin atender`,
+    };
+  }
+  if (key === "privacy") {
+    // Con plazos vencidos se cuentan los vencidos: es lo que no puede esperar.
+    if (badges.privacyOverdue > 0) {
+      return {
+        count: badges.privacyOverdue,
+        urgent: true,
+        label: `${badges.privacyOverdue} vencidas`,
+      };
+    }
+    if (badges.privacyOpen > 0) {
+      return {
+        count: badges.privacyOpen,
+        urgent: false,
+        label: `${badges.privacyOpen} abiertas`,
+      };
+    }
+  }
+  return null;
+}
+
+function NavList({
+  pathname,
+  badges,
+}: {
+  pathname: string;
+  badges: AdminNavBadges;
+}) {
   return (
-    <ul className="grid gap-1">
-      {nav.map(({ label, href, icon: Icon, exact }) => {
-        const active = exact ? pathname === href : pathname.startsWith(href);
-        return (
-          <li key={href}>
-            <Link
-              href={href}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-3.5 rounded-xs px-4 py-3 font-serif text-[0.9375rem] transition-colors",
-                active
-                  ? "bg-cream/10 text-cream"
-                  : "text-cream/60 hover:bg-cream/5 hover:text-cream/90",
-              )}
-            >
-              <Icon aria-hidden className="size-[1.125rem]" strokeWidth={1.3} />
-              {label}
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
+    <div className="grid gap-3">
+      {navGroups.map((group, index) => (
+        <ul
+          key={group[0].href}
+          className={cn("grid gap-0.5", index > 0 && "border-t border-cream/10 pt-3")}
+        >
+          {group.map(({ label, href, icon: Icon, match, badge }) => {
+            const active = match(pathname);
+            const pill = navBadge(badge, badges);
+            return (
+              <li key={href}>
+                <Link
+                  href={href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-[0.9375rem] transition-colors",
+                    active
+                      ? "bg-cream/10 font-medium text-cream"
+                      : "text-cream/60 hover:bg-cream/5 hover:text-cream/90",
+                  )}
+                >
+                  <Icon aria-hidden className="size-[1.125rem] shrink-0" strokeWidth={1.4} />
+                  <span className="min-w-0 flex-1 truncate">{label}</span>
+                  {pill ? (
+                    <span
+                      className={cn(
+                        "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-xs leading-none font-medium tabular",
+                        pill.urgent
+                          ? "bg-status-sold text-cream"
+                          : "bg-cream text-burgundy",
+                      )}
+                    >
+                      {pill.count}
+                      <span className="sr-only"> {pill.label}</span>
+                    </span>
+                  ) : null}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      ))}
+    </div>
   );
 }
 
@@ -113,9 +235,11 @@ function SidebarFooter({ session }: { session: AdminSession }) {
 
 export function AdminShell({
   session,
+  badges,
   children,
 }: {
   session: AdminSession;
+  badges: AdminNavBadges;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -141,7 +265,7 @@ export function AdminShell({
           <Logo tone="cream" size="sm" href="/admin" />
         </div>
         <nav aria-label="Administración" className="px-3">
-          <NavList pathname={pathname} />
+          <NavList pathname={pathname} badges={badges} />
         </nav>
         <SidebarFooter session={session} />
       </aside>
@@ -193,7 +317,7 @@ export function AdminShell({
               </button>
             </div>
             <nav aria-label="Administración" className="px-3">
-              <NavList pathname={pathname} />
+              <NavList pathname={pathname} badges={badges} />
             </nav>
             <SidebarFooter session={session} />
           </div>
@@ -205,29 +329,40 @@ export function AdminShell({
   );
 }
 
+/**
+ * El encabezado de cada pantalla del admin. Una escala fija y no fluida: es
+ * software de trabajo, se mira siempre a la misma distancia, y la jerarquía
+ * la da el peso y no el tamaño.
+ *
+ * `eyebrow` es la sección a la que pertenece la pantalla («Inventario»); sin
+ * él, el título va solo.
+ */
 export function AdminPageHeader({
   title,
   subtitle,
+  eyebrow,
   action,
   breadcrumb,
 }: {
   title: string;
   subtitle?: string;
+  eyebrow?: string;
   action?: React.ReactNode;
   breadcrumb?: React.ReactNode;
 }) {
   return (
-    <div className="mb-9">
-      {breadcrumb ? <div className="mb-5">{breadcrumb}</div> : null}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="font-display text-[clamp(1.875rem,3.4vw,2.5rem)] leading-tight text-ink">
+    <div className="mb-7">
+      {breadcrumb ? <div className="mb-4">{breadcrumb}</div> : null}
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div className="min-w-0">
+          {eyebrow ? (
+            <p className="label-caps mb-2 text-ink-muted">{eyebrow}</p>
+          ) : null}
+          <h1 className="text-[2.25rem] leading-[1.08] font-semibold tracking-[-0.01em] text-ink">
             {title}
           </h1>
           {subtitle ? (
-            <p className="mt-2 font-serif text-[0.9375rem] text-ink-muted">
-              {subtitle}
-            </p>
+            <p className="mt-1.5 text-base text-ink-muted">{subtitle}</p>
           ) : null}
         </div>
         {action}

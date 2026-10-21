@@ -3,6 +3,8 @@ import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db/prisma";
 import { conflict, notFound } from "@/server/http/errors";
+import { mergeBodyTypes, searchBodySlugs, slugsFor } from "@/lib/body-types";
+import { searchWords } from "@/lib/filters";
 import { vehicleTitle } from "@/lib/format";
 import { publicationBlockers } from "@/lib/publication";
 import { DEFAULT_VEHICLE_TYPE } from "@/lib/vehicle-defaults";
@@ -82,7 +84,13 @@ export interface PublicVehicleQuery {
   maxYear?: number;
   minPrice?: number;
   maxPrice?: number;
+  minMileage?: number;
   maxMileage?: number;
+  /**
+   * Lo escrito en el buscador. Cada palabra tiene que aparecer en algún campo
+   * de la ficha; ver `searchWords()` y `searchClauses()`.
+   */
+  search?: string;
   featured?: boolean;
   sort?: "recent" | "price-asc" | "price-desc" | "mileage-asc" | "year-desc";
   limit?: number;
@@ -123,7 +131,10 @@ function publicWhere(query: PublicVehicleQuery): Prisma.VehicleWhereInput {
     // deja de ser un camino de navegación, pero los vehículos publicados que
     // la usan siguen apareciendo en el inventario general: despublicar es una
     // decisión sobre el vehículo, no sobre su taxonomía.
-    where.category = { slug: query.categorySlug, active: true };
+    // «camioneta» busca también `suv` y `4x4`: la base puede no estar migrada
+    // todavía, y un BMW X5 guardado como «SUV» no puede desaparecer del filtro
+    // por eso.
+    where.category = { slug: { in: slugsFor(query.categorySlug) }, active: true };
   }
   if (query.make) where.make = query.make;
   if (query.model) where.model = query.model;
@@ -152,9 +163,48 @@ function publicWhere(query: PublicVehicleQuery): Prisma.VehicleWhereInput {
       ...(query.maxPrice !== undefined ? { lte: BigInt(query.maxPrice) } : {}),
     };
   }
-  if (query.maxMileage !== undefined) where.mileage = { lte: query.maxMileage };
+  if (query.minMileage !== undefined || query.maxMileage !== undefined) {
+    where.mileage = {
+      ...(query.minMileage !== undefined ? { gte: query.minMileage } : {}),
+      ...(query.maxMileage !== undefined ? { lte: query.maxMileage } : {}),
+    };
+  }
+
+  const words = searchWords(query.search);
+  if (words.length > 0) where.AND = words.map(searchClause);
 
   return where;
+}
+
+/**
+ * Dónde se busca una palabra: lo que alguien teclea cuando busca un vehículo.
+ *
+ * La marca, el modelo y la versión son lo obvio. «Palabra clave» también
+ * alcanza el color, el motor, la ciudad, la carrocería y la descripción, que
+ * es donde está «enchufable», «un solo dueño» o «techo panorámico». Con
+ * mayúsculas y minúsculas da igual; con tildes no: «sedan» no encuentra
+ * «Sedán».
+ */
+function searchClause(word: string): Prisma.VehicleWhereInput {
+  const contains = { contains: word, mode: "insensitive" } as const;
+  // «suv» era el nombre de la camioneta: quien lo teclea espera encontrarla
+  // aunque la carrocería ya no se llame así, y «camioneta» tiene que alcanzar
+  // también a la fila que todavía no se renombró.
+  const bodySlugs = searchBodySlugs(word);
+  return {
+    OR: [
+      { make: contains },
+      { model: contains },
+      { version: contains },
+      { exteriorColor: contains },
+      { engine: contains },
+      { city: contains },
+      { drivetrain: contains },
+      { description: contains },
+      { category: { is: { OR: [{ name: contains }, { pluralName: contains }] } } },
+      ...(bodySlugs.length > 0 ? [{ category: { is: { slug: { in: bodySlugs } } } }] : []),
+    ],
+  };
 }
 
 /** Inventario visible, filtrado y ordenado en la base, no en el navegador. */
@@ -274,6 +324,9 @@ export interface CategoryFacet {
   name: string;
   pluralName: string;
   slug: string;
+  vehicleType: VehicleType;
+  /** Cuántos vehículos publicados tiene hoy. Cero también es una respuesta. */
+  count: number;
 }
 
 export interface InventoryFacets {
@@ -284,18 +337,17 @@ export interface InventoryFacets {
   years: number[];
   minYear: number;
   maxYear: number;
-  /** Las carrocerías presentes en el inventario visible. */
-  categories: CategoryFacet[];
   /**
-   * La taxonomía activa del universo, haya o no vehículos detrás.
+   * La taxonomía activa del universo, haya o no vehículos detrás, cada una con
+   * su cuenta.
    *
-   * `categories` es lo que se ofrece normalmente —solo lo que existe, para
-   * no prometer filtros que darían cero—, pero con el inventario vacío esa
-   * lista también lo está, y un panel de filtros sin un solo control parece
-   * roto. Esta es la lista con la que el filtro se puede seguir dibujando y
-   * explicando qué se podrá filtrar cuando haya stock.
+   * Es la misma lista que la portada y el admin: si hay ocho carrocerías, el
+   * filtro enseña ocho. Antes solo enseñaba las que tenían stock, y con el
+   * inventario vacío esa lista también lo estaba; el filtro parecía roto y
+   * nadie podía ver qué vende MILLE. Quien dibuja decide qué hacer con el
+   * cero —aquí se atenúa—, pero la lista no cambia con el stock.
    */
-  allCategories: CategoryFacet[];
+  categories: CategoryFacet[];
   fuelTypes: string[];
   transmissions: string[];
   drivetrains: string[];
@@ -381,7 +433,7 @@ export async function getInventoryFacets(
       where: PUBLISHED,
       _count: { _all: true },
     }),
-    // La taxonomía activa del universo. Son trece filas cortas: traerlas
+    // La taxonomía activa del universo. Son quince filas cortas: traerlas
     // siempre cuesta menos que decidir si hacen falta.
     prisma.category.findMany({
       where: {
@@ -389,7 +441,14 @@ export async function getInventoryFacets(
         ...(type === "all" ? {} : { vehicleType: toDbVehicleType[type] }),
       },
       orderBy: [{ vehicleType: "asc" }, { position: "asc" }, { name: "asc" }],
-      select: { id: true, name: true, pluralName: true, slug: true },
+      select: {
+        id: true,
+        name: true,
+        pluralName: true,
+        slug: true,
+        vehicleType: true,
+        position: true,
+      },
     }),
   ]);
 
@@ -421,13 +480,13 @@ export async function getInventoryFacets(
 
   // Una categoría desactivada deja de ofrecerse como navegación, pero los
   // vehículos publicados que la usan siguen contando para marcas, años y
-  // precios: desactivar taxonomía no despublica inventario.
-  const categoryMap = new Map<
-    string,
-    { id: string; name: string; pluralName: string; slug: string; position: number }
-  >();
+  // precios: desactivar taxonomía no despublica inventario. Por eso la lista
+  // sale de la taxonomía activa y el inventario solo aporta la cuenta.
+  const perCategory = new Map<string, number>();
   for (const row of pool) {
-    if (row.category?.active) categoryMap.set(row.category.id, row.category);
+    if (row.category?.active) {
+      perCategory.set(row.category.id, (perCategory.get(row.category.id) ?? 0) + 1);
+    }
   }
 
   const modelMap = new Map<string, { make: string; model: string }>();
@@ -452,10 +511,27 @@ export async function getInventoryFacets(
     years,
     minYear: years.length > 0 ? Math.min(...years) : new Date().getFullYear(),
     maxYear: years.length > 0 ? Math.max(...years) : new Date().getFullYear(),
-    categories: [...categoryMap.values()]
-      .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, "es"))
-      .map(({ id, name, pluralName, slug }) => ({ id, name, pluralName, slug })),
-    allCategories: taxonomy,
+    // Las filas que son la misma carrocería se funden («SUV» y «4x4» en
+    // «Camioneta», sumando sus cuentas) y las que MILLE no ofrece se quitan:
+    // es la misma lista que ve la portada.
+    categories: mergeBodyTypes(
+      taxonomy.map((category) => ({
+        id: category.id,
+        name: category.name,
+        pluralName: category.pluralName,
+        slug: category.slug,
+        vehicleType: fromDbVehicleType[category.vehicleType],
+        position: category.position,
+        count: perCategory.get(category.id) ?? 0,
+      })),
+    ).map(({ id, name, pluralName, slug, vehicleType, count }) => ({
+      id,
+      name,
+      pluralName,
+      slug,
+      vehicleType,
+      count,
+    })),
     fuelTypes: orderedByVocabulary(
       presentValues(pool.map((v) => v.fuelType)),
       FUEL_TYPES,

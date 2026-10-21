@@ -17,6 +17,17 @@ export const typeLabel: Record<VehicleType, string> = {
   moto: "Motos",
 };
 
+/**
+ * Cómo se nombra cada universo por sus ruedas: lo que dice el selector del
+ * inventario y los títulos de la banda de la portada. Ahí no se habla de
+ * «carros» y «motos» sino de «4 ruedas» y «2 ruedas», para que se lea igual en
+ * los dos sitios.
+ */
+export const wheelsLabel: Record<VehicleType, string> = {
+  auto: "4 ruedas",
+  moto: "2 ruedas",
+};
+
 /** Sustantivos para los contadores: "1 carro", "6 motos". */
 export const typeNoun: Record<VehicleType, { one: string; many: string }> = {
   auto: { one: "carro", many: "carros" },

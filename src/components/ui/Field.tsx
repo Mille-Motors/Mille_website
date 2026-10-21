@@ -1,11 +1,54 @@
 "use client";
 
-import { useId } from "react";
+import { createContext, useContext, useId } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-const control =
-  "w-full rounded-md border border-ink/25 bg-paper px-4 text-base text-ink transition-colors placeholder:text-ink-muted/70 hover:border-ink/50 focus:border-burgundy focus:ring-1 focus:ring-burgundy/40 focus:outline-none";
+/**
+ * Los campos se dibujan con dos densidades. La normal es la de los
+ * formularios públicos: grandes, para un dedo y para leerlos de pie. La
+ * compacta es la del Admin, donde la ficha de un vehículo tiene casi noventa
+ * campos y uno de 48 px de alto convierte rellenarla en un desplazamiento
+ * interminable.
+ *
+ * Se elige una vez, arriba, con `FieldDensity`: así ninguno de los campos
+ * tiene que saberlo ni repetir la clase.
+ */
+type Density = "default" | "compact";
+
+const DensityContext = createContext<Density>("default");
+
+export const FieldDensity = DensityContext.Provider;
+
+const controlBase =
+  "w-full bg-paper text-ink transition-colors placeholder:text-ink-muted/70 focus:outline-none";
+
+const controlByDensity: Record<Density, string> = {
+  default:
+    "rounded-md border border-ink/25 px-4 text-base hover:border-ink/50 focus:border-burgundy focus:ring-1 focus:ring-burgundy/40",
+  compact:
+    "rounded-lg border border-stone-strong px-3 text-[0.9375rem] hover:border-ink/40 focus:border-burgundy focus:ring-1 focus:ring-burgundy/30",
+};
+
+const heightByDensity: Record<Density, string> = {
+  default: "h-12",
+  compact: "h-10",
+};
+
+const textareaPadding: Record<Density, string> = {
+  default: "py-3.5",
+  compact: "py-2.5",
+};
+
+function useControl() {
+  const density = useContext(DensityContext);
+  return {
+    density,
+    control: cn(controlBase, controlByDensity[density]),
+    height: heightByDensity[density],
+    textareaPadding: textareaPadding[density],
+  };
+}
 
 function Label({
   htmlFor,
@@ -16,8 +59,17 @@ function Label({
   children: React.ReactNode;
   required?: boolean;
 }) {
+  const density = useContext(DensityContext);
   return (
-    <label htmlFor={htmlFor} className="mb-2 block text-[0.9375rem] text-ink-soft">
+    <label
+      htmlFor={htmlFor}
+      className={cn(
+        "block",
+        density === "compact"
+          ? "mb-1.5 text-[0.8125rem] font-medium text-ink-muted"
+          : "mb-2 text-[0.9375rem] text-ink-soft",
+      )}
+    >
       {children}
       {required ? <span className="ml-1 text-burgundy">*</span> : null}
     </label>
@@ -48,6 +100,7 @@ export function Input({
   ...rest
 }: BaseProps & React.InputHTMLAttributes<HTMLInputElement>) {
   const generated = useId();
+  const { control, height } = useControl();
   const inputId = id ?? generated;
   const errorId = `${inputId}-error`;
   return (
@@ -60,7 +113,7 @@ export function Input({
         required={required}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
-        className={cn(control, "h-12", error && "border-burgundy", className)}
+        className={cn(control, height, error && "border-burgundy", className)}
         {...rest}
       />
       {error ? <Hint id={errorId}>{error}</Hint> : null}
@@ -78,6 +131,7 @@ export function Textarea({
   ...rest
 }: BaseProps & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const generated = useId();
+  const { control, textareaPadding } = useControl();
   const inputId = id ?? generated;
   const errorId = `${inputId}-error`;
   return (
@@ -90,7 +144,7 @@ export function Textarea({
         required={required}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
-        className={cn(control, "py-3.5 leading-relaxed", error && "border-burgundy", className)}
+        className={cn(control, textareaPadding, "leading-relaxed", error && "border-burgundy", className)}
         {...rest}
       />
       {error ? <Hint id={errorId}>{error}</Hint> : null}
@@ -109,6 +163,7 @@ export function Select({
   ...rest
 }: BaseProps & React.SelectHTMLAttributes<HTMLSelectElement>) {
   const generated = useId();
+  const { control, height, density } = useControl();
   const inputId = id ?? generated;
   const errorId = `${inputId}-error`;
   return (
@@ -124,7 +179,9 @@ export function Select({
           aria-describedby={error ? errorId : undefined}
           className={cn(
             control,
-            "h-12 appearance-none pr-10",
+            height,
+            "appearance-none",
+            density === "compact" ? "pr-9" : "pr-10",
             error && "border-burgundy",
             className,
           )}

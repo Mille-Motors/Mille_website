@@ -100,7 +100,7 @@ Seis tablas. `prisma/schema.prisma` es la referencia.
 | Tabla | Qué guarda |
 | --- | --- |
 | `AdminUser` | Quién del equipo puede entrar. Nunca contraseñas. |
-| `Category` | Carrocería del carro (SUV, Sedán, Pickup, Coupé…) o categoría de la moto (ADV, Naked…), ligada a un tipo de vehículo. |
+| `Category` | Carrocería del carro (Camioneta, Sedán, Pickup, Coupé…) o categoría de la moto (ADV, Naked…), ligada a un tipo de vehículo. |
 | `Vehicle` | El inventario. |
 | `VehicleImage` | Galería ordenada; `position` 0 es la portada. |
 | `Inquiry` | Lo que llega de los formularios públicos. |
@@ -163,6 +163,50 @@ validación. No hay ninguna opción escrita dos veces. Las carrocerías son fila
 administrables desde `/admin/categorias`, y el conjunto con el que arranca una
 base limpia —el mismo que usó la migración y que usa el seed— está en
 `src/lib/body-types.ts`.
+
+**Una sola lista de carrocerías.** La portada, las píldoras de `/vehiculos` y el
+admin leen las mismas filas de `Category`: siete de carro (Camioneta, Sedán,
+Pickup, Hatchback, Coupé, Cabrio, Wagon) y siete de moto (ADV, Sport, Naked,
+Touring, Enduro, Cruiser, Scooter), con el mismo nombre, el mismo orden y el
+mismo dibujo. «Van» no está: MILLE no las vende. La portada ya no tiene lista propia: `CategoryBand` pide las
+categorías activas a `getBodyTypes()` en `src/lib/vehicles.ts`, y el filtro las
+recibe en `facets.categories` con la cuenta de cada una (las que hoy no tienen
+vehículos se atenúan, pero se ven). Si desde `/admin/categorias` se crea,
+renombra, reordena o desactiva una, cambia en los tres sitios a la vez.
+
+**Camioneta.** SUV y 4x4 eran dos cajones para lo mismo, y en Colombia se pide
+«camioneta». Son una sola carrocería (slug `camioneta`); lo que distingue una de
+otra —tracción 4x4, carácter off-road— tiene su propia columna. La pickup se
+queda aparte. La migración `20261020120000_camioneta_body_type` renombra la fila
+`suv` y pasa a ella los vehículos de `suv` y de la `4x4` retirada (estos últimos
+conservan su aviso de revisión, porque estar en «4x4» no prueba que sean
+camionetas: una Hilux es una pickup). `BODY_SLUG_ALIASES` mantiene vivos los
+enlaces viejos: `?categoria=suv` y `?categoria=4x4` se leen como `camioneta` y la
+página redirige a la URL vigente; en el buscador, «suv» y «camioneta» encuentran
+camionetas y «4x4» busca en la columna de tracción.
+
+**El código no supone la base migrada.** Las migraciones se aplican a mano y el
+código puede llegar antes. Por eso lo público lee la base como esté: `slugsFor()`
+hace que el filtro «camioneta» busque también las filas `suv` y `4x4`,
+`mergeBodyTypes()` funde esas filas en una sola «Camionetas» (sumando sus cuentas)
+y esconde las que MILLE no ofrece (`HIDDEN_BODY_SLUGS`: `van` y las retiradas), y
+`presentBodyType()` hace que la ficha de un vehículo guardado como «SUV» diga
+«Camioneta». Con la migración aplicada, nada de esto tiene qué corregir. Antes de
+esto, un BMW X5 guardado como «SUV» desaparecía del filtro: el enlace pasaba a
+`camioneta` y esa fila no existía todavía.
+
+**Carrocería y combustible se combinan.** Son dos datos independientes —un X5
+enchufable es una camioneta Y un híbrido enchufable— y se eligen por separado:
+las píldoras eligen la carrocería y «Combustible», en la barra principal, la
+propulsión (todo el vocabulario de `FUEL_TYPES`, haya stock o no).
+
+**Bocetos.** Cada categoría se dibuja con un boceto de líneas (silueta, cristales,
+detalles y las líneas de construcción: suelo, ejes, altura y distancia entre
+ejes), sin relleno y con el color de quien lo pone. Viven en
+`src/components/vehicle/sketch/`; la clave de cada uno es el slug de la
+categoría. Una prueba obliga a que cada carrocería de `body-types.ts` tenga el
+suyo y a que no sobre ninguno; una categoría creada mañana sin boceto propio se
+dibuja con el representante de su universo (`sedan` o `naked`).
 
 `src/types/vehicle.ts` exporta además `hasCombustionEngine()`,
 `hasElectricDrive()`, `hasTractionBattery()`, `hasPlugCharging()` e
@@ -393,7 +437,7 @@ no puede hacer también de "sin rellenar". Cuidado con `Number(null)`, que es
 0: la conversión pasa por `toPriceNumber()` justamente por eso.
 
 Cambiar de universo a un borrador con carrocería del otro **la deja en
-blanco** en vez de fallar: una moto con carrocería "SUV" no significa nada, y
+blanco** en vez de fallar: una moto con carrocería "Camioneta" no significa nada, y
 la respuesta honesta es que la carrocería ha dejado de conocerse. Sobre un
 vehículo publicado, ese mismo cambio lo revierte entero la invariante.
 
@@ -624,9 +668,12 @@ Sin sesión responden **401**; con sesión pero sin rol, **403**.
 `GET /api/vehicles` acepta los mismos parámetros que la URL del inventario:
 `tipo`, `categoria` (la carrocería, por slug), `marca`, `modelo`,
 `combustible`, `transmision`, `traccion`, `ciudad`, `etiqueta`, `minYear`,
-`maxYear`, `minPrice`, `maxPrice`, `maxKm`, `destacados`, `orden` y `limit`.
-Son condiciones simultáneas: `?categoria=suv&combustible=Híbrido enchufable`
-devuelve las SUV enchufables, no la unión de ambas listas. Un valor que no
+`maxYear`, `minPrice`, `maxPrice`, `minKm`, `maxKm`, `q`, `destacados`, `orden` y
+`limit`. `q` es la búsqueda por texto del inventario: cada palabra tiene que
+aparecer en la marca, el modelo, la versión, el color, el motor, la ciudad, la
+carrocería o la descripción (sin distinguir mayúsculas, pero sí tildes).
+Son condiciones simultáneas: `?categoria=camioneta&combustible=Híbrido enchufable`
+devuelve las camionetas enchufables, no la unión de ambas listas. Un valor que no
 existe en el inventario devuelve cero y no se descarta en silencio: ensanchar
 resultados sin avisar es peor que no devolver ninguno.
 
@@ -688,11 +735,13 @@ entra escribiendo la URL. Eso es discreción, no seguridad.
 | Ruta | Qué es |
 | --- | --- |
 | `/admin/login` | La única puerta de entrada. |
-| `/admin` | Dashboard: seis cifras y los últimos movimientos. |
+| `/admin` | Panel: lo que espera atención (plazos vencidos, consultas nuevas, borradores), el inventario, los toques a WhatsApp y las últimas consultas. No lista vehículos: eso es `/admin/vehiculos`. |
 | `/admin/vehiculos` | Listado con búsqueda y filtros. |
 | `/admin/vehiculos/nuevo` | Alta. Nace en **borrador**. |
 | `/admin/vehiculos/[id]/editar` | Edición, fotos y publicación. |
-| `/admin/solicitudes` | Buzón de lo que llega de los formularios. |
+| `/admin/solicitudes` | **Consultas**: el buzón de lo que llega de los formularios. |
+| `/admin/privacidad` | **Privacidad**, pestaña «Solicitudes de privacidad»: derechos de los titulares con su plazo legal. |
+| `/admin/consentimientos` | **Privacidad**, pestaña «Consentimientos»: la evidencia de lo que cada persona autorizó. |
 | `/admin/categorias` | Carrocerías y categorías de moto. |
 | `/admin/configuracion` | Deliberadamente vacía (ver más abajo). |
 

@@ -62,11 +62,11 @@ export function AdminLogin({ denied }: { denied?: boolean }) {
           <Logo tone="cream" size="sm" href="/" />
         </div>
 
-        <div className="mt-10 border border-cream/12 bg-cream px-6 py-8 sm:px-8">
-          <h1 className="font-display text-[1.75rem] leading-tight text-ink">
+        <div className="mt-10 rounded-xl bg-cream px-6 py-8 sm:px-8">
+          <h1 className="text-[1.75rem] leading-tight font-semibold text-ink">
             Administración
           </h1>
-          <p className="mt-2 font-serif text-[0.9375rem] text-ink-muted">
+          <p className="mt-1.5 text-base text-ink-muted">
             Acceso del equipo de MILLE.
           </p>
 
@@ -87,7 +87,7 @@ export function AdminLogin({ denied }: { denied?: boolean }) {
               required
             />
 
-            <Button type="submit" size="lg" disabled={pending} className="mt-1">
+            <Button type="submit" size="md" disabled={pending} className="mt-1">
               {pending ? "Entrando…" : "Entrar"}
               {pending ? null : (
                 <ArrowRight aria-hidden className="size-4" strokeWidth={1.5} />
@@ -95,7 +95,7 @@ export function AdminLogin({ denied }: { denied?: boolean }) {
             </Button>
 
             {error ? (
-              <p role="alert" className="text-xs text-burgundy">
+              <p role="alert" className="text-[0.9375rem] text-burgundy">
                 {error}
               </p>
             ) : null}

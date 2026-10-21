@@ -244,7 +244,7 @@ Ficha sencilla a propósito: aquí no hay modos de conducción ni suspensión se
       year: 2021,
       price: 295_000_000,
       mileage: 42_000,
-      categoryId: bySlug("auto", "suv"),
+      categoryId: bySlug("auto", "camioneta"),
       fuelType: "Híbrido enchufable",
       transmission: "Automática",
       gearCount: 8,

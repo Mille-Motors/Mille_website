@@ -1,6 +1,7 @@
 import { AdminPageHeader } from "@/components/admin/AdminShell";
+import { FileQuestion } from "lucide-react";
 import { ButtonLink } from "@/components/ui/Button";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { EmptyPanel, Panel } from "@/components/admin/kit";
 
 /**
  * La 404 de dentro del Admin.
@@ -13,24 +14,25 @@ import { EmptyState } from "@/components/ui/EmptyState";
  */
 export default function AdminNotFound() {
   return (
-    <div className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+    <div className="px-5 py-7 sm:px-8 lg:px-10 lg:py-9">
       <AdminPageHeader title="No encontrado" />
-      <div className="border border-stone bg-paper">
-        <EmptyState
-          title="Esto ya no está aquí."
+      <Panel>
+        <EmptyPanel
+          icon={<FileQuestion aria-hidden className="size-5" strokeWidth={1.5} />}
+          title="Esto ya no está aquí"
           description="El recurso que buscas no existe o se eliminó. Puede que el enlace sea antiguo."
-          actions={
-            <>
-              <ButtonLink href="/admin/vehiculos" size="lg">
+          action={
+            <div className="flex flex-wrap justify-center gap-3">
+              <ButtonLink href="/admin/vehiculos" size="sm">
                 Ir a vehículos
               </ButtonLink>
-              <ButtonLink href="/admin" variant="ghost" size="lg">
-                Volver al dashboard
+              <ButtonLink href="/admin" variant="ghost" size="sm">
+                Volver al panel
               </ButtonLink>
-            </>
+            </div>
           }
         />
-      </div>
+      </Panel>
     </div>
   );
 }

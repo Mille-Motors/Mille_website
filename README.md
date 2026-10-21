@@ -42,12 +42,16 @@ para iconos y `tailwind-merge` para resolver conflictos de clases.
 | `/vehiculos/[slug]` | Detalle del vehículo |
 | `/contacto` | Contacto y formulario |
 | `/admin/login` | Entrada del equipo interno |
-| `/admin` | Dashboard |
+| `/admin` | Panel: lo que hay que atender hoy y cómo va el inventario |
 | `/admin/vehiculos` | Listado administrable |
 | `/admin/vehiculos/nuevo` | Crear vehículo |
 | `/admin/vehiculos/[id]/editar` | Editar vehículo |
-| `/admin/solicitudes` | Solicitudes recibidas |
+| `/admin/solicitudes` | Consultas: lo que llega de los formularios |
+| `/admin/privacidad` | Privacidad: solicitudes de titulares, con su plazo legal |
+| `/admin/consentimientos` | Privacidad: la prueba de lo que cada persona autorizó |
+| `/admin/contenido` | Imágenes del sitio |
 | `/admin/categorias` | Categorías |
+| `/admin/configuracion` | Canales oficiales y estado de los documentos legales |
 
 El sitio público no pide cuenta en ninguna parte. `/admin` no se enlaza
 desde ninguna página pública.

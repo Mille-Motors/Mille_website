@@ -38,7 +38,7 @@ export function ConfirmButton({
   if (confirming) {
     return (
       <span className="flex flex-wrap items-center gap-2">
-        <span className="font-serif text-xs text-ink-soft">{question}</span>
+        <span className="text-sm text-ink-soft">{question}</span>
         <button
           type="button"
           disabled={disabled}
@@ -46,14 +46,14 @@ export function ConfirmButton({
             setConfirming(false);
             onConfirm();
           }}
-          className="label-caps rounded-xs bg-burgundy px-3 py-1.5 text-[10px] text-cream disabled:opacity-40"
+          className="press inline-flex h-9 items-center rounded-lg bg-burgundy px-3.5 text-sm font-medium text-cream hover:bg-burgundy-dark disabled:opacity-40"
         >
           {confirmLabel}
         </button>
         <button
           type="button"
           onClick={() => setConfirming(false)}
-          className="label-caps rounded-xs border border-stone px-3 py-1.5 text-[10px] text-ink transition-colors hover:border-ink/40"
+          className="press inline-flex h-9 items-center rounded-lg border border-stone-strong bg-paper px-3.5 text-sm font-medium text-ink transition-colors hover:border-ink/45"
         >
           Cancelar
         </button>

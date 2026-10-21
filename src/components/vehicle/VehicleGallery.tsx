@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type TouchEvent } from
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
 import { useDialog } from "@/components/ui/use-dialog";
+import { scrollBehaviorFor } from "@/lib/accordion-scroll";
 import { cn } from "@/lib/cn";
 import { objectPosition } from "@/lib/focal-point";
 import { VEHICLE_FRAME_CLASS } from "@/lib/vehicle-frame";
@@ -31,8 +32,23 @@ import type { VehicleImage } from "@/types/vehicle";
  * ampliar a pantalla completa, donde sí se ve entera. El cambio de una a otra
  * es un fundido: la anterior se queda debajo mientras la nueva aparece, para
  * que nunca haya un parpadeo de fondo entre las dos.
+ *
+ * Cambiar de fotografía NO mueve la página. La fila de miniaturas se desliza
+ * por sí sola —solo ella, en horizontal— para mantener a la activa a la vista;
+ * antes lo hacía con `scrollIntoView`, que si la fila quedaba por debajo del
+ * borde de la pantalla arrastraba toda la página hacia ella, justo al revés de
+ * lo que se quiere: lo que se mira es la fotografía grande. Lo único que sí
+ * mueve la página es pulsar una miniatura con la fotografía grande cortada, y
+ * entonces va hacia la fotografía.
  */
 const HERO_QUALITY = 90;
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
+  );
+}
 
 export function VehicleGallery({
   images,
@@ -49,6 +65,8 @@ export function VehicleGallery({
   });
   const [viewer, setViewer] = useState(false);
   const thumbs = useRef<(HTMLButtonElement | null)[]>([]);
+  const rail = useRef<HTMLUListElement>(null);
+  const frame = useRef<HTMLDivElement>(null);
   const touch = useRef<{ x: number; y: number } | null>(null);
 
   const goTo = (next: number) =>
@@ -69,15 +87,32 @@ export function VehicleGallery({
     return () => window.clearTimeout(timer);
   }, [prev, index]);
 
-  // La miniatura activa se mantiene a la vista cuando la fila se desliza.
-  // `nearest` en vertical: la página nunca se mueve por esto.
+  // La miniatura activa se mantiene a la vista deslizando SOLO la fila, en
+  // horizontal. `scrollTo` sobre la fila y no `scrollIntoView` sobre la
+  // miniatura: este último también desplaza la página si la fila está fuera de
+  // la pantalla, que era el salto incómodo hacia las miniaturas.
   useEffect(() => {
-    thumbs.current[index]?.scrollIntoView({
-      inline: "center",
-      block: "nearest",
-      behavior: "smooth",
+    const list = rail.current;
+    const thumb = thumbs.current[index];
+    if (!list || !thumb) return;
+    list.scrollTo({
+      left: Math.max(0, thumb.offsetLeft - (list.clientWidth - thumb.offsetWidth) / 2),
+      behavior: scrollBehaviorFor(prefersReducedMotion()),
     });
   }, [index]);
+
+  /**
+   * Al elegir una miniatura, la fotografía grande tiene que verse. Si ya está
+   * entera en pantalla no pasa nada: la página se queda quieta. Si está
+   * cortada por arriba o por abajo, se mueve lo mínimo para mostrarla, y con
+   * el margen del header para que no quede tapada por la barra fija.
+   */
+  const keepFrameInView = () => {
+    frame.current?.scrollIntoView({
+      block: "nearest",
+      behavior: scrollBehaviorFor(prefersReducedMotion()),
+    });
+  };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "ArrowLeft") {
@@ -108,6 +143,7 @@ export function VehicleGallery({
   return (
     <div>
       <div
+        ref={frame}
         role="group"
         aria-roledescription="carrusel"
         aria-label={`Fotografías de ${name}`}
@@ -116,7 +152,7 @@ export function VehicleGallery({
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
         className={cn(
-          "group relative touch-pan-y overflow-hidden rounded-xl bg-charcoal",
+          "group relative scroll-mt-header touch-pan-y overflow-hidden rounded-xl bg-charcoal",
           VEHICLE_FRAME_CLASS,
         )}
       >
@@ -180,7 +216,11 @@ export function VehicleGallery({
       </div>
 
       {total > 1 ? (
-        <ul className="mt-3 flex gap-2.5 overflow-x-auto pt-1 pb-2 scrollbar-none [&::-webkit-scrollbar]:hidden">
+        <ul
+          ref={rail}
+          // `relative`: las miniaturas miden su posición contra esta fila.
+          className="relative mt-3 flex gap-2.5 overflow-x-auto pt-1 pb-2 scrollbar-none [&::-webkit-scrollbar]:hidden"
+        >
           {images.map((image, i) => (
             <li key={image.src} className="w-[clamp(5.25rem,11vw,8.5rem)] shrink-0">
               <button
@@ -188,7 +228,10 @@ export function VehicleGallery({
                   thumbs.current[i] = node;
                 }}
                 type="button"
-                onClick={() => goTo(i)}
+                onClick={() => {
+                  goTo(i);
+                  keepFrameInView();
+                }}
                 aria-label={`Ver fotografía ${i + 1} de ${total}`}
                 aria-current={i === index}
                 className={cn(

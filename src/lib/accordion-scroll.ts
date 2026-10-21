@@ -2,41 +2,42 @@
  * Qué pasa cuando se pulsa el título de una sección desplegable.
  *
  * Está aparte del componente porque es la parte que se puede probar: el
- * proyecto no tiene jsdom, así que comprobar un `scrollIntoView` real no es
- * posible, pero sí lo es fijar la DECISIÓN —abrir o cerrar, y si hay que
- * reposicionar— que es donde estaba el fallo.
+ * proyecto no tiene jsdom, así que no se comprueba aquí una animación, pero sí
+ * la DECISIÓN —qué queda abierto—.
  *
- * El fallo: al abrir una sección que estaba cerrada, el contenido crecía
- * hacia abajo desde un título que ya estaba a media pantalla, y se acababa
- * leyendo desde la mitad. Al cerrar, en cambio, no hay nada que reposicionar:
- * la página se recoge sola y saltar a algún sitio sería moverle el suelo a
- * quien no lo pidió.
+ * Cada sección se abre y se cierra por su cuenta, y puede haber varias
+ * abiertas a la vez. Antes abrir una cerraba la anterior; eso obligaba a
+ * mover la pantalla —el título pulsado subía cuando lo de arriba se encogía—
+ * y a quien compara «Especificaciones» con «Equipamiento» le quitaba lo que
+ * estaba leyendo. Al no cerrarse nada por el camino, lo que hay encima del
+ * título pulsado no cambia nunca de alto, y la página no tiene motivo para
+ * moverse.
  */
-export interface ToggleOutcome {
-  /** La sección que queda abierta, o `null` si ninguna. */
-  open: string | null;
-  /**
-   * La sección a cuyo inicio hay que llevar la vista, o `null` si no hay que
-   * tocar el scroll. Solo se rellena al ABRIR.
-   */
-  scrollTo: string | null;
-}
 
 /**
- * Pulsar `clicked` teniendo `current` abierta.
- *
- * Sigue habiendo como máximo una abierta. Cambiar de una a otra cierra la
- * primera y lleva a la segunda: no se pasa antes por la que se cerró, que
- * sería un salto hacia arriba y otro hacia abajo en el mismo gesto.
+ * Las secciones abiertas después de pulsar `clicked`: la abre si estaba
+ * cerrada y la cierra si estaba abierta. Devuelve un conjunto nuevo; el que
+ * llega no se modifica.
  */
 export function toggleSection(
-  current: string | null,
+  open: ReadonlySet<string>,
   clicked: string,
-): ToggleOutcome {
-  if (current === clicked) {
-    return { open: null, scrollTo: null };
-  }
-  return { open: clicked, scrollTo: clicked };
+): Set<string> {
+  const next = new Set(open);
+  if (next.has(clicked)) next.delete(clicked);
+  else next.add(clicked);
+  return next;
+}
+
+/** Las secciones abiertas tras revelar `id` —por ejemplo, al buscar texto—. */
+export function revealSection(
+  open: ReadonlySet<string>,
+  id: string,
+): ReadonlySet<string> {
+  // Si ya estaba abierta no hay nada que cambiar; devolver el mismo conjunto
+  // evita un render que no mostraría nada distinto.
+  if (open.has(id)) return open;
+  return new Set(open).add(id);
 }
 
 /**

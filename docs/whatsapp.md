@@ -9,6 +9,7 @@ Línea: **+57 312 638 5028** (WhatsApp Business, app). Atención: todos los día
 | Todas las páginas públicas (menos la ficha de un vehículo) | Botón flotante abajo a la derecha. Abre un menú con cuatro motivos: **buscar**, **hablar de mi vehículo**, **agendar cita** y **otra consulta**. Cada uno abre WhatsApp con su mensaje ya escrito. El menú dice si estamos en horario. |
 | Ficha de un vehículo, escritorio | Botón flotante directo (sin menú) a un chat que **ya nombra ese vehículo**: marca, modelo, año, precio y el enlace a la ficha. |
 | Ficha de un vehículo, móvil | La barra fija de abajo (precio + WhatsApp), con el mismo mensaje. |
+| Ficha de un vehículo, en la página | Junto al precio, un solo botón «Escribir por WhatsApp». En la franja vinotinto del final, dos: «Escribir por WhatsApp» (preguntar) y «Agendar una visita» (mensaje de visita con el vehículo). **WhatsApp es el único canal de contacto desde la ficha**: ya no hay formularios de «solicitar información» ni «agendar cita». |
 | Menú, pie, `/contacto`, 404 | Enlaces con el mensaje general. |
 | Home, «Vende con MILLE» | Botón que abre el chat con el mensaje de `vender` ya escrito. |
 | `/privacidad` | Política de tratamiento de datos (Ley 1581). Enlazada en el pie y bajo el botón de enviar de los dos formularios. |
@@ -19,11 +20,11 @@ Los mensajes viven en `src/lib/whatsapp.ts`. Las líneas con `___` son para que 
 
 ## Conteo de clics
 
-Cada clic a un enlace marcado con `data-wa-source` se cuenta en la tabla `WhatsappClick` (qué enlace, qué motivo, qué vehículo, qué página). **No se guarda IP, dispositivo ni nada que identifique a nadie.** Se ve en el dashboard del admin (`/admin`), sección «Clics a WhatsApp».
+Cada clic a un enlace marcado con `data-wa-source` se cuenta en la tabla `WhatsappClick` (qué enlace, qué motivo, qué vehículo, qué página). **No se guarda IP, dispositivo ni nada que identifique a nadie.** Se ve en el Panel del admin (`/admin`), bloque «Toques a WhatsApp».
 
 Un clic es una intención, no una conversación: las conversaciones reales viven en la app de WhatsApp Business.
 
-**Antes de que el conteo funcione en producción hay que aplicar la migración** `20261017090000_whatsapp_clicks` con `npm run db:deploy`. Mientras no se aplique, nada se rompe: el botón funciona igual y el dashboard esconde la sección.
+**Antes de que el conteo funcione en producción hay que aplicar la migración** `20261017090000_whatsapp_clicks` con `npm run db:deploy`. Mientras no se aplique, nada se rompe: el botón funciona igual y el Panel esconde el bloque.
 
 Para marcar un enlace nuevo basta añadir `data-wa-source="…"` (una de las fuentes de `src/lib/whatsapp-click.ts`) y, si aplica, `data-wa-intent` y `data-wa-slug`.
 

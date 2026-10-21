@@ -196,8 +196,8 @@ describe("CASO D · Toyota Land Cruiser · SUV diésel 4WD, off-road", () => {
     tags: ["Off-road"],
   });
 
-  it("su carrocería es SUV: «4x4» era tracción, y ahí está", () => {
-    assert.equal(cruiser.category?.name, "SUV");
+  it("su carrocería es camioneta: «4x4» era tracción, y ahí está", () => {
+    assert.equal(cruiser.category?.name, "Camioneta");
     assert.equal(valueOf(quickFacts(cruiser), "Tracción"), "4x4 (4WD)");
   });
 
@@ -359,6 +359,60 @@ describe("documentación, dicha como se dice en Colombia", () => {
       makeVehicle({ documentation: { plateEnding: "0" } }),
     );
     assert.equal(valueOf(rows, "Placa termina en"), "0");
+  });
+});
+
+/**
+ * La placa y la ciudad de matrícula van arriba, entre las primeras cifras: es
+ * lo que quien compra un usado pregunta antes que casi todo lo demás. Y siguen
+ * en «Documentación»: se adelantan, no se mueven.
+ */
+describe("placa y matrícula en los primeros datos", () => {
+  const vehicle = makeVehicle({
+    documentation: { plateEnding: "7", registrationCity: "Bogotá" },
+  });
+
+  it("aparecen en la tira de arriba", () => {
+    const facts = quickFacts(vehicle);
+    assert.equal(valueOf(facts, "Placa termina en"), "7");
+    assert.equal(valueOf(facts, "Matriculado en"), "Bogotá");
+  });
+
+  it("siguen estando abajo, en Documentación", () => {
+    const rows = documentationRows(vehicle);
+    assert.equal(valueOf(rows, "Placa termina en"), "7");
+    assert.equal(valueOf(rows, "Ciudad de matrícula"), "Bogotá");
+  });
+
+  it("van al final de la tira, después de lo mecánico", () => {
+    const facts = labels(quickFacts(makeVehicle({
+      fuelType: "Gasolina",
+      drivetrain: "Trasera (RWD)",
+      documentation: { plateEnding: "7", registrationCity: "Bogotá" },
+    })));
+    assert.deepEqual(facts.slice(-2), ["Placa termina en", "Matriculado en"]);
+    assert.ok(facts.indexOf("Tracción") < facts.indexOf("Placa termina en"));
+  });
+
+  it("el dígito 0 también se muestra: es un dígito, no un vacío", () => {
+    const facts = quickFacts(
+      makeVehicle({ documentation: { plateEnding: "0" } }),
+    );
+    assert.equal(valueOf(facts, "Placa termina en"), "0");
+  });
+
+  it("sin dato no hay fila, ni «N/A» ni guion", () => {
+    const facts = labels(quickFacts(makeVehicle()));
+    assert.ok(!facts.includes("Placa termina en"));
+    assert.ok(!facts.includes("Matriculado en"));
+  });
+
+  it("puede venir una sola de las dos", () => {
+    const facts = labels(
+      quickFacts(makeVehicle({ documentation: { registrationCity: "Medellín" } })),
+    );
+    assert.ok(facts.includes("Matriculado en"));
+    assert.ok(!facts.includes("Placa termina en"));
   });
 });
 

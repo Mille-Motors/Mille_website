@@ -1,52 +1,64 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { scrollBehaviorFor, toggleSection } from "@/lib/accordion-scroll";
+import {
+  revealSection,
+  scrollBehaviorFor,
+  toggleSection,
+} from "@/lib/accordion-scroll";
 
 /**
  * Qué hace la ficha al pulsar el título de una sección.
  *
- * El proyecto no tiene jsdom, así que no se comprueba aquí un
- * `scrollIntoView` de verdad: se comprueba la DECISIÓN de llamarlo, que es
- * donde estaba el fallo. El componente sigue haciendo la llamada; lo que se
- * extrajo es el "sí o no", no el comportamiento.
+ * El proyecto no tiene jsdom, así que no se comprueba aquí una animación: se
+ * comprueba la DECISIÓN —qué queda abierto—. Cada sección se abre y se cierra
+ * por su cuenta, y puede haber varias abiertas a la vez.
  */
-describe("abrir una sección", () => {
-  it("la abre y pide llevar la vista a su inicio", () => {
-    assert.deepEqual(toggleSection(null, "hibrido"), {
-      open: "hibrido",
-      scrollTo: "hibrido",
-    });
+describe("abrir y cerrar una sección", () => {
+  it("abrir una sección cerrada la deja abierta", () => {
+    assert.deepEqual([...toggleSection(new Set(), "hibrido")], ["hibrido"]);
   });
 
-  it("abrir con otra abierta solo lleva a la nueva", () => {
-    // No se pasa antes por la que se cierra: sería un salto hacia arriba y
-    // otro hacia abajo dentro del mismo clic.
-    assert.deepEqual(toggleSection("especificaciones", "hibrido"), {
-      open: "hibrido",
-      scrollTo: "hibrido",
-    });
+  it("abrir otra NO cierra la que estaba abierta", () => {
+    // Quien compara las especificaciones con el equipamiento no quiere que se
+    // le cierre una mientras lee la otra.
+    const open = toggleSection(new Set(["especificaciones"]), "equipamiento");
+    assert.deepEqual([...open].sort(), ["equipamiento", "especificaciones"]);
   });
 
-  it("sigue habiendo como máximo una abierta", () => {
-    const first = toggleSection(null, "a");
-    const second = toggleSection(first.open, "b");
-    assert.equal(second.open, "b");
+  it("pueden estar abiertas todas a la vez", () => {
+    let open: ReadonlySet<string> = new Set();
+    for (const id of ["a", "b", "c", "d"]) open = toggleSection(open, id);
+    assert.equal(open.size, 4);
+  });
+
+  it("pulsar una abierta la cierra y deja las demás como estaban", () => {
+    const open = toggleSection(new Set(["a", "b", "c"]), "b");
+    assert.deepEqual([...open].sort(), ["a", "c"]);
+  });
+
+  it("abrir y cerrar la misma no deja rastro", () => {
+    const opened = toggleSection(new Set(["a"]), "b");
+    const closed = toggleSection(opened, "b");
+    assert.deepEqual([...closed], ["a"]);
+  });
+
+  it("no modifica el conjunto que recibe", () => {
+    const before = new Set(["a"]);
+    toggleSection(before, "b");
+    assert.deepEqual([...before], ["a"]);
   });
 });
 
-describe("cerrar una sección", () => {
-  it("la cierra y NO toca el scroll", () => {
-    assert.deepEqual(toggleSection("hibrido", "hibrido"), {
-      open: null,
-      scrollTo: null,
-    });
+describe("revelar una sección al buscar texto", () => {
+  it("la abre sin cerrar las demás", () => {
+    const open = revealSection(new Set(["a"]), "b");
+    assert.deepEqual([...open].sort(), ["a", "b"]);
   });
 
-  it("abrir y volver a cerrar deja la página donde caiga", () => {
-    const opened = toggleSection(null, "documentacion");
-    assert.equal(opened.scrollTo, "documentacion");
-    const closed = toggleSection(opened.open, "documentacion");
-    assert.equal(closed.scrollTo, null);
+  it("si ya estaba abierta no cambia nada y devuelve el mismo conjunto", () => {
+    // Devolver el mismo evita un render que no mostraría nada distinto.
+    const before = new Set(["a", "b"]);
+    assert.equal(revealSection(before, "b"), before);
   });
 });
 

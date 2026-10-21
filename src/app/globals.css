@@ -32,12 +32,24 @@
   --color-burgundy: #5f0913;
   --color-burgundy-dark: #430710;
   --color-burgundy-soft: #7a2430;
+  /* El vinotinto sobre fondo oscuro. El de siempre apenas se distingue de
+     `dark` (1,6 a 1); este conserva el tono y llega a 3,1 a 1, que es lo
+     mínimo para que una línea fina se lea. Solo para trazos sobre `dark`. */
+  --color-burgundy-light: #b4434f;
   --color-leather: #5a3a32;
 
   /* Status */
   --color-status-available: #3f6b47;
   --color-status-reserved: #5f0913;
   --color-status-sold: #8a6a2f;
+
+  /* Borrador, solo en el admin: un crema amarillo apenas más cálido que la
+     página, para que la fila se reconozca por el color y no por una insignia.
+     `draft` es la fila, `draft-strong` la pestaña que cuelga de ella. */
+  --color-draft: #fcf6e2;
+  --color-draft-strong: #f6eac1;
+  --color-draft-line: #ecdfb2;
+  --color-draft-ink: #6b5420;
 
   /* Type: one family for everything, a serif only for the wordmark. */
   --font-sans: var(--font-barlow), "Arial Narrow", Arial, sans-serif;
@@ -462,6 +474,21 @@
 
 .arrow-slide-icon {
   transition: transform 260ms var(--ease-out-strong);
+}
+
+/* El menú «···» del admin: aparece desde su botón, no desde el centro. */
+@media (prefers-reduced-motion: no-preference) {
+  .menu-pop {
+    transform-origin: top right;
+    animation: menu-pop 140ms var(--ease-out-strong);
+  }
+}
+
+@keyframes menu-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
 }
 
 /* Press feedback shared by every button and link-button. */

@@ -129,7 +129,7 @@ export function NumberField({
 
   return (
     <div className={containerClassName}>
-      <label htmlFor={inputId} className="label-caps mb-2 block text-ink-soft">
+      <label htmlFor={inputId} className="mb-1.5 block text-[0.8125rem] font-medium text-ink-muted">
         {label}
         {required ? <span className="ml-1 text-burgundy">*</span> : null}
       </label>
@@ -137,7 +137,7 @@ export function NumberField({
         {prefix && showAdornments ? (
           <span
             aria-hidden
-            className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-sm text-ink-muted"
+            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[0.9375rem] text-ink-muted"
           >
             {prefix}
           </span>
@@ -154,25 +154,25 @@ export function NumberField({
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           className={cn(
-            "h-12 w-full rounded-xs border border-stone bg-paper px-4 text-sm text-ink transition-colors",
-            "placeholder:text-ink-muted/70 hover:border-stone-strong focus:border-burgundy focus:outline-none",
+            "h-10 w-full rounded-lg border border-stone-strong bg-paper px-3 text-[0.9375rem] text-ink transition-colors",
+            "placeholder:text-ink-muted/70 hover:border-ink/40 focus:border-burgundy focus:ring-1 focus:ring-burgundy/30 focus:outline-none",
             "tabular",
             prefix && showAdornments && "pl-9",
-            suffix && showAdornments && "pr-12",
+            suffix && showAdornments && "pr-10",
             error && "border-burgundy",
           )}
         />
         {suffix && showAdornments ? (
           <span
             aria-hidden
-            className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-sm text-ink-muted"
+            className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[0.9375rem] text-ink-muted"
           >
             {suffix}
           </span>
         ) : null}
       </div>
       {error ? (
-        <p id={errorId} className="mt-1.5 text-xs text-burgundy">
+        <p id={errorId} className="mt-1.5 text-sm text-burgundy">
           {error}
         </p>
       ) : null}

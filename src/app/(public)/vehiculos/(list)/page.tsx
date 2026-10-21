@@ -5,7 +5,8 @@ import { ButtonLink } from "@/components/ui/Button";
 import { CategoryNav } from "@/components/vehicle/CategoryNav";
 import { FilterBar } from "@/components/vehicle/FilterBar";
 import { InventoryAnchorScroll } from "@/components/vehicle/InventoryAnchorScroll";
-import { TypeSelector } from "@/components/vehicle/TypeSelector";
+import { InventorySearch } from "@/components/vehicle/InventorySearch";
+import { TypeToggle } from "@/components/vehicle/TypeToggle";
 import { VehicleGrid } from "@/components/vehicle/VehicleGrid";
 import { site } from "@/data/site";
 import { typeNoun } from "@/lib/categories";
@@ -14,6 +15,7 @@ import {
   activeFilterCount,
   clearedFilters,
   hasInvalidType,
+  hasLegacyBodySlug,
   inventoryHref,
   parseFilters,
   sortToQuery,
@@ -79,6 +81,12 @@ export default async function InventoryPage(props: PageProps<"/vehiculos">) {
     redirect(inventoryHref(parseFilters({ ...searchParams, tipo: undefined })));
   }
 
+  // Lo mismo con una carrocería que cambió de nombre: `?categoria=suv` se lee
+  // como camionetas, y la barra debe decirlo.
+  if (hasLegacyBodySlug(searchParams)) {
+    redirect(inventoryHref(parseFilters(searchParams)));
+  }
+
   const filters = parseFilters(searchParams);
 
   // Las facetas se acotan al universo elegido, para que los filtros nunca
@@ -88,9 +96,9 @@ export default async function InventoryPage(props: PageProps<"/vehiculos">) {
 
   // El filtrado y el orden ocurren en la base: el navegador no necesita
   // recibir el inventario entero para descartar la mayor parte.
-  // Todos los filtros son condiciones simultáneas: carrocería SUV con
-  // combustible enchufable y precio máximo devuelve las SUV enchufables por
-  // debajo de ese precio, no la suma de las tres listas.
+  // Todos los filtros son condiciones simultáneas: carrocería camioneta con
+  // combustible enchufable y precio máximo devuelve las camionetas enchufables
+  // por debajo de ese precio, no la suma de las tres listas.
   const results = await getVehicles({
     vehicleType: filters.tipo === "all" ? undefined : filters.tipo,
     categorySlug: filters.categoria,
@@ -106,7 +114,9 @@ export default async function InventoryPage(props: PageProps<"/vehiculos">) {
     maxYear: filters.maxYear,
     minPrice: filters.minPrice,
     maxPrice: filters.maxPrice,
+    minMileage: filters.minKm,
     maxMileage: filters.maxKm,
+    search: filters.q,
     sort: sortToQuery[filters.orden],
   });
 
@@ -136,22 +146,25 @@ export default async function InventoryPage(props: PageProps<"/vehiculos">) {
         </div>
       </section>
 
-      {/* The first decision of the page. Anchor target for the "Ver
-          inventario" CTA: it lands here, directly on the choice, then the
-          filters and the grid. */}
+      {/* Cómo se busca, de lo más amplio a lo más fino: escribir, cuatro o dos
+          ruedas, carrocería, y la barra con el resto. Es el ancla del botón
+          «Ver inventario»: aterriza aquí, directamente en la primera decisión,
+          y debajo vienen la rejilla y sus resultados. */}
       <section id="inventario" className="scroll-mt-header bg-cream pb-6">
-        <div className="wrap">
-          <TypeSelector filters={filters} counts={facets.counts} />
+        {/* Una sola columna que no crece con su contenido: la fila de
+            píldoras de categoría se desliza hacia un lado y, sin
+            «minmax(0, 1fr)», su ancho natural ensancharía la columna entera
+            y el buscador se saldría de la pantalla. */}
+        <div className="wrap grid grid-cols-[minmax(0,1fr)] gap-4">
+          <InventorySearch filters={filters} />
+
+          <TypeToggle filters={filters} />
 
           {filters.tipo !== "all" ? (
-            <div className="mt-5">
-              <CategoryNav filters={filters} categories={facets.categories} />
-            </div>
+            <CategoryNav filters={filters} categories={facets.categories} />
           ) : null}
 
-          <div className="mt-8">
-            <FilterBar filters={filters} facets={facets} />
-          </div>
+          <FilterBar filters={filters} facets={facets} />
         </div>
       </section>
 

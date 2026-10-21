@@ -101,6 +101,12 @@ export function powerLabel(fuelType: string | null): string {
  * La tira de arriba: lo que alguien quiere saber en tres segundos. Se
  * limita a lo que de verdad distingue a un carro de otro, y las que no
  * tienen dato simplemente no aparecen.
+ *
+ * Termina con la placa y la ciudad de matrícula. Quien compra un usado lo
+ * pregunta antes que casi todo lo demás —el pico y placa y el traspaso
+ * dependen de ellas—, así que no pueden esperar a estar dentro de
+ * «Documentación». Siguen estando también allí: esto las adelanta, no las
+ * mueve.
  */
 export function quickFacts(vehicle: Vehicle): SpecRow[] {
   const rows: SpecRow[] = [];
@@ -117,6 +123,8 @@ export function quickFacts(vehicle: Vehicle): SpecRow[] {
   if (usesFinalDrive(vehicle.vehicleType)) {
     push(rows, "Transmisión final", vehicle.finalDrive);
   }
+  push(rows, "Placa termina en", vehicle.documentation.plateEnding);
+  push(rows, "Matriculado en", vehicle.documentation.registrationCity);
   return rows;
 }
 
@@ -348,3 +356,31 @@ export function specBlocks(vehicle: Vehicle): SpecBlock[] {
   ];
   return blocks.filter((block) => block.rows.length > 0);
 }
+
+/**
+ * El texto de «Acerca de este vehículo», repartido para leerse en una tarjeta.
+ *
+ * Los párrafos se separan por una línea en blanco. Si hay más de uno y el
+ * primero es corto, sube como entradilla —se lee más grande—, y el resto es el
+ * cuerpo. Un primer párrafo largo no es una entradilla sino el relato entero,
+ * y agrandarlo lo volvería un muro; un texto de un solo párrafo tampoco la
+ * tiene. Lo que no se toca nunca es lo escrito: solo se reparte.
+ */
+export function descriptionParts(description: string): {
+  lead: string | null;
+  body: string[];
+} {
+  const paragraphs = description
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  if (paragraphs.length <= 1) return { lead: null, body: paragraphs };
+  const [first, ...rest] = paragraphs;
+  return first.length <= LEAD_MAX
+    ? { lead: first, body: rest }
+    : { lead: null, body: paragraphs };
+}
+
+/** Más allá de esto, un primer párrafo ya no es una entradilla. */
+const LEAD_MAX = 280;

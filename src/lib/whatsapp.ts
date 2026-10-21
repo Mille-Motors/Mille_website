@@ -68,6 +68,23 @@ export function vehicleWhatsappUrl(vehicle: Vehicle): string | null {
 }
 
 /**
+ * Quien quiere ver un vehículo en persona también escribe por WhatsApp: el
+ * sitio no agenda citas ni recibe solicitudes de un vehículo concreto, y un
+ * formulario más habría sido un segundo canal que atender. El mensaje ya dice
+ * cuál quiere ver, con el enlace a su ficha, y deja la cita a la conversación.
+ */
+export function vehicleVisitWhatsappMessage(vehicle: Vehicle): string {
+  return [
+    `Hola MILLE, quisiera agendar una visita para ver el ${vehicleTitle(vehicle)} ${vehicle.year}. ¿Qué días y horarios tienen disponibles?`,
+    absoluteUrl(vehiclePath(vehicle.slug)),
+  ].join("\n");
+}
+
+export function vehicleVisitWhatsappUrl(vehicle: Vehicle): string | null {
+  return whatsappUrl(vehicleVisitWhatsappMessage(vehicle));
+}
+
+/**
  * There is no backend to receive the contact form, so "submitting" it can't
  * honestly claim a message was sent or that someone will reach out — once a
  * real line exists this hands the filled-in fields to WhatsApp so the send
@@ -86,26 +103,6 @@ export function contactWhatsappUrl(fields: {
     `Correo: ${fields.correo}`,
   ];
   if (fields.vehiculo) lines.push(`Vehículo de interés: ${fields.vehiculo}`);
-  if (fields.mensaje) lines.push(fields.mensaje);
-  return whatsappUrl(lines.join("\n"));
-}
-
-/** Same honest handoff as {@link contactWhatsappUrl}, for the per-vehicle request modal. */
-export function requestWhatsappUrl(
-  vehicle: Vehicle,
-  intent: "info" | "cita",
-  fields: { nombre: string; telefono: string; correo: string; mensaje?: string },
-): string | null {
-  const opener =
-    intent === "cita"
-      ? `Hola MILLE, quisiera agendar una cita para ver el ${vehicleTitle(vehicle)} ${vehicle.year}.`
-      : `Hola MILLE, quisiera más información sobre el ${vehicleTitle(vehicle)} ${vehicle.year}.`;
-  const lines = [
-    opener,
-    `Nombre: ${fields.nombre}`,
-    `Teléfono: ${fields.telefono}`,
-    `Correo: ${fields.correo}`,
-  ];
   if (fields.mensaje) lines.push(fields.mensaje);
   return whatsappUrl(lines.join("\n"));
 }

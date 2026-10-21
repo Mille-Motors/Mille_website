@@ -77,9 +77,9 @@ const base: Vehicle = {
   vehicleType: "auto",
   category: {
     id: "c1",
-    name: "SUV",
-    pluralName: "SUV",
-    slug: "suv",
+    name: "Camioneta",
+    pluralName: "Camionetas",
+    slug: "camioneta",
     vehicleType: "auto",
     active: true,
     position: 0,
