@@ -677,6 +677,40 @@ devuelve las camionetas enchufables, no la unión de ambas listas. Un valor que 
 existe en el inventario devuelve cero y no se descarta en silencio: ensanchar
 resultados sin avisar es peor que no devolver ninguno.
 
+### Fotos: subirlas, ordenarlas y servirlas
+
+**Gestor del admin** (`ImageManager`). Las fotos se reordenan ARRASTRÁNDOLAS: la fila
+cambia en el momento de soltar y una sola petición lleva el orden entero al
+servidor. Si llegan más movimientos mientras viaja, se juntan y sale la última
+petición con el orden final; si el servidor rechaza, la fila vuelve a lo guardado.
+La lógica está en `src/lib/image-order.ts` y se prueba sin navegador. En teléfono, y
+con teclado, las flechas de los bordes mueven una posición. Todo lo que se hace con
+una foto vive dentro de su marco (encuadre, portada, eliminar); la confirmación de
+borrar también, para que nunca se monte sobre las fotos de al lado.
+
+**Galería pública** (`VehicleGallery`). Las fotos originales se guardan tal cual (3–6 MB);
+el optimizador de Next las reduce en la primera petición, y esa primera petición es
+lo lento (1–2 s por foto). Por eso, mientras se mira una foto, las demás se traen en
+segundo plano con la MISMA dirección que usará la imagen visible, las más cercanas
+primero (`warmOrder` en `src/lib/gallery-warm.ts`): al pulsar la flecha ya está en
+caché. La foto grande va a calidad 82 (antes 90, que pesaba el doble) y
+`minimumCacheTTL` es de una semana.
+
+**Compartir.** El botón «Compartir» de la ficha usa la hoja del sistema donde existe
+(teléfonos: ahí salen Instagram, WhatsApp, etc.) y, si no, un menú con copiar enlace,
+WhatsApp, Facebook y correo (`src/lib/share.ts`, `ShareButton`). Instagram no ofrece una
+dirección web para compartir enlaces: se comparte desde la hoja del teléfono o copiando
+el enlace. En el admin, «Copiar enlace» (menú de cada vehículo publicado y ficha de
+edición) da la dirección pública para historias o la biografía.
+
+**Tarjeta de vista previa.** `og:image` y `twitter:image` ya no apuntan al original de varios MB
+(WhatsApp e Instagram descartan una vista previa tan pesada y el enlace salía sin foto):
+pasan por el optimizador a 1200 px, unos 200 KB en JPEG (`socialImageUrl`). Al publicar,
+en producción, el servidor pide esa imagen una vez para que el primer rastreador no pague
+la espera (`warmSocialImage`). Las aplicaciones guardan la tarjeta de un enlace que ya
+vieron: para uno compartido antes del cambio hay que esperar o usar el depurador de
+Facebook para refrescarla.
+
 ### Publicar
 
 `POST /api/admin/vehicles/[id]/publish` con `{ "publication": "published" }`.

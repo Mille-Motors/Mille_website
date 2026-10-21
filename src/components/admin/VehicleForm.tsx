@@ -32,6 +32,7 @@ import {
 } from "@/lib/equipment";
 import { vehicleLabel } from "@/lib/format";
 import { publicationBlockers } from "@/lib/publication";
+import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 import {
   DECIMAL_KEYS,
   decimalFromInput,
@@ -1439,6 +1440,8 @@ export function VehicleForm({
               <ExternalLink aria-hidden className="size-4" strokeWidth={1.5} />
             </a>
           ) : null}
+
+          {published && persisted ? <CopyLinkButton slug={persisted.slug} /> : null}
 
           {persisted ? (
             <Button

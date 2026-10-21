@@ -41,3 +41,20 @@ export function WhatsappIcon({ strokeWidth = 1.5, ...props }: IconProps & { stro
     </svg>
   );
 }
+
+export function FacebookIcon({ strokeWidth = 1.5, ...props }: IconProps & { strokeWidth?: number }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M14.5 21v-8h2.6l.4-3.2h-3V7.9c0-.9.3-1.5 1.6-1.5h1.5V3.5c-.3 0-1.2-.1-2.2-.1-2.3 0-3.9 1.4-3.9 4V9.8H8.8V13h2.7v8" />
+    </svg>
+  );
+}

@@ -3,13 +3,22 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Crop, Plus, Trash2, Upload } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Crop,
+  GripVertical,
+  Plus,
+  Star,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { adminJson } from "@/lib/admin-client";
 import { vehicleAfterAbortedUpload } from "@/lib/vehicle-draft";
 import { createSupabaseBrowserClient } from "@/server/auth/supabase-browser";
-import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { VehicleImageFramer } from "@/components/admin/VehicleImageFramer";
 import { objectPosition } from "@/lib/focal-point";
+import { moveItem, reconcileOrder, sameOrder } from "@/lib/image-order";
 import { VEHICLE_FRAME_CLASS } from "@/lib/vehicle-frame";
 import { cn } from "@/lib/cn";
 import {
@@ -67,6 +76,18 @@ export function ImageManager({
   const [error, setError] = useState<string | null>(null);
   /** La fotografía cuyo encuadre se está ajustando, por id. */
   const [adjusting, setAdjusting] = useState<string | null>(null);
+  /** La foto que está pidiendo confirmación para borrarse. */
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  /**
+   * El orden que se enseña mientras el servidor todavía no ha confirmado el
+   * cambio. `null` es «el que está guardado».
+   */
+  const [localOrder, setLocalOrder] = useState<string[] | null>(null);
+  /** Una foto en el aire: cuál es, y cómo quedaría la fila si se soltara ahí. */
+  const [drag, setDrag] = useState<{ id: string; preview: string[] } | null>(null);
+  const reorderBusy = useRef(false);
+  const queuedOrder = useRef<string[] | null>(null);
+  const [, setReordering] = useState(false);
   /**
    * En qué va el lote, para que uno grande no parezca colgado.
    *
@@ -86,6 +107,22 @@ export function ImageManager({
   // antes. Si la foto desaparece —se borró desde otra pestaña— el editor se
   // cierra solo en vez de quedarse apuntando a nada.
   const adjustingImage = images.find((image) => image.id === adjusting) ?? null;
+
+  const order = reconcileOrder(
+    localOrder,
+    images.map((image) => image.id),
+  );
+  const byId = new Map(images.map((image) => [image.id, image]));
+  /** Lo que se pinta: la fila como quedaría si se soltara la foto que se arrastra. */
+  const shown = (drag ? drag.preview : order).flatMap((id) => {
+    const image = byId.get(id);
+    return image ? [image] : [];
+  });
+  /** Subir y borrar son de una en una; reordenar no se bloquea nunca. */
+  const locked = busy;
+  const canDrag = !busy && images.length > 1;
+  const iconButton =
+    "inline-flex size-7 items-center justify-center rounded-md bg-cream/92 text-ink shadow-sm transition-colors hover:bg-cream disabled:opacity-40";
 
   /**
    * Toda operación sigue el mismo camino: una sola a la vez, y la pantalla
@@ -268,36 +305,64 @@ export function ImageManager({
     router.refresh();
   }
 
-  /** Reordenar manda el orden entero: el servidor no adivina posiciones. */
-  function reorder(next: VehicleImage[]) {
+  /**
+   * Reordenar es instantáneo: la fila cambia al soltar y la petición viaja
+   * detrás.
+   *
+   * Antes cada movimiento esperaba al servidor, bloqueaba la pantalla y
+   * volvía a pintarla, y solo se podía mover una foto una posición por vez:
+   * llevar la última a la segunda eran doce clics de doce idas y vueltas.
+   *
+   * El servidor recibe siempre el orden ENTERO, así que lo único que importa
+   * es que la última petición que sale sea la última que se pidió. Si llega
+   * otro movimiento mientras una petición viaja, no se manda otra a la vez:
+   * se guarda como pendiente y sale en cuanto vuelve la primera. Si el
+   * servidor rechaza, la fila vuelve a lo que de verdad está guardado.
+   */
+  async function commitOrder(next: string[]) {
     if (!vehicle) return;
-    return run(() =>
-      adminJson<{ vehicle: Vehicle }>(
+    if (sameOrder(next, order)) return;
+    setLocalOrder(next);
+    if (reorderBusy.current) {
+      queuedOrder.current = next;
+      return;
+    }
+
+    reorderBusy.current = true;
+    setReordering(true);
+    setError(null);
+    let current: string[] | null = next;
+    while (current) {
+      queuedOrder.current = null;
+      const result = await adminJson<{ vehicle: Vehicle }>(
         `/api/admin/vehicles/${vehicle.id}/images`,
         "PATCH",
-        {
-          images: next.map((image, index) => ({
-            id: image.id,
-            position: index,
-          })),
-        },
-      ),
-    );
+        { images: current.map((id, position) => ({ id, position })) },
+      );
+      if (!result.ok) {
+        setError(result.message);
+        queuedOrder.current = null;
+        break;
+      }
+      onVehicleChange(result.data.vehicle);
+      current = queuedOrder.current;
+    }
+    reorderBusy.current = false;
+    setReordering(false);
+    // Sin nada pendiente, el orden que manda es el del servidor.
+    if (!queuedOrder.current) setLocalOrder(null);
+    router.refresh();
   }
 
   function move(index: number, delta: number) {
     const target = index + delta;
-    if (target < 0 || target >= images.length) return;
-    const next = [...images];
-    [next[index], next[target]] = [next[target], next[index]];
-    void reorder(next);
+    if (target < 0 || target >= order.length) return;
+    void commitOrder(moveItem(order, index, target));
   }
 
   function makeCover(index: number) {
     if (index === 0) return;
-    const next = [...images];
-    const [picked] = next.splice(index, 1);
-    void reorder([picked, ...next]);
+    void commitOrder(moveItem(order, index, 0));
   }
 
   function remove(image: VehicleImage) {
@@ -384,89 +449,202 @@ export function ImageManager({
 
       {images.length > 0 ? (
         <>
-          <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {images.map((image, index) => (
-              <li key={image.id} className="group relative">
+          {images.length > 1 ? (
+            <p className="mt-5 text-xs text-ink-muted">
+              Arrastra una foto para cambiar su orden. La primera es la portada.
+            </p>
+          ) : null}
+          <ul
+            // Soltar en un hueco entre dos fotos cuenta igual que soltar sobre
+            // una: la fila ya enseña cómo quedaría.
+            onDragOver={(event) => {
+              if (!drag) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+            }}
+            onDrop={(event) => {
+              if (!drag) return;
+              event.preventDefault();
+              const final = drag.preview;
+              setDrag(null);
+              void commitOrder(final);
+            }}
+            className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+          >
+            {shown.map((image, index) => (
+              <li
+                key={image.id}
+                draggable={canDrag}
+                onDragStart={(event) => {
+                  if (!canDrag) return;
+                  event.dataTransfer.effectAllowed = "move";
+                  // Firefox no inicia el arrastre sin un dato.
+                  event.dataTransfer.setData("text/plain", image.id);
+                  setDrag({ id: image.id, preview: order });
+                }}
+                // Al pasar sobre otra foto, la levantada se coloca ahí: la fila
+                // se reordena mientras se arrastra y se ve cómo va a quedar.
+                onDragEnter={(event) => {
+                  if (!drag) return;
+                  event.preventDefault();
+                  const from = drag.preview.indexOf(drag.id);
+                  const to = drag.preview.indexOf(image.id);
+                  if (from !== to && to >= 0) {
+                    setDrag({ ...drag, preview: moveItem(drag.preview, from, to) });
+                  }
+                }}
+                onDragEnd={() => setDrag(null)}
+                className={cn(
+                  "group relative select-none",
+                  canDrag && "cursor-grab active:cursor-grabbing",
+                  drag?.id === image.id && "opacity-40",
+                )}
+              >
+                {/* Todo lo que se puede hacer con una foto vive DENTRO de su
+                    marco: nada sale de la celda ni pisa a la vecina. Los
+                    controles aparecen al pasar el cursor o al enfocar, y en
+                    pantallas táctiles están siempre. */}
                 <span
                   className={cn(
-                    "relative block overflow-hidden bg-sand",
+                    "relative block overflow-hidden rounded-md bg-sand",
                     VEHICLE_FRAME_CLASS,
                   )}
                 >
                   {/* La miniatura enseña el MISMO encuadre que la ficha: si
                       aquí se viera centrada y allí desplazada, ajustar una
-                      foto parecería no hacer nada. */}
+                      foto parecería no hacer nada. `draggable={false}`: lo que
+                      se arrastra es la foto entera, no la imagen suelta. */}
                   <Image
                     src={image.src}
                     alt={image.alt}
                     fill
-                    sizes="(min-width: 640px) 20vw, 45vw"
+                    draggable={false}
+                    sizes="(min-width: 1024px) 16vw, (min-width: 640px) 20vw, 45vw"
                     className="object-cover"
                     style={{ objectPosition: objectPosition(image.focal) }}
                   />
-                  {index === 0 ? (
-                    <span className="label-caps absolute top-0 left-0 bg-burgundy px-2 py-1 text-[9px] text-cream">
-                      Portada
-                    </span>
-                  ) : null}
-                  {image.source === "legacy" ? (
-                    <span className="label-caps absolute right-0 bottom-0 bg-ink/80 px-2 py-1 text-[9px] text-cream">
-                      Heredada
-                    </span>
-                  ) : null}
-                </span>
 
-                <div className="mt-2 flex items-center justify-between gap-1">
-                  <div className="flex gap-1">
+                  <span className="pointer-events-none absolute top-1.5 left-1.5 flex items-center gap-1">
+                    <span
+                      className={cn(
+                        "label-caps rounded-md px-2 py-1 text-[9px] tabular",
+                        index === 0 ? "bg-burgundy text-cream" : "bg-ink/65 text-cream",
+                      )}
+                    >
+                      {index === 0 ? "Portada" : index + 1}
+                    </span>
+                    {image.source === "legacy" ? (
+                      <span className="label-caps rounded-md bg-ink/65 px-2 py-1 text-[9px] text-cream">
+                        Heredada
+                      </span>
+                    ) : null}
+                  </span>
+
+                  {canDrag ? (
+                    <span
+                      aria-hidden
+                      title="Arrastra para cambiar el orden"
+                      className="pointer-events-none absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-md bg-ink/55 text-cream"
+                    >
+                      <GripVertical className="size-4" strokeWidth={1.5} />
+                    </span>
+                  ) : null}
+
+                  {/* Mover antes y después: dos flechas en los bordes, a media
+                      altura, como las de una galería. Libera la barra de abajo
+                      para lo que se hace con la foto, que así cabe en una sola
+                      fila incluso en una celda estrecha. */}
+                  <span className="pointer-events-none absolute inset-x-1 top-1/2 flex -translate-y-1/2 items-center justify-between opacity-0 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
                     <button
                       type="button"
                       onClick={() => move(index, -1)}
-                      disabled={busy || index === 0}
-                      aria-label="Mover antes"
-                      className="inline-flex size-7 items-center justify-center rounded-xs border border-stone text-ink-muted transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-35"
+                      disabled={locked || index === 0}
+                      aria-label={`Mover la fotografía ${index + 1} antes`}
+                      title="Mover antes"
+                      className={cn(iconButton, "pointer-events-auto rounded-full", index === 0 && "invisible")}
                     >
-                      <ArrowLeft aria-hidden className="size-3.5" strokeWidth={1.5} />
+                      <ArrowLeft aria-hidden className="size-3.5" strokeWidth={1.6} />
                     </button>
                     <button
                       type="button"
                       onClick={() => move(index, 1)}
-                      disabled={busy || index === images.length - 1}
-                      aria-label="Mover después"
-                      className="inline-flex size-7 items-center justify-center rounded-xs border border-stone text-ink-muted transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-35"
+                      disabled={locked || index === shown.length - 1}
+                      aria-label={`Mover la fotografía ${index + 1} después`}
+                      title="Mover después"
+                      className={cn(
+                        iconButton,
+                        "pointer-events-auto rounded-full",
+                        index === shown.length - 1 && "invisible",
+                      )}
                     >
-                      <ArrowRight aria-hidden className="size-3.5" strokeWidth={1.5} />
+                      <ArrowRight aria-hidden className="size-3.5" strokeWidth={1.6} />
                     </button>
-                  </div>
-                  <div className="flex gap-1">
+                  </span>
+
+                  <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-end gap-1 bg-linear-to-t from-ink/70 to-transparent p-1.5 pt-5 opacity-0 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
                     <button
                       type="button"
                       onClick={() => setAdjusting(image.id)}
-                      disabled={busy}
+                      disabled={locked}
                       aria-label={`Ajustar encuadre de la fotografía ${index + 1}`}
-                      className="inline-flex size-7 items-center justify-center rounded-xs border border-stone text-ink-muted transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-35"
+                      title="Ajustar encuadre"
+                      className={cn(iconButton, "pointer-events-auto")}
                     >
-                      <Crop aria-hidden className="size-3.5" strokeWidth={1.5} />
+                      <Crop aria-hidden className="size-3.5" strokeWidth={1.6} />
                     </button>
                     <button
                       type="button"
                       onClick={() => makeCover(index)}
-                      disabled={busy || index === 0}
-                      aria-label="Marcar como portada"
-                      className="inline-flex size-7 items-center justify-center rounded-xs border border-stone text-ink-muted transition-colors hover:border-burgundy/50 hover:text-burgundy disabled:opacity-35"
+                      disabled={locked || index === 0}
+                      aria-label={`Usar la fotografía ${index + 1} como portada`}
+                      title="Usar como portada"
+                      className={cn(iconButton, "pointer-events-auto")}
                     >
-                      <Check aria-hidden className="size-3.5" strokeWidth={1.5} />
+                      <Star aria-hidden className="size-3.5" strokeWidth={1.6} />
                     </button>
-                    <ConfirmButton
-                      question="¿Eliminar esta imagen definitivamente? Esta acción no se puede deshacer."
-                      onConfirm={() => remove(image)}
-                      disabled={busy}
-                      ariaLabel="Eliminar imagen"
-                      className="inline-flex size-7 items-center justify-center rounded-xs border border-stone text-ink-muted transition-colors hover:border-burgundy/50 hover:text-burgundy disabled:opacity-35"
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingId(image.id)}
+                      disabled={locked}
+                      aria-label={`Eliminar la fotografía ${index + 1}`}
+                      title="Eliminar"
+                      className={cn(iconButton, "pointer-events-auto hover:text-burgundy")}
                     >
-                      <Trash2 aria-hidden className="size-3.5" strokeWidth={1.5} />
-                    </ConfirmButton>
-                  </div>
-                </div>
+                      <Trash2 aria-hidden className="size-3.5" strokeWidth={1.6} />
+                    </button>
+                  </span>
+
+                  {/* La confirmación de borrar ocupa el marco entero: una
+                      pregunta en línea no cabía en la celda y se montaba sobre
+                      las fotos de al lado. */}
+                  {confirmingId === image.id ? (
+                    <span className="absolute inset-0 z-10 grid place-content-center justify-items-center gap-2.5 bg-ink/88 p-3 text-center text-cream">
+                      <span className="text-sm leading-snug">
+                        ¿Eliminar esta foto? No se puede deshacer.
+                      </span>
+                      <span className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={locked}
+                          onClick={() => {
+                            setConfirmingId(null);
+                            remove(image);
+                          }}
+                          className="press inline-flex h-8 items-center rounded-md bg-burgundy px-3 text-sm font-medium text-cream hover:bg-burgundy-dark disabled:opacity-40"
+                        >
+                          Eliminar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingId(null)}
+                          className="press inline-flex h-8 items-center rounded-md bg-cream/90 px-3 text-sm font-medium text-ink hover:bg-cream"
+                        >
+                          Cancelar
+                        </button>
+                      </span>
+                    </span>
+                  ) : null}
+                </span>
               </li>
             ))}
 
@@ -476,7 +654,7 @@ export function ImageManager({
                   type="button"
                   disabled={busy}
                   onClick={() => inputRef.current?.click()}
-                  className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 rounded-xs border border-dashed border-stone-strong text-ink-muted transition-colors hover:border-burgundy hover:text-burgundy disabled:opacity-50"
+                  className="flex aspect-4/3 w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-stone-strong text-ink-muted transition-colors hover:border-burgundy hover:text-burgundy disabled:opacity-50"
                 >
                   <Plus aria-hidden className="size-5" strokeWidth={1.4} />
                   <span className="font-serif text-xs">Agregar más fotos</span>

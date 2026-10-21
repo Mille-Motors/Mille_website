@@ -31,6 +31,41 @@ export function absoluteImageUrl(src: string): string {
   return /^https?:\/\//.test(src) ? src : absoluteUrl(src);
 }
 
+/**
+ * ¿Puede el optimizador de imágenes de Next servir esta foto? Las de /public sí;
+ * las de Supabase Storage también, porque `next.config.ts` autoriza ese host;
+ * cualquier otra dirección no, y pedirla daría un 400 en vez de una imagen.
+ */
+function canOptimize(src: string): boolean {
+  if (!/^https?:\/\//.test(src)) return true;
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!base) return false;
+  try {
+    const url = new URL(src);
+    return (
+      url.hostname === new URL(base).hostname &&
+      url.pathname.startsWith("/storage/v1/object/public/")
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * La imagen de la tarjeta que sale al pegar un enlace en WhatsApp, Instagram,
+ * Facebook o iMessage.
+ *
+ * Antes se apuntaba directo al archivo subido, que es el ORIGINAL: de 3 a 6 MB.
+ * Esas aplicaciones descartan las previsualizaciones con imágenes tan pesadas —
+ * WhatsApp ronda los 300 KB— y el enlace salía pelado, sin foto. Aquí se pide la
+ * misma foto ya reducida a 1.200 px de ancho (unos 200 KB) por el optimizador
+ * del sitio. Los rastreadores no anuncian soporte de WebP, así que reciben JPEG.
+ */
+export function socialImageUrl(src: string, width = 1200): string {
+  if (!canOptimize(src)) return absoluteImageUrl(src);
+  return absoluteUrl(`/_next/image?url=${encodeURIComponent(src)}&w=${width}&q=75`);
+}
+
 export const SITE_TITLE = `${site.name} | Motor Culture`;
 
 /**
@@ -426,4 +461,27 @@ export function buildSitemap(
       lastModified: vehicle.updatedAt,
     })),
   ];
+}
+
+/**
+ * Qué dirección hay que pedirle al optimizador para que la tarjeta de vista
+ * previa de un vehículo ya esté lista cuando alguien comparta su enlace, o
+ * `null` si no toca.
+ *
+ * La primera petición de una foto es la lenta: el servidor tiene que traer el
+ * original de varios MB y reducirlo. Los rastreadores de WhatsApp, Instagram o
+ * Facebook esperan poco y no reintentan, así que si el primero en compartir el
+ * enlace es quien paga esa espera, la tarjeta sale sin foto. Pedirla al publicar
+ * mueve ese costo a antes de que nadie la necesite.
+ *
+ * Solo en producción: en un entorno de pruebas la dirección apunta al sitio
+ * real, y calentar desde ahí sería tocar producción por un vehículo que no existe.
+ */
+export function socialImageWarmUrl(
+  cover: { src: string } | undefined,
+  env: Readonly<Record<string, string | undefined>>,
+): string | null {
+  if (env.VERCEL_ENV !== "production") return null;
+  if (!cover || cover.src.includes("placeholder")) return null;
+  return socialImageUrl(cover.src);
 }

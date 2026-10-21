@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent, type TouchEvent } from "react";
-import Image from "next/image";
+import Image, { getImageProps } from "next/image";
 import { ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
 import { useDialog } from "@/components/ui/use-dialog";
 import { scrollBehaviorFor } from "@/lib/accordion-scroll";
 import { cn } from "@/lib/cn";
 import { objectPosition } from "@/lib/focal-point";
+import { warmOrder } from "@/lib/gallery-warm";
 import { VEHICLE_FRAME_CLASS } from "@/lib/vehicle-frame";
 import type { VehicleImage } from "@/types/vehicle";
 
@@ -14,11 +15,17 @@ import type { VehicleImage } from "@/types/vehicle";
  * La galería de la ficha.
  *
  * Las fotografías de un vehículo son la mitad de la decisión, así que la
- * principal se sirve a calidad 90 y no al 75 por defecto de Next. La
- * diferencia son unos 130 KB en una foto de 1.800 px y se ve a simple vista
- * en los reflejos de la carrocería, que es justo donde el 75 deja bandas.
+ * principal se sirve a calidad 82 y no al 75 por defecto de Next: se ve en los
+ * reflejos de la carrocería, que es justo donde el 75 deja bandas. Estuvo en
+ * 90, pero con fotos originales de 5 MB cada una pesaba 570–850 KB por foto a
+ * pantalla grande, el doble que a 75, y pasar de una a otra se notaba lento.
  * Las miniaturas se quedan en el valor por defecto: a 180 px nadie
  * distingue una cosa de la otra.
+ *
+ * Mientras se mira una foto, las demás se van trayendo en segundo plano, las
+ * más cercanas primero (`useWarmGallery`): al pulsar la flecha la siguiente ya
+ * está en el navegador. Sin eso cada foto nueva esperaba a que el servidor la
+ * redujera desde su original, de uno a dos segundos.
  *
  * El marco es el horizontal del sitio, 4:3, en los dos tamaños. Esa
  * constancia es la promesa del editor de encuadre: el mismo punto focal en
@@ -41,7 +48,9 @@ import type { VehicleImage } from "@/types/vehicle";
  * mueve la página es pulsar una miniatura con la fotografía grande cortada, y
  * entonces va hacia la fotografía.
  */
-const HERO_QUALITY = 90;
+const HERO_QUALITY = 82;
+/** Lo que mide la foto grande en pantalla; las fotos precargadas piden lo mismo. */
+const HERO_SIZES = "(min-width: 1536px) 900px, (min-width: 1024px) 58vw, 100vw";
 
 function prefersReducedMotion(): boolean {
   return (
@@ -68,6 +77,8 @@ export function VehicleGallery({
   const rail = useRef<HTMLUListElement>(null);
   const frame = useRef<HTMLDivElement>(null);
   const touch = useRef<{ x: number; y: number } | null>(null);
+
+  useWarmGallery(images, index);
 
   const goTo = (next: number) =>
     setView((view) =>
@@ -162,7 +173,7 @@ export function VehicleGallery({
             src={images[prev].src}
             alt=""
             fill
-            sizes="(min-width: 1536px) 900px, (min-width: 1024px) 58vw, 100vw"
+            sizes={HERO_SIZES}
             quality={HERO_QUALITY}
             aria-hidden
             className="object-cover"
@@ -176,7 +187,7 @@ export function VehicleGallery({
           fill
           priority={index === 0}
           quality={HERO_QUALITY}
-          sizes="(min-width: 1536px) 900px, (min-width: 1024px) 58vw, 100vw"
+          sizes={HERO_SIZES}
           className={cn("object-cover", prev !== null && "gallery-in")}
           style={{ objectPosition: objectPosition(images[index].focal) }}
         />
@@ -266,6 +277,73 @@ export function VehicleGallery({
       ) : null}
     </div>
   );
+}
+
+/**
+ * Trae las fotos de la galería en segundo plano, las más cercanas a la que se
+ * ve primero.
+ *
+ * Cada una se pide con EXACTAMENTE la misma dirección que usará la imagen
+ * visible: se calcula con `getImageProps`, con los mismos `sizes` y calidad, y
+ * el navegador escoge el mismo ancho que escogería para la foto grande. Así la
+ * que se pide aquí es la que se encuentra en caché al pulsar la flecha, no una
+ * parecida.
+ *
+ * Van de dos en dos y con prioridad baja, para no competir con la foto que se
+ * está mirando ni saturar un teléfono. Quien ahorra datos o tiene una conexión
+ * de 2G no paga por fotos que quizá no vea.
+ */
+function useWarmGallery(images: VehicleImage[], index: number) {
+  const warmed = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (images.length < 2) return;
+    const connection = (
+      navigator as Navigator & {
+        connection?: { saveData?: boolean; effectiveType?: string };
+      }
+    ).connection;
+    if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType ?? "")) return;
+
+    let cancelled = false;
+    const pending = warmOrder(index, images.length)
+      .map((position) => images[position])
+      .filter((image) => !warmed.current.has(image.src));
+
+    const next = () => {
+      if (cancelled) return;
+      const image = pending.shift();
+      if (!image) return;
+      warmed.current.add(image.src);
+      const { props } = getImageProps({
+        src: image.src,
+        alt: "",
+        fill: true,
+        sizes: HERO_SIZES,
+        quality: HERO_QUALITY,
+      });
+      const probe = new window.Image();
+      probe.decoding = "async";
+      (probe as HTMLImageElement & { fetchPriority?: string }).fetchPriority = "low";
+      // `sizes` y `srcset` antes que `src`: así el navegador elige el candidato
+      // con los mismos datos que para la imagen de verdad.
+      probe.sizes = props.sizes ?? "";
+      probe.srcset = props.srcSet ?? "";
+      probe.src = props.src;
+      probe.onload = next;
+      probe.onerror = next;
+    };
+
+    // Un momento de espera: primero lo que se ve.
+    const start = window.setTimeout(() => {
+      next();
+      next();
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(start);
+    };
+  }, [images, index]);
 }
 
 function RoundControl({

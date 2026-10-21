@@ -83,14 +83,23 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: supabaseImagePatterns(),
     /**
+     * Cuánto se guarda una imagen ya optimizada antes de volver a pedir el
+     * original. El valor por defecto son cuatro horas, y con las fotos de un
+     * vehículo —originales de varios MB— cada vez que se vencía había que
+     * volver a descargarlas y reducirlas. Los archivos de Supabase llevan un
+     * UUID en la ruta y no cambian nunca, así que una semana es seguro.
+     */
+    minimumCacheTTL: 60 * 60 * 24 * 7,
+    /**
      * Next 16 ya no acepta cualquier `quality`: solo los valores listados
      * aquí, y por defecto la lista es `[75]` —pedir 90 devuelve un 400, no
      * una imagen mejor—. Las fotografías estructurales de la home son la
      * mitad de la percepción del sitio, así que se habilita 90 para ellas.
-     * El 75 se conserva porque es lo que usa todo lo demás: las fichas de
-     * vehículo no necesitan gastar ese peso.
+     * La foto grande de una ficha usa 82: un punto medio que conserva los
+     * reflejos de la carrocería sin duplicar el peso. El 75 se conserva para
+     * todo lo demás.
      */
-    qualities: [75, 90],
+    qualities: [75, 82, 90],
     /**
      * Los anchos por defecto saltan de 2048 a 3840 sin nada en medio, así que
      * un hueco que necesita ~2160 px en una pantalla Retina se lleva el de

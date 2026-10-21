@@ -5,6 +5,7 @@ import { fail, ok, readJson } from "@/server/http/respond";
 import { publicationSchema } from "@/server/vehicles/schemas";
 import { setPublication } from "@/server/vehicles/service";
 import { revalidateInventory } from "@/server/vehicles/revalidate";
+import { warmSocialImage } from "@/server/vehicles/warm";
 
 const auditFor = {
   published: "PUBLISH_VEHICLE",
@@ -32,6 +33,8 @@ export async function POST(
       slug: vehicle.slug,
     });
     revalidateInventory(vehicle.slug);
+    // Al publicar, la tarjeta que saldrá al compartir el enlace se deja lista.
+    if (publication === "published") warmSocialImage(vehicle);
 
     return ok({ vehicle });
   } catch (error) {

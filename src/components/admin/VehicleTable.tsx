@@ -27,6 +27,7 @@ import { StatusPill } from "@/components/ui/StatusPill";
 import { adminJson, type AdminResult } from "@/lib/admin-client";
 import { cn } from "@/lib/cn";
 import { formatCOP, formatDateShort, vehicleLabel } from "@/lib/format";
+import { copyText, vehiclePublicUrl } from "@/lib/share";
 import type { AvailabilityStatus, PublicationStatus, Vehicle } from "@/types/vehicle";
 
 /**
@@ -121,6 +122,16 @@ function useVehicleActions(vehicle: Vehicle) {
     router.refresh();
   }
 
+  /** El enlace público de la ficha, para pegarlo en Instagram o en un mensaje. */
+  async function copyLink() {
+    const copied = await copyText(vehiclePublicUrl(vehicle.slug));
+    setFeedback(
+      copied
+        ? { tone: "info", text: "Enlace copiado." }
+        : { tone: "error", text: "No se pudo copiar el enlace." },
+    );
+  }
+
   async function remove() {
     if (pending) return;
     const result = await run("delete", () =>
@@ -148,6 +159,7 @@ function useVehicleActions(vehicle: Vehicle) {
     setPublication,
     setAvailability,
     toggleFeatured,
+    copyLink,
     remove,
   };
 }
@@ -335,6 +347,15 @@ function CornerMarks({
 /** Los menús dependen del estado, y lo que ya es un botón no se repite. */
 function menuItems(vehicle: Vehicle, actions: Actions): MenuEntry[] {
   const items: MenuEntry[] = [];
+
+  // Solo lo publicado tiene una dirección que funcione: el sitio público
+  // únicamente sirve PUBLISHED, y un enlace a un borrador daría un 404.
+  if (vehicle.publication === "published") {
+    items.push(
+      { label: "Copiar enlace público", onSelect: () => void actions.copyLink() },
+      { kind: "separator" },
+    );
+  }
 
   // El camino natural es disponible → reservado → vendido, así que desde
   // «reservado» se puede vender directamente. Lo que se deshace —liberar una

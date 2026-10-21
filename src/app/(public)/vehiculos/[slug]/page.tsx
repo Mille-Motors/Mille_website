@@ -16,6 +16,7 @@ import {
   VehicleHighlights,
 } from "@/components/vehicle/VehicleEquipment";
 import { VehicleAbout } from "@/components/vehicle/VehicleAbout";
+import { ShareButton } from "@/components/vehicle/ShareButton";
 import { VehicleGallery } from "@/components/vehicle/VehicleGallery";
 import { VehicleQuickFacts } from "@/components/vehicle/VehicleQuickFacts";
 import { SpecTable, VehicleSpecs } from "@/components/vehicle/VehicleSpecs";
@@ -31,9 +32,10 @@ import {
 } from "@/lib/vehicle-display";
 import {
   NOINDEX_ROBOTS,
-  absoluteImageUrl,
+  absoluteUrl,
   breadcrumbJsonLd,
   canonical,
+  socialImageUrl,
   socialMetadata,
   vehicleJsonLd,
   vehicleMetaDescription,
@@ -43,6 +45,7 @@ import {
 import { equipmentSections } from "@/lib/equipment";
 import { isFullyElectric } from "@/types/vehicle";
 import { getRelatedVehicles, getVehicleBySlug } from "@/lib/vehicles";
+import { vehicleShareText } from "@/lib/share";
 import { vehicleWhatsappUrl } from "@/lib/whatsapp";
 import { REVEAL } from "@/lib/reveal";
 
@@ -82,11 +85,13 @@ export async function generateMetadata(
       title: `${title} | ${site.name}`,
       description,
       path,
-      // La portada real del vehículo, absoluta: puede venir de /public o de
-      // Supabase Storage, y una previsualización no resuelve rutas relativas.
+      // La portada real del vehículo, absoluta y REDUCIDA: la original pesa
+      // varios MB y WhatsApp o Instagram descartan una vista previa así. Puede
+      // venir de /public o de Supabase Storage, y una previsualización no
+      // resuelve rutas relativas.
       images: [
         {
-          url: absoluteImageUrl(vehicle.images[0].src),
+          url: socialImageUrl(vehicle.images[0].src),
           alt: vehicle.images[0].alt || title,
         },
       ],
@@ -297,6 +302,15 @@ export default async function VehicleDetailPage(
                   </p>
                 ) : null}
                 <StatusPill status={vehicle.availability} tone="onBurgundy" />
+                <ShareButton
+                  url={absoluteUrl(vehiclePath(vehicle.slug))}
+                  title={title}
+                  text={vehicleShareText(
+                    title,
+                    vehicle.price !== null ? `${formatCOP(vehicle.price)} COP` : null,
+                  )}
+                  rootClassName="sm:ml-auto"
+                />
               </div>
 
               <VehicleQuickFacts
