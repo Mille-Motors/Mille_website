@@ -180,7 +180,7 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
     key: "home.featured.a",
     label: "Home · Destacados, primera",
     description:
-      "La fotografía de la izquierda en «Nos hacen mirar dos veces». Solo se ve mientras no haya dos vehículos destacados en el inventario; cuando los hay, la sección enseña esos vehículos.",
+      "La fotografía de la izquierda en «Siempre hay un próximo carro». Solo se ve mientras no haya dos vehículos destacados en el inventario; cuando los hay, la sección enseña esos vehículos.",
     aspect: "Horizontal 4:3, la misma composición en escritorio y en teléfono.",
     frames: {
       desktop: {
@@ -200,7 +200,7 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
     key: "home.featured.b",
     label: "Home · Destacados, segunda",
     description:
-      "La fotografía de la derecha en «Nos hacen mirar dos veces». Misma regla que la primera.",
+      "La fotografía de la derecha en «Siempre hay un próximo carro». Misma regla que la primera.",
     aspect: "Horizontal 4:3, la misma composición en escritorio y en teléfono.",
     frames: {
       desktop: {
@@ -220,16 +220,19 @@ export const SITE_MEDIA_SLOTS: readonly SiteMediaSlot[] = [
     key: "home.about.origin",
     label: "Home · Historia",
     description:
-      "Acompaña el texto donde David y Nicolás cuentan cómo empezó MILLE.",
-    aspect: "Horizontal 5:4, la misma composición en escritorio y en teléfono.",
+      "Acompaña el texto donde David y Nicolás cuentan cómo empezó MILLE. En escritorio y tablet va a la derecha del texto; en teléfono, debajo.",
+    aspect:
+      "Vertical 4:5 en escritorio y tablet; horizontal 5:4 en teléfono. En teléfono puedes subir otra fotografía o ajustar su encuadre por separado; si no, usa la de escritorio.",
     frames: {
-      desktop: {
-        label: "Escritorio y teléfono",
+      desktop: { ...PORTRAIT_4_5, label: "Escritorio y tablet" },
+      // Horizontal en teléfono: a una columna, un 4:5 alargaba la página
+      // sin aportar nada a la historia.
+      mobile: {
+        label: "Teléfono",
         ratio: 5 / 4,
-        recommended: { width: 2400, height: 1920 },
-        minimum: { width: 1600, height: 1280 },
+        recommended: { width: 1500, height: 1200 },
+        minimum: { width: 1000, height: 800 },
       },
-      mobile: null,
     },
     mobileVariantRecommended: false,
     surface: "/",

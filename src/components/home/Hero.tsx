@@ -53,7 +53,7 @@ export async function Hero() {
             palabra huérfana— y sigue leyéndose como un titular.
 
             Usa `text-title`, la misma escala que los títulos de sección
-            —«Nos hacen mirar dos veces»—, en vez de `text-display`. Esa
+            —«Siempre hay un próximo carro»—, en vez de `text-display`. Esa
             última estaba calibrada para dos palabras y con una frase de
             cinco se iba de tamaño en escritorio. Compartir la escala evita
             además tener que afinar un cuerpo propio pantalla por pantalla:

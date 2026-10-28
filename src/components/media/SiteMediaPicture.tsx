@@ -1,11 +1,7 @@
 import { getImageProps } from "next/image";
 import { cn } from "@/lib/cn";
 import { objectPosition } from "@/lib/focal-point";
-import {
-  MOBILE_BREAKPOINT_PX,
-  MOBILE_MEDIA_QUERY,
-  type SiteMediaImage,
-} from "@/lib/site-media";
+import { MOBILE_BREAKPOINT_PX, type SiteMediaImage } from "@/lib/site-media";
 
 /**
  * Una fotografía del sitio, con su composición de escritorio y la de
@@ -38,6 +34,7 @@ export function SiteMediaPicture({
   mobileSizes,
   priority = false,
   quality,
+  breakpointPx = MOBILE_BREAKPOINT_PX,
 }: {
   image: SiteMediaImage;
   /** Para los slots decorativos, `""`. Si se omite, el del slot. */
@@ -51,6 +48,13 @@ export function SiteMediaPicture({
   /** Solo para la fotografía que es LCP de su página. */
   priority?: boolean;
   quality?: number;
+  /**
+   * Dónde cambia de variante, si la sección cambia de composición en otro
+   * ancho que el del sitio. Solo afecta a qué ARCHIVO se baja; el encuadre
+   * sigue el escalón de `.focal-art`, así que quien lo cambie tiene que
+   * mover también el `object-position` (ver Story).
+   */
+  breakpointPx?: number;
 }) {
   const shared = {
     fill: true as const,
@@ -73,9 +77,11 @@ export function SiteMediaPicture({
       }).props
     : null;
 
-  // Complementaria exacta de `MOBILE_MEDIA_QUERY`: ningún viewport cumple
-  // las dos, así que ningún dispositivo precarga los dos archivos.
-  const desktopMedia = `(min-width: ${MOBILE_BREAKPOINT_PX}px)`;
+  // Complementarias exactas: ningún viewport cumple las dos, así que ningún
+  // dispositivo precarga los dos archivos. Con el valor por defecto,
+  // `mobileMedia` es `MOBILE_MEDIA_QUERY`.
+  const mobileMedia = `(max-width: ${breakpointPx - 0.02}px)`;
+  const desktopMedia = `(min-width: ${breakpointPx}px)`;
 
   return (
     <>
@@ -91,7 +97,7 @@ export function SiteMediaPicture({
               as="image"
               imageSrcSet={mobile.srcSet}
               imageSizes={mobile.sizes}
-              media={MOBILE_MEDIA_QUERY}
+              media={mobileMedia}
               fetchPriority="high"
             />
           ) : null}
@@ -109,7 +115,7 @@ export function SiteMediaPicture({
       <picture>
         {mobile ? (
           <source
-            media={MOBILE_MEDIA_QUERY}
+            media={mobileMedia}
             srcSet={mobile.srcSet}
             sizes={mobile.sizes}
           />

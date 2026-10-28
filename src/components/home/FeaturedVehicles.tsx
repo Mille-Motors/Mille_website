@@ -45,8 +45,8 @@ export async function FeaturedVehicles() {
       <div className="wrap">
         <div className="mb-[clamp(2.5rem,5vw,4.5rem)] grid gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-end lg:gap-[8vw]">
           <h2 className="text-title" {...REVEAL}>
-            Nos hacen mirar
-            <br className="hidden sm:block" /> dos veces.
+            Siempre hay un
+            <br className="hidden sm:block" /> próximo carro.
           </h2>
           <div
             className="max-w-104 pb-2 lg:justify-self-end"
@@ -54,7 +54,9 @@ export async function FeaturedVehicles() {
             style={{ "--d": "120ms" } as React.CSSProperties}
           >
             <p className="text-[1.25rem] leading-snug text-cream/90">
-              Una silueta, una versión, un sonido. Cada uno tiene su razón.
+              Uno que llevamos tiempo buscando, uno que nos sorprendió o uno
+              que simplemente nos encanta. Conoce los carros y motos que
+              tenemos en MILLE.
             </p>
             <TextLink href="/vehiculos" className="mt-6">
               Ver vehículos
